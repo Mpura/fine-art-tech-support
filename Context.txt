@@ -1,0 +1,17 @@
+80% reset context window
+
+1. Lets summarise where we are. What have we accomplished, whats the current state, and what are our next steps ? put this in     progress.md
+
+2. /clear 
+
+3. lets us continue our work @progress.md 
+
+4. when using /compact Focuse on persevering our .....
+
+
+5. -/clear
+-/store progress to .md files
+-/context 
+-@references so it goes to where you point it
+-Subagents & plan Mode 
+- when context full, summarise + /clear + continue 
