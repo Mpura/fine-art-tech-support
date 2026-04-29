@@ -316,6 +316,7 @@ export default function App() {
   const [pinInput, setPinInput] = useState("");
   const [pinErr, setPinErr] = useState("");
   const [changingPin, setChangingPin] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(typeof window!=="undefined"&&window.innerWidth>=900);
   const [newPin, setNewPin] = useState("");
   const [labChoice, setLabChoice] = useState("");
   const [visitorType, setVisitorType] = useState("student"); // student | external
@@ -358,6 +359,7 @@ export default function App() {
     }catch(e){}
     setLoaded(true);
   },[]);
+  useEffect(()=>{const handle=()=>setIsDesktop(window.innerWidth>=900);window.addEventListener("resize",handle);return()=>window.removeEventListener("resize",handle);},[]);
 
   useEffect(()=>{
     if(view!=="staff"||dashTab!=="queue")return;
@@ -1142,9 +1144,27 @@ export default function App() {
   );
 
   // ── DASHBOARD ────────────────────────────────────────────────────
-  if(view==="dashboard") return(
-    <div style={{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
-      <TabBar/>
+  if(view==="dashboard"){const desktopTwoCol=isDesktop&&(dashTab==="today"||dashTab==="queue");return(
+    <div style={isDesktop?{display:"flex",minHeight:"100vh",background:"#0F1117",alignItems:"flex-start"}:{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
+      {isDesktop&&(
+        <div style={{width:200,background:"#0a0d14",borderRight:"0.5px solid #1e2130",padding:"14px 10px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
+          <div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>FATS</div><div style={{fontSize:10,color:"#4b5563",marginTop:2}}>Fine Art Department</div></div>
+          <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6}}>Views</div>
+          {[["today",`📅 Today · ${new Date().getDate()}`],["queue","📋 All requests"]].map(([v,l])=>(
+            <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:desktopTwoCol?"#e0e3ea":"#6b7280",background:desktopTwoCol?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
+          ))}
+          <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
+          {[["it",`💻 IT${openIt>0?` + "`(${openIt})`" + `:""}` + `],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["cal","📆 Calendar"],["charges","💳 Charges"]].map(([v,l])=>(
+            <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
+          ))}
+          <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
+            <a href={HSMS_URL} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:"#6b7280",textDecoration:"none",marginBottom:4}}>🦺 H&S / Maintenance</a>
+            <div onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");setStaffUnlocked(false);setView("student");}} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:"#6b7280",cursor:"pointer"}}>🔒 Lock</div>
+          </div>
+        </div>
+      )}
+      {!isDesktop&&<TabBar/>}
+      <div style={isDesktop?{flex:1,overflowX:"hidden",padding:"1.5rem 1.25rem"}:{}}>
 
       {/* Leave toggle */}
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,background:leaveMode.active?"#2a1f0a":"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px"}}>
@@ -1180,14 +1200,16 @@ export default function App() {
       </a>
 
       {/* Dash tabs */}
-      <div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
+      {!isDesktop&&<div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
         {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["it",`IT${openIt>0?` (${openIt})`:""}` ],["schedule","Schedule"],["blocks","Blocks"],["cal","Calendar"],["charges","Charges"]].map(([v,l])=>(
           <button key={v} onClick={()=>setDashTab(v)} style={{flex:1,minWidth:55,padding:"8px 4px",borderRadius:8,border:"none",background:dashTab===v?TEAL:"#141720",color:dashTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:dashTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
-      </div>
+      </div>}
 
+      <div style={desktopTwoCol?{display:"flex",alignItems:"flex-start",gap:0}:{}}>
+      <div style={desktopTwoCol?{flex:1,borderRight:"0.5px solid #1e2130",paddingRight:20}:{}}>
       {/* ── TODAY ── */}
-      {dashTab==="today"&&(()=>{
+      {(dashTab==="today"||desktopTwoCol)&&(()=>{
         const todayHeading=`${DAY_FULL[new Date().getDay()]} ${new Date().getDate()} ${MONTHS[new Date().getMonth()]} ${new Date().getFullYear()}`;
         const Sec=({icon,title,items,sk})=>(
           <div style={{marginBottom:20}}>
@@ -1239,8 +1261,10 @@ export default function App() {
         </>);
       })()}
 
+      </div>
+      <div style={desktopTwoCol?{flex:1,paddingLeft:20}:{}}>
       {/* ── QUEUE ── */}
-      {dashTab==="queue"&&(<>
+      {(dashTab==="queue"||desktopTwoCol)&&(<>
         {(()=>{const uncollected=requests.filter(r=>r.typeId==="equipment"&&["Confirmed","Ready to collect"].includes(r.status)&&r.schedDate&&new Date(r.schedDate.split(" ")[0]+"T"+String(eqSettings.collectionDeadlineHour).padStart(2,"0")+":00")<new Date());return uncollected.length>0&&(<div style={{background:"#2a1500",border:"1px solid #7c3000",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
           <div style={{fontSize:13,fontWeight:600,color:"#fb923c",marginBottom:6}}>⚠ {uncollected.length} booking{uncollected.length>1?"s":""} past collection deadline</div>
           {uncollected.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:"#9a3412",marginBottom:4}}>
@@ -1364,6 +1388,7 @@ export default function App() {
         })}
       </>)}
 
+      </div></div>
       {/* ── IT REFERRALS ── */}
       {dashTab==="it"&&(<>
         <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>IT referrals</div>
@@ -1606,6 +1631,7 @@ export default function App() {
           </div>
         );
       })()}
+      </div>
     </div>
-  );
+  );}
 }
