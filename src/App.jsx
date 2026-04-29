@@ -620,48 +620,48 @@ export default function App() {
         </div>
       ):(<>
         <div style={{fontSize:12,color:"#fb923c",background:"#2a1500",borderRadius:8,padding:"8px 12px",marginBottom:20}}>⚠️ You must submit a request before coming in person. No request = no assistance.</div>
-        {/* Lab Services grouped card */}
-        <div onClick={()=>{setLabExpanded(e=>!e);setLabChoice("");}} style={{display:"flex",alignItems:"center",gap:12,background:"#141720",border:`0.5px solid ${labExpanded?TEAL:"#1e2130"}`,borderRadius:12,padding:"14px 16px",marginBottom:labExpanded?0:8,cursor:"pointer"}}>
-          <span style={{fontSize:22}}>🔬</span>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500,color:"#e0e3ea"}}>Lab Services</div><div style={{fontSize:11,color:"#4b5563",marginTop:2}}>Printing · Laser · 3D · Studio</div></div>
-          <span style={{color:"#374151",fontSize:16}}>{labExpanded?"▾":"›"}</span>
+        {/* ── Service grid ── */}
+        <div style={{fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:10}}>Request a service</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          {REQUEST_TYPES.filter(t=>LAB_IDS.includes(t.id)).map(t=>(
+            <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:""}));}}
+              style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px",cursor:"pointer"}}>
+              <div style={{fontSize:18,marginBottom:6}}>{t.icon}</div>
+              <div style={{fontSize:12,fontWeight:500,color:"#c9cdd6",lineHeight:1.3}}>{t.label}</div>
+              <div style={{fontSize:10,color:"#4b5563",marginTop:2}}>{t.booking}</div>
+            </div>
+          ))}
         </div>
-        {labExpanded&&(
-          <div style={{background:"#1a1d28",border:`0.5px solid ${TEAL}`,borderTop:"none",borderRadius:"0 0 12px 12px",padding:"12px 14px",marginBottom:8}}>
-            <select style={ipt} value={labChoice} onChange={e=>setLabChoice(e.target.value)}>
-              <option value="">Select a service...</option>
-              {REQUEST_TYPES.filter(t=>LAB_IDS.includes(t.id)).map(t=>(
-                <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
-              ))}
-            </select>
-            {labChoice&&(
-              <Btn full style={{marginTop:10,padding:"11px"}} onClick={()=>{
-                const t=REQUEST_TYPES.find(r=>r.id===labChoice);
-                setSelType(labChoice);setScreen(t.prep.length>0?"prep":"form");
-                setPrepOk(false);setSelDate(null);setSelSlot(null);
-                setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:""}));
-                setLabExpanded(false);setLabChoice("");
-              }}>Continue →</Btn>
-            )}
+        {/* Equipment + check request — wide action buttons */}
+        <div onClick={()=>{setScreen("equipment");setEqScreen("lookup");}} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"11px 14px",marginBottom:8,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:28,height:28,borderRadius:8,background:"#1a1e2e",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📷</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:500,color:"#c9cdd6"}}>Equipment booking</div>
+            <div style={{fontSize:10,color:"#4b5563"}}>Cameras, tripods & more</div>
           </div>
-        )}
-        {/* Remaining request types */}
-        {REQUEST_TYPES.filter(t=>!LAB_IDS.includes(t.id)).map(t=>(
-          <div key={t.id} onClick={()=>{
-            if(t.id==="equipment"){setScreen("equipment");setEqScreen("lookup");return;}
-            setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:""}));
-          }} style={{display:"flex",alignItems:"center",gap:12,background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,padding:"14px 16px",marginBottom:8,cursor:"pointer"}}>
-            <span style={{fontSize:22}}>{t.icon}</span>
-            <div style={{flex:1}}><div style={{fontSize:14,fontWeight:500}}>{t.label}</div><div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{t.booking}</div></div>
-            <span style={{color:"#ccc"}}>›</span>
+          <span style={{color:"#374151",fontSize:14}}>›</span>
+        </div>
+        <div onClick={()=>{setScreen("check");setCheckStudNo("");setCheckResults(null);setMyFines(null);}} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"11px 14px",marginBottom:16,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:28,height:28,borderRadius:8,background:"#1a2e25",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📋</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:500,color:"#c9cdd6"}}>Check my request</div>
+            <div style={{fontSize:10,color:"#4b5563"}}>View status & updates</div>
+          </div>
+          <span style={{color:"#374151",fontSize:14}}>›</span>
+        </div>
+        {/* Other services — compact list */}
+        <div style={{fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:8}}>Other services</div>
+        {REQUEST_TYPES.filter(t=>!LAB_IDS.includes(t.id)&&t.id!=="equipment").map(t=>(
+          <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:""}));}}
+            style={{display:"flex",alignItems:"center",gap:12,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:6,cursor:"pointer"}}>
+            <span style={{fontSize:18}}>{t.icon}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{t.label}</div>
+              <div style={{fontSize:11,color:"#4b5563",marginTop:1}}>{t.booking}</div>
+            </div>
+            <span style={{color:"#374151"}}>›</span>
           </div>
         ))}
-        {/* Check request status — secondary action at bottom */}
-        <div style={{marginTop:8,paddingTop:16,borderTop:"0.5px solid #1e2130",textAlign:"center"}}>
-          <button onClick={()=>{setScreen("check");setCheckStudNo("");setCheckResults(null);setMyFines(null);}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:"#6b7280",fontFamily:"inherit",display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:8}}>
-            🔍 Check my request status
-          </button>
-        </div>
       </>)}
     </div>
   );
@@ -1196,7 +1196,7 @@ export default function App() {
               {items.length>0&&<span style={{fontSize:11,color:"#6b7280",fontWeight:400}}>· {items.length}</span>}
             </div>
             {items.length===0
-              ?<div style={{fontSize:13,color:"#374151",padding:"4px 0"}}>Nothing scheduled</div>
+              ?<div style={{background:"#0f1117",border:"0.5px dashed #1e2130",borderRadius:8,padding:"10px",textAlign:"center",fontSize:11,color:"#2a2d3e",marginBottom:6}}>Nothing scheduled</div>
               :items.map(r=>{
                 let al,as_;
                 if(sk==="morning"||sk==="afternoon"){al=r.typeId==="laser"?"Start session":"Mark in progress";as_="In Progress";}
@@ -1213,7 +1213,24 @@ export default function App() {
             <div style={{fontSize:17,fontWeight:500,color:"#e0e3ea",letterSpacing:"-0.3px"}}>📅 {todayHeading}</div>
             <div style={{fontSize:12,color:"#4b5563",marginTop:3}}>Daily overview — bookings, collections and returns</div>
           </div>
+          {/* Stats summary */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:20}}>
+            {[["Pending",counts["Pending"]||0,"#d4851a","#2a1f0a"],["In Progress",counts["In Progress"]||0,"#60a5fa","#0a1e35"],["Done",counts["Done"]||0,"#20B07F","#0a2218"]].map(([l,n,col,bg])=>(
+              <div key={l} style={{background:bg,borderRadius:8,padding:"10px 12px",border:`0.5px solid ${col}22`}}>
+                <div style={{fontSize:22,fontWeight:500,color:col,lineHeight:1}}>{n}</div>
+                <div style={{fontSize:10,color:col,marginTop:3}}>{l}</div>
+              </div>
+            ))}
+          </div>
           <Sec icon="🌅" title="Morning (09:00–12:00)" items={morningToday} sk="morning"/>
+          {/* Now indicator — between morning and afternoon */}
+          {(()=>{const h=new Date().getHours();return h>=9&&h<17&&(
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,marginTop:-8}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:"#20B07F",flexShrink:0}}/>
+              <span style={{fontSize:10,color:"#20B07F",fontWeight:500,whiteSpace:"nowrap"}}>Now — {new Date().getHours().toString().padStart(2,"0")}:{new Date().getMinutes().toString().padStart(2,"0")}</span>
+              <div style={{flex:1,height:"0.5px",background:"#20B07F",opacity:0.4}}/>
+            </div>
+          );})()}
           <Sec icon="🌆" title="Afternoon (13:00–16:00)" items={afternoonToday} sk="afternoon"/>
           <Sec icon="🏢" title="Studio sessions today" items={studioToday} sk="studio"/>
           <Sec icon="📦" title="Equipment collections today" items={eqCollectionsToday} sk="collections"/>
