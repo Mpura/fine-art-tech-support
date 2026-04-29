@@ -2,59 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FineArt Tech Request Queue</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>Fine Art Tech Support</title>
   </head>
   <body>
-    <main class="container">
-      <h1>FineArt Tech Request Queue</h1>
-      <p class="subtitle">Submit requests and view the live support queue.</p>
-
-      <section class="panel">
-        <h2>Submit a Request</h2>
-        <form id="request-form">
-          <label for="name">Name *</label>
-          <input id="name" name="name" type="text" required />
-
-          <label for="student-number">Student Number *</label>
-          <input id="student-number" name="studentNumber" type="text" required />
-
-          <label for="request-type">Request Type</label>
-          <select id="request-type" name="requestType">
-            <option value="Printing">Printing</option>
-            <option value="Photocopying">Photocopying</option>
-            <option value="Laser Cutter">Laser Cutter</option>
-            <option value="3D Printing">3D Printing</option>
-            <option value="Software">Software</option>
-            <option value="General Query">General Query</option>
-          </select>
-
-          <label for="notes">Notes</label>
-          <textarea id="notes" name="notes" rows="3" placeholder="Add extra details..."></textarea>
-
-          <label class="checkbox-row" for="files-ready">
-            <input id="files-ready" name="filesReady" type="checkbox" required />
-            I confirm my files are ready
-          </label>
-
-          <button type="submit" id="submit-btn">Submit Request</button>
-        </form>
-      </section>
-
-      <section class="panel">
-        <h2>Live Queue</h2>
-        <p id="queue-status" class="status">Loading requests...</p>
-        <div id="queue-list" class="queue-list"></div>
-      </section>
-    </main>
-
-    <!-- Replace with your own Supabase project values -->
-    <script>
-      window.SUPABASE_URL = "https://fknuccrbbxdwfnxidsbn.supabase.co";
-      window.SUPABASE_ANON_KEY = "sb_publishable_v58aVPvx89dlxHzYjVtyTw_XqFYcQCD";
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
