@@ -23,7 +23,7 @@ const FINES_TABLE = "tbliP9x6KL7EUABWc";
 const MEMBERS_TABLE = "tbloPfyyjQY79YxQd";
 const HSMS_URL = "https://fineart-hsms.netlify.app/";
 
-const YEAR_LABELS = {"1":"1st year","2":"2nd year","3":"3rd year","4":"4th year"};
+const YEAR_LABELS = {"1":"1st year","2":"2nd year","3":"3rd year","4":"4th year","m":"Masters","s":"Staff","o":"Other"};
 
 const REQUEST_TYPES = [
   {id:"print",label:"Large format & photographic printing",icon:"🖨️",booking:"advance booking only",bookable:true,needsFiles:true,prep:["File must be PDF, JPEG or TIFF","Colour profile must be sRGB or CMYK","Know your paper size (A4 → A0)","Decide paper type: normal, glossy, newsprint or photographic","Know how many copies you need","⚠️ Minimum 2 business days advance booking required","⚠️ Test print may be needed — same-day completion is NOT guaranteed"]},
@@ -47,7 +47,7 @@ const DEFAULT_SCHEDULE = {
 
 const STATUSES = ["Pending","In Progress","Done","Declined"];
 const LASER_STATUSES = ["Pending","Material test required","Ready to cut","In Progress","Done","Declined"];
-const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Returned","Uncollected","Declined"];
+const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined"];
 const IT_STATUSES = ["Logged","Awaiting IT","In Progress","Resolved","Escalated"];
 
 const statusStyle = {
@@ -60,6 +60,7 @@ const statusStyle = {
   "Confirmed":{bg:"#0a1e35",color:"#60a5fa"},
   "Ready to collect":{bg:"#0a2218",color:"#20B07F"},
   "Collected":{bg:"#0a2218",color:"#20B07F"},
+  "Partially Returned":{bg:"#1a2a1a",color:"#4ade80"},
   "Returned":{bg:"#1a1d28",color:"#6b7280"},
   "Uncollected":{bg:"#2a1500",color:"#fb923c"},
 };
@@ -88,7 +89,7 @@ const IT_ITEMS=[
 
 const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",it:"fats_it_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1"};
 const DEFAULT_PIN="1234";
-const DEFAULT_EQ_SETTINGS={yr12Days:3,yr34Days:5,dailyRate:50,maxAdvanceDays:7,collectionDeadlineHour:16,slotCap:2};
+const DEFAULT_EQ_SETTINGS={yr12Days:3,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
 
 // Equipment collection: Mon/Wed/Fri only, three 30-min windows during stockroom hours
 const EQ_COL_DAYS=[1,3,5]; // Mon=1, Wed=3, Fri=5
@@ -107,7 +108,14 @@ function todayISO(){return new Date().toISOString();}
 function todayDate(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
 function localDateStr(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 function addBusinessDays(dateStr,n){let d=new Date(dateStr+"T00:00:00");let added=0;while(added<n){d.setDate(d.getDate()+1);if(d.getDay()!==0&&d.getDay()!==6)added++;}return localDateStr(d);}
+// Equipment loans count ALL days (weekends included). If due date lands on weekend, push to Monday.
+function addCalendarDays(dateStr,n){let d=new Date(dateStr+"T00:00:00");d.setDate(d.getDate()+n);if(d.getDay()===6)d.setDate(d.getDate()+2);if(d.getDay()===0)d.setDate(d.getDate()+1);return localDateStr(d);}
+function nextEqColDay(fromDateStr){let d=new Date(fromDateStr+"T00:00:00");d.setDate(d.getDate()+1);while(!EQ_COL_DAYS.includes(d.getDay())){d.setDate(d.getDate()+1);}return localDateStr(d);}
+function countDaysLate(dueDateStr,returnDateStr){let due=new Date(dueDateStr+"T00:00:00");let ret=new Date(returnDateStr+"T00:00:00");if(ret<=due)return 0;return Math.round((ret-due)/(1000*60*60*24));}
 function countBizDaysLate(dueDateStr,returnDateStr){let due=new Date(dueDateStr+"T00:00:00");let ret=new Date(returnDateStr+"T00:00:00");if(ret<=due)return 0;let count=0;let d=new Date(due);while(d<ret){d.setDate(d.getDate()+1);if(d.getDay()!==0&&d.getDay()!==6)count++;}return count;}
+
+// Keyword-based replacement cost for individual accessories
+function accessoryCost(text){const t=(text||"").toLowerCase();if(t.includes("lens cap"))return 80;if(t.includes("lens"))return 800;if(t.includes("battery"))return 350;if(t.includes("charger"))return 200;if(t.includes("micro sd")||t.includes("microsd"))return 150;if(t.includes("sd card")||t.includes("memory card"))return 150;if(t.includes("filter"))return 400;if(t.includes("cable"))return 100;if(t.includes("windscreen"))return 120;if(t.includes("calibration"))return 300;if(t.includes("pouch")||t.includes("case")||t.includes("bag"))return 80;if(t.includes("adapter"))return 80;if(t.includes("glasses")||t.includes("safety"))return 80;return 150;}
 
 const ipt={width:"100%",padding:"11px 14px",borderRadius:10,border:"1.5px solid #1e2130",fontSize:14,boxSizing:"border-box",fontFamily:"inherit",background:"#141720",color:"#e0e3ea",outline:"none"};
 const pill=(status,map=statusStyle)=>{const s=(map)[status]||{};return <span style={{fontSize:11,padding:"4px 11px",borderRadius:20,fontWeight:500,whiteSpace:"nowrap",...s}}>{status}</span>;};
@@ -139,6 +147,15 @@ async function atPost(table, fields) {
   return res.json();
 }
 
+async function atPatch(table, recordId, fields) {
+  const res = await fetch(`${AT_URL}/${table}/${recordId}`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${AT_PAT}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ fields })
+  });
+  return res.json();
+}
+
 async function lookupStudent(studNo) {
   const formula = `LEFT({Name},LEN("${studNo}")+1)=CONCATENATE("${studNo}"," ")`;
   const data = await atGet(MEMBERS_TABLE, {
@@ -162,7 +179,7 @@ async function lookupStudent(studNo) {
 
 async function fetchEquipment(yearNum) {
   const data = await atGet(EQ_TABLE, {
-    "fields[]": ["Name", "Type", "Equipment Status", "Status", "Image", "Restricted To Years"]
+    "fields[]": ["Name", "Type", "Equipment Status", "Status", "Image", "Restricted To Years", "Item Notes"]
   });
   if (!data.records) return [];
   return data.records
@@ -173,6 +190,11 @@ async function fetchEquipment(yearNum) {
       const restricted = f["Restricted To Years"] || [];
       if (!["Fully Functional", "Functional - Worn"].includes(eqStatus)) return false;
       if (["Unavailable", "Checked Out"].includes(avail)) return false;
+      // 1st years cannot book equipment
+      if (String(yearNum) === "1") return false;
+      // "Other" (external) can only see items explicitly marked for them
+      if (String(yearNum) === "o") return restricted.includes("o");
+      // Everyone else: if no restrictions set → visible; if set → must be included
       if (restricted.length > 0 && !restricted.includes(String(yearNum))) return false;
       return true;
     })
@@ -188,6 +210,7 @@ async function fetchEquipment(yearNum) {
         image: imgArr[0]?.thumbnails?.large?.url || imgArr[0]?.url || "",
         restrictedYears: f["Restricted To Years"] || [],
         replacementCost: 500,
+        accessories: (f["Item Notes"]||"").split("\n").map(s=>s.trim()).filter(Boolean),
       };
     });
 }
@@ -204,7 +227,7 @@ async function createEquipmentBooking(student, items, collectionDate, slot, dueD
 async function createCheckIn(req) {
   const itemIds=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
   if(!itemIds.length)return;
-  const fields={"Type":"Checking In","Checked In Gear":itemIds};
+  const fields={"Type":"Checking In","Checked Out Gear":itemIds};
   if(req.studentId)fields["Submitted By"]=[req.studentId];
   await atPost(CHECKOUT_TABLE,fields);
 }
@@ -333,7 +356,9 @@ export default function App() {
   const [finesLoading, setFinesLoading] = useState(false);
   const [checkInModal, setCheckInModal] = useState(null);
   const [ciLost, setCiLost] = useState([]);
+  const [ciReturning, setCiReturning] = useState([]);
   const [ciNotes, setCiNotes] = useState("");
+  const [ciLostAccessories, setCiLostAccessories] = useState([]); // [{itemName, accessory, cost}]
   const [chargesMonth, setChargesMonth] = useState(new Date().toISOString().slice(0,7));
   const [chargesStudNo, setChargesStudNo] = useState("");
   const [eqSettingsForm, setEqSettingsForm] = useState(null);
@@ -343,8 +368,34 @@ export default function App() {
   const [queueEqImages, setQueueEqImages] = useState({});
 
   const type = REQUEST_TYPES.find(t=>t.id===selType);
-  const getLoanDays = (yearStr) => (parseInt(yearStr)||1)>=3 ? eqSettings.yr34Days : eqSettings.yr12Days;
-  const eqDueDate = eqColDate && eqStudent ? addBusinessDays(eqColDate, getLoanDays(eqStudent.year)) : "";
+  const getLoanDays = (yearStr) => {
+    const y = String(yearStr);
+    if (["3","4","m","s"].includes(y)) return eqSettings.yr34Days;
+    return eqSettings.yr12Days;
+  };
+  const getItemCap = (yearStr) => {
+    const y = String(yearStr);
+    if (y==="2") return eqSettings.yr2Cap||2;
+    if (y==="3") return eqSettings.yr3Cap||3;
+    if (y==="4") return eqSettings.yr4Cap||4;
+    if (y==="m"||y==="s") return eqSettings.mastersCap||5;
+    return 2;
+  };
+  const getEqMinDate = () => {
+    const now = new Date();
+    const today = todayDate();
+    if (now.getHours() >= (eqSettings.collectionDeadlineHour||16)) return nextEqColDay(today);
+    return today;
+  };
+  const isSlotPast = (slotLabel) => {
+    const today = todayDate();
+    if (eqColDate !== today) return false;
+    const now = new Date();
+    const endHour = slotLabel.includes("11:00")?11:slotLabel.includes("11:30")?12:12;
+    const endMin = slotLabel.includes("11:00")?30:slotLabel.includes("11:30")?0:30;
+    return now.getHours() > endHour || (now.getHours() === endHour && now.getMinutes() >= endMin);
+  };
+  const eqDueDate = eqColDate && eqStudent ? addCalendarDays(eqColDate, getLoanDays(eqStudent.year)) : "";
 
   useEffect(()=>{
     try{
@@ -393,22 +444,44 @@ export default function App() {
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     return req;
   }
-  function updateStatus(id,status){const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);}
+  function updateStatus(id,status){
+    const req=requests.find(r=>r.id===id);
+    if(req?.typeId==="equipment"&&["Declined","Uncollected"].includes(status)){
+      const ids=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
+      if(ids.length){atPost(CHECKOUT_TABLE,{"Type":"Checking In","Checked Out Gear":ids}).catch(()=>{});}
+    }
+    const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);
+  }
   function updateReq(id,fields){const u=requests.map(r=>r.id===id?{...r,...fields,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);}
-  async function confirmCheckIn(req,lostItemNames,notes){
+  async function confirmCheckIn(req,returningNames,lostItemNames,notes){
     const today=todayDate();
-    const lateDays=req.dueDate?countBizDaysLate(req.dueDate,today):0;
+    const allItemNames=(req.details?.itemsData||[]).map(i=>i.name);
+    const alreadyReturned=req.returnedItems||[];
+    const nowReturning=returningNames.filter(n=>!alreadyReturned.includes(n));
+    const allReturnedAfter=[...alreadyReturned,...nowReturning];
+    const allBack=allItemNames.every(n=>allReturnedAfter.includes(n)||lostItemNames.includes(n));
+    const lateDays=allBack&&req.dueDate?countDaysLate(req.dueDate,today):0;
     const lateFine=lateDays*eqSettings.dailyRate;
+    // Create Checking In records only for items being returned now
+    const returningIds=(req.details?.itemsData||[]).filter(i=>nowReturning.includes(i.name)).map(i=>i.id).filter(Boolean);
     try{
-      await createCheckIn(req);
-      if(lateDays>0)await saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"late_return",itemName:"Equipment booking",amount:lateFine,days:lateDays,date:today,month:today.slice(0,7),notes});
+      if(returningIds.length){
+        const fields={"Type":"Checking In","Checked Out Gear":returningIds};
+        if(req.studentId)fields["Submitted By"]=[req.studentId];
+        await atPost(CHECKOUT_TABLE,fields);
+      }
+      if(allBack&&lateDays>0)await saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"late_return",itemName:"Equipment booking",amount:lateFine,days:lateDays,date:today,month:today.slice(0,7),notes});
       for(const item of lostItemNames){
         const cost=(req.details?.itemsData||[]).find(i=>i.name===item)?.replacementCost||500;
         await saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"lost_item",itemName:item,amount:cost,days:0,date:today,month:today.slice(0,7),notes});
       }
+      for(const a of ciLostAccessories){
+        await saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"lost_item",itemName:`${a.itemName} — ${a.accessory}`,amount:a.cost,days:0,date:today,month:today.slice(0,7),notes});
+      }
     }catch(e){}
-    updateReq(req.id,{status:"Returned",returnedAt:today,checkInNotes:notes,lostItems:lostItemNames,lateDays,lateFine});
-    setCheckInModal(null);setCiLost([]);setCiNotes("");
+    const newStatus=allBack?"Returned":"Partially Returned";
+    updateReq(req.id,{status:newStatus,returnedAt:allBack?today:req.returnedAt,returnedItems:allReturnedAfter,checkInNotes:notes,lostItems:[...(req.lostItems||[]),...lostItemNames],lateDays,lateFine});
+    setCheckInModal(null);setCiReturning([]);setCiLost([]);setCiNotes("");setCiLostAccessories([]);
   }
   function saveNote(id){const u=requests.map(r=>r.id===id?{...r,staffNote:staffNotes[id]||"",updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);}
   function updateSchedule(eqId,field,val){const u={...schedule,[eqId]:{...schedule[eqId],[field]:val}};setSchedule(u);persist(KEYS.sched,u);}
@@ -443,24 +516,38 @@ export default function App() {
     try{
       const result=await lookupStudent(eqStudNo.trim());
       if(result?.found){
-        setEqStudent(result);setEqScreen("browse");
-        setEqLoading(true);
-        const items=await fetchEquipment(result.year);
-        setEquipment(items);setEqLoading(false);
+        if(result.year==="1"){
+          setEqLookupErr("Equipment booking is available from 2nd year onwards. 1st year students can still log other requests at the main desk.");
+        } else if(!result.year||!["2","3","4","m","s","o"].includes(result.year)){
+          setEqLookupErr("Year group not set for this student in Airtable. Please ask Tech Support to update the record before booking.");
+        } else {
+          setEqStudent(result);setEqScreen("browse");
+          setEqLoading(true);
+          const items=await fetchEquipment(result.year);
+          setEquipment(items);setEqLoading(false);
+        }
       } else {
         setEqLookupErr("Student number not found. Please check and try again, or speak to Tech Support.");
       }
     }catch(e){setEqLookupErr("Could not connect. Please try again.");}
     setEqLooking(false);
   }
-  function toggleEqItem(item){setSelItems(prev=>prev.find(i=>i.id===item.id)?prev.filter(i=>i.id!==item.id):[...prev,item]);}
+  function toggleEqItem(item){
+    const cap=getItemCap(eqStudent?.year);
+    setSelItems(prev=>{
+      if(prev.find(i=>i.id===item.id)) return prev.filter(i=>i.id!==item.id);
+      if(prev.length>=cap){setEqErr(`${YEAR_LABELS[eqStudent?.year]||"Your year"} can book up to ${cap} item${cap>1?"s":""} at a time.`);return prev;}
+      setEqErr("");
+      return [...prev,item];
+    });
+  }
   async function submitEqRequest(){
     if(!eqColDate||!eqSlot||selItems.length===0)return;
-    const due=addBusinessDays(eqColDate,getLoanDays(eqStudent.year));
+    const due=addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
     setEqSubmitting(true);
     try{await createEquipmentBooking(eqStudent,selItems,eqColDate,eqSlot,due,eqNotes);}catch(e){}
     const slotLabel=EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot;
-    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500}))},dueDate:due,collectedAt:null,returnedAt:null,checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:"Pending",staffNote:"",isWalkIn:false,createdAt:todayISO(),updatedAt:todayISO()};
+    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:"Pending",staffNote:"",isWalkIn:false,createdAt:todayISO(),updatedAt:todayISO()};
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     setEqScreen("success");setEqSubmitting(false);
   }
@@ -513,7 +600,7 @@ export default function App() {
             <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
               {pill(req.status)}
               {actionLabel&&req.status!==actionStatus&&req.status!=="Done"&&req.status!=="Returned"&&(
-                <button onClick={()=>{if(req.typeId==="equipment"&&actionStatus==="Returned"){setCheckInModal(req);setCiLost([]);setCiNotes("");}else{updateStatus(req.id,actionStatus);}}}
+                <button onClick={()=>{if(req.typeId==="equipment"&&actionStatus==="Returned"){const items=(req.details?.itemsData||[]).map(i=>i.name).filter(n=>!(req.returnedItems||[]).includes(n));setCheckInModal(req);setCiReturning(items);setCiLost([]);setCiNotes("");}else{updateStatus(req.id,actionStatus);}}}
                   style={{fontSize:11,padding:"4px 10px",borderRadius:8,border:"none",background:typeColor,color:"#fff",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>{actionLabel}</button>
               )}
             </div>
@@ -711,7 +798,7 @@ export default function App() {
               📅 Due: <strong>{fmtDate(req.dueDate)}</strong>{req.status==="Collected"&&new Date()>new Date(req.dueDate+"T00:00:00")?" — OVERDUE":""}
             </div>
           )}
-          {req.status==="Confirmed"&&<div style={{background:"#0a1e35",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#60a5fa",marginBottom:6}}>✅ Confirmed — you may now come in{req.schedDate?` on ${req.schedDate.split(" ")[0]}`:""}.{req.schedDate?" Bring your student card.":""}</div>}
+          {req.status==="Confirmed"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>⏳ Booking confirmed — your slot is reserved{req.schedDate?` for ${req.schedDate.split(" ")[0]}`:""}.  Wait for a <strong>"Ready to collect"</strong> notification before coming in.</div>}
           {req.status==="Ready to collect"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>📦 Your equipment is ready to collect. Bring your student card.</div>}
           {req.status==="Done"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>✅ Done — your request has been completed.</div>}
           {req.status==="Declined"&&<div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#f87171",marginBottom:6}}>❌ Declined{req.staffNote?` — ${req.staffNote}`:". Please contact Tech Support for more info."}.</div>}
@@ -790,7 +877,8 @@ export default function App() {
           {selItems.length>0&&<Btn small onClick={()=>setEqScreen("confirm")} color={TEAL}>Book {selItems.length} item{selItems.length>1?"s":""}</Btn>}
         </div>
         <div style={{fontSize:15,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Available for {YEAR_LABELS[eqStudent?.year]}</div>
-        <div style={{fontSize:13,color:"#4b5563",marginBottom:12}}>Tap to select items</div>
+        <div style={{fontSize:13,color:"#4b5563",marginBottom:4}}>Tap to select items · Max {getItemCap(eqStudent?.year)} item{getItemCap(eqStudent?.year)>1?"s":""} per booking</div>
+        {eqErr&&<div style={{fontSize:13,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 12px",marginBottom:8}}>{eqErr}</div>}
         <input style={{...ipt,marginBottom:10}} placeholder="Search..." value={eqSearch} onChange={e=>setEqSearch(e.target.value)}/>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
           {eqTypes.map(t=><button key={t} onClick={()=>setEqFilter(t)} style={{padding:"5px 12px",borderRadius:20,border:"0.5px solid #1e2130",background:eqFilter===t?TEAL:"#141720",color:eqFilter===t?"#fff":"#6b7280",fontSize:12,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>{t}</button>)}
@@ -840,8 +928,8 @@ export default function App() {
         </div>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Collection date *</label>
-          <input type="date" style={ipt} value={eqColDate} min={todayDate()} max={addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)} onChange={e=>{setEqColDate(e.target.value);setEqSlot("");}}/>
-          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Collection days: <strong>Mon, Wed, Fri</strong> only (stockroom hours 11:00–12:30). Book up to {eqSettings.maxAdvanceDays} days ahead.</div>
+          <input type="date" style={ipt} value={eqColDate} min={getEqMinDate()} max={addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)} onChange={e=>{setEqColDate(e.target.value);setEqSlot("");}}/>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Collection days: <strong>Mon, Wed, Fri</strong> only (stockroom hours 11:00–12:30). Book up to {eqSettings.maxAdvanceDays} day{eqSettings.maxAdvanceDays!==1?"s":""} ahead. Bookings close at {eqSettings.collectionDeadlineHour}:00.</div>
           {eqColDate&&!isEqColDay(eqColDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ That date is not a stockroom day. Please pick a Monday, Wednesday or Friday.</div>}
         </div>
         {eqColDate&&isEqColDay(eqColDate)&&eqDueDate&&(
@@ -856,9 +944,11 @@ export default function App() {
             {EQ_COL_SLOTS.map(slot=>{
               const taken=requests.filter(r=>r.typeId==="equipment"&&r.schedDate&&r.schedDate.startsWith(eqColDate)&&r.schedDate.includes(slot.label)&&!["Declined","Uncollected"].includes(r.status)).length;
               const full=taken>=(eqSettings.slotCap||2);
+              const past=isSlotPast(slot.label);
+              const unavail=full||past;
               return(
-                <button key={slot.id} onClick={()=>!full&&setEqSlot(slot.id)} disabled={full} style={{flex:1,minWidth:100,padding:"12px 8px",borderRadius:10,border:eqSlot===slot.id?`2px solid ${TEAL}`:"0.5px solid #1e2130",background:full?"#1a1d28":eqSlot===slot.id?"#0a2218":"#141720",color:full?"#374151":eqSlot===slot.id?TEAL:"#e0e3ea",fontSize:13,cursor:full?"not-allowed":"pointer",fontFamily:"inherit",textAlign:"center"}}>
-                  {slot.label}<br/><span style={{fontSize:11,color:full?"#374151":eqSlot===slot.id?TEAL:"#4b5563"}}>{full?"Full":`${(eqSettings.slotCap||2)-taken} left`}</span>
+                <button key={slot.id} onClick={()=>!unavail&&setEqSlot(slot.id)} disabled={unavail} style={{flex:1,minWidth:100,padding:"12px 8px",borderRadius:10,border:eqSlot===slot.id?`2px solid ${TEAL}`:"0.5px solid #1e2130",background:unavail?"#1a1d28":eqSlot===slot.id?"#0a2218":"#141720",color:unavail?"#374151":eqSlot===slot.id?TEAL:"#e0e3ea",fontSize:13,cursor:unavail?"not-allowed":"pointer",fontFamily:"inherit",textAlign:"center"}}>
+                  {slot.label}<br/><span style={{fontSize:11,color:unavail?"#374151":eqSlot===slot.id?TEAL:"#4b5563"}}>{past?"Passed":full?"Full":`${(eqSettings.slotCap||2)-taken} left`}</span>
                 </button>
               );
             })}
@@ -1136,7 +1226,7 @@ export default function App() {
       {["Student name *","Student number"].map((lbl,i)=>(
         <div key={i} style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{lbl}</label><input style={ipt} value={i===0?form.name:form.studNo} onChange={e=>setF(i===0?"name":"studNo",e.target.value)} placeholder={i===0?"e.g. Sipho Nkosi":"e.g. g25K7744"}/></div>
       ))}
-      <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Year</label><select style={ipt} value={form.year} onChange={e=>setF("year",e.target.value)}>{["Select year","1st year","2nd year","3rd year","4th year"].map(y=><option key={y}>{y}</option>)}</select></div>
+      <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Year</label><select style={ipt} value={form.year} onChange={e=>setF("year",e.target.value)}>{[["","Select year"],["1","1st year"],["2","2nd year"],["3","3rd year"],["4","4th year"],["m","Masters"],["s","Staff"],["o","Other"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
       <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>What do they need?</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{REQUEST_TYPES.filter(t=>t.id!=="equipment").map(t=><button key={t.id} onClick={()=>setSelType(t.id)} style={{padding:"8px 12px",borderRadius:8,border:"none",background:selType===t.id?TEAL:"#1a1d28",color:selType===t.id?"#fff":"#e0e3ea",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{t.icon} {t.label}</button>)}</div></div>
       <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Quick notes</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder="e.g. Software on Mac 4 — told to come back Thursday"/></div>
       <Btn onClick={()=>{if(!form.name.trim()||!selType)return;submitRequest(true);setScreen("home");setSelType(null);setForm(f=>({...f,name:"",studNo:"",year:"",notes:""}));}} disabled={!form.name.trim()||!selType} full style={{padding:"13px",fontSize:15}}>Log walk-in</Btn>
@@ -1154,7 +1244,7 @@ export default function App() {
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:desktopTwoCol?"#e0e3ea":"#6b7280",background:desktopTwoCol?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
-          {[["it",`💻 IT${openIt>0?` + "`(${openIt})`" + `:""}` + `],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["cal","📆 Calendar"],["charges","💳 Charges"]].map(([v,l])=>(
+          {[["it","💻 IT"+(openIt>0?" ("+openIt+")":"")],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["cal","📆 Calendar"],["charges","💳 Charges"]].map(([v,l])=>(
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
@@ -1373,7 +1463,7 @@ export default function App() {
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                 {(req.typeId==="laser"?LASER_STATUSES:req.typeId==="equipment"?EQ_STATUSES:STATUSES).filter(s=>s!==req.status).map(s=>(
                   <button key={s} onClick={()=>{
-                    if(req.typeId==="equipment"&&s==="Returned"){setCheckInModal(req);setCiLost([]);setCiNotes("");}
+                    if(req.typeId==="equipment"&&s==="Returned"){const items=(req.details?.itemsData||[]).map(i=>i.name).filter(n=>!(req.returnedItems||[]).includes(n));setCheckInModal(req);setCiReturning(items);setCiLost([]);setCiNotes("");}
                     else updateStatus(req.id,s);
                   }} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:12,fontFamily:"inherit"}}>→ {s}</button>
                 ))}
@@ -1442,9 +1532,9 @@ export default function App() {
             <div style={{fontSize:13,fontWeight:500}}>⚙ Equipment Loan Settings</div>
             <button onClick={()=>setEqSettingsForm(f=>f?null:{...eqSettings})} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer"}}>{eqSettingsForm?"Cancel":"Edit"}</button>
           </div>
-          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Year 1–2: {eqSettings.yr12Days} days · Year 3–4: {eqSettings.yr34Days} days · Late fee: R{eqSettings.dailyRate}/day · Max advance: {eqSettings.maxAdvanceDays} days · Slot cap: {eqSettings.slotCap||2}/slot</div>}
+          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr34Days}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Deadline: {eqSettings.collectionDeadlineHour}:00 · Slot cap: {eqSettings.slotCap||2}</div>}
           {eqSettingsForm&&(<div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
-            {[["Year 1–2 loan (business days)","yr12Days"],["Year 3–4 loan (business days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Max students per slot","slotCap"]].map(([label,key])=>(
+            {[["Year 2 loan (calendar days)","yr12Days"],["Year 3–4 loan (calendar days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Booking deadline (hour, 24h)","collectionDeadlineHour"],["Max students per slot","slotCap"],["Max items — Year 2","yr2Cap"],["Max items — Year 3","yr3Cap"],["Max items — Year 4","yr4Cap"],["Max items — Masters/Staff","mastersCap"]].map(([label,key])=>(
               <div key={key} style={{display:"flex",alignItems:"center",gap:8}}>
                 <label style={{fontSize:12,color:"#9ca3af",flex:1}}>{label}</label>
                 <input type="number" style={{...ipt,width:70,flex:"0 0 auto"}} value={eqSettingsForm[key]} onChange={e=>setEqSettingsForm(f=>({...f,[key]:Number(e.target.value)}))}/>
@@ -1592,46 +1682,53 @@ export default function App() {
       {/* ── CHECK-IN MODAL ── */}
       {checkInModal&&(()=>{
         const req=checkInModal;
-        const itemNames=(req.details?.itemsData||[]).map(i=>i.name);
-        const fallbackNames=req.details?.items?req.details.items.split(", "):[];
-        const allItems=itemNames.length>0?itemNames:fallbackNames;
+        const allItemNames=(req.details?.itemsData||[]).map(i=>i.name);
+        const alreadyReturned=req.returnedItems||[];
+        const pendingItems=allItemNames.filter(n=>!alreadyReturned.includes(n));
         const today=todayDate();
-        const lateDays=req.dueDate?countBizDaysLate(req.dueDate,today):0;
+        const allBack=ciReturning.length===pendingItems.length&&pendingItems.every(n=>ciReturning.includes(n));
+        const lateDays=allBack&&req.dueDate?countDaysLate(req.dueDate,today):0;
         const lateFine=lateDays*eqSettings.dailyRate;
-        const lostCosts=ciLost.reduce((s,name)=>{const cost=(req.details?.itemsData||[]).find(i=>i.name===name)?.replacementCost||500;return s+cost;},0);
+        const lostCosts=ciLost.reduce((s,name)=>{const cost=(req.details?.itemsData||[]).find(i=>i.name===name)?.replacementCost||500;return s+cost;},0)+ciLostAccessories.reduce((s,a)=>s+a.cost,0);
         const totalCharges=lateFine+lostCosts;
         return(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-            <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:16,padding:"20px",maxWidth:480,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
+            <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:16,padding:"20px",maxWidth:500,width:"100%",maxHeight:"90vh",overflowY:"auto"}}>
               <div style={{fontSize:16,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Equipment Check-In</div>
-              <div style={{fontSize:13,color:"#4b5563",marginBottom:16}}>{req.name} · {req.studNo}</div>
-              <div style={{fontSize:13,fontWeight:500,marginBottom:8,color:"#9ca3af"}}>Tick items that are <strong style={{color:"#e0e3ea"}}>lost or missing</strong>:</div>
-              {allItems.map(name=>(
-                <label key={name} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:ciLost.includes(name)?"#2a0f14":"#1a1d28",marginBottom:6,cursor:"pointer"}}>
-                  <input type="checkbox" checked={ciLost.includes(name)} onChange={e=>setCiLost(prev=>e.target.checked?[...prev,name]:prev.filter(n=>n!==name))} style={{width:15,height:15,flexShrink:0}}/>
-                  <span style={{fontSize:13,color:ciLost.includes(name)?"#f87171":"#e0e3ea"}}>{name}</span>
-                  {ciLost.includes(name)&&<span style={{marginLeft:"auto",fontSize:12,color:"#f87171",fontWeight:500}}>R{(req.details?.itemsData||[]).find(i=>i.name===name)?.replacementCost||500}</span>}
-                </label>
-              ))}
-              <div style={{background:"#1a1d28",borderRadius:10,padding:"12px 14px",margin:"12px 0",fontSize:12}}>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:"#6b7280"}}>Collection date</span><span>{req.schedDate?.split(" ")[0]||"—"}</span></div>
-                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{color:"#6b7280"}}>Due date</span><span>{req.dueDate?fmtDate(req.dueDate):"—"}</span></div>
-                <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#6b7280"}}>Today (return date)</span><span>{fmtDate(today)}</span></div>
-              </div>
-              {lateDays>0&&<div style={{background:"#2a1500",borderRadius:8,padding:"10px 12px",marginBottom:8,fontSize:13,color:"#fb923c"}}>⚠ {lateDays} business day{lateDays>1?"s":""} late → Late fee: <strong>R{lateFine}</strong></div>}
-              {ciLost.length>0&&<div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",marginBottom:8,fontSize:13,color:"#f87171"}}>🔴 {ciLost.length} item{ciLost.length>1?"s":""} lost → Replacement: <strong>R{lostCosts}</strong></div>}
-              {totalCharges>0&&<div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:14,fontWeight:600,color:"#f87171",textAlign:"center"}}>Total charges: R{totalCharges}</div>}
-              {totalCharges===0&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:13,color:"#20B07F",textAlign:"center"}}>✅ No charges — on time and complete</div>}
-              <textarea style={{...ipt,resize:"vertical",marginBottom:12}} rows={2} value={ciNotes} onChange={e=>setCiNotes(e.target.value)} placeholder="Staff notes (optional, e.g. minor wear noted)"/>
-              <div style={{display:"flex",gap:8}}>
-                <Btn full onClick={()=>confirmCheckIn(req,ciLost,ciNotes)}>Confirm Check-In</Btn>
-                <Btn outline color="#888" onClick={()=>{setCheckInModal(null);setCiLost([]);setCiNotes("");}}>Cancel</Btn>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-      </div>
-    </div>
-  );}
-}
+              <div style={{fontSize:13,color:"#4b5563",marginBottom:12}}>{req.name} · {req.studNo}</div>
+              {alreadyReturned.length>0&&<div style={{background:"#0a2218",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:12,color:"#20B07F"}}>✅ Already returned: {alreadyReturned.join(", ")}</div>}
+              <div style={{fontSize:13,fontWeight:500,marginBottom:8,color:"#9ca3af"}}>Items being returned <strong style={{color:"#e0e3ea"}}>now</strong>:</div>
+              {pendingItems.map(name=>{
+                const itemData=(req.details?.itemsData||[]).find(i=>i.name===name);
+                const accessories=itemData?.accessories||[];
+                const isReturning=ciReturning.includes(name);
+                return(
+                  <div key={name} style={{marginBottom:6}}>
+                    <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,background:isReturning?"#0a2218":"#1a1d28",cursor:"pointer"}}>
+                      <input type="checkbox" checked={isReturning} onChange={e=>{setCiReturning(prev=>e.target.checked?[...prev,name]:prev.filter(n=>n!==name));if(!e.target.checked)setCiLostAccessories(prev=>prev.filter(a=>a.itemName!==name));}} style={{width:15,height:15,flexShrink:0}}/>
+                      <span style={{fontSize:13,color:isReturning?"#20B07F":"#e0e3ea",fontWeight:500}}>{name}</span>
+                    </label>
+                    {isReturning&&accessories.length>0&&(
+                      <div style={{paddingLeft:24,paddingTop:3,paddingBottom:2}}>
+                        <div style={{fontSize:11,color:"#6b7280",margin:"3px 0 3px 4px"}}>Accessories — uncheck any that are missing:</div>
+                        {accessories.map(acc=>{
+                          const isLostAcc=ciLostAccessories.some(a=>a.itemName===name&&a.accessory===acc);
+                          const cost=accessoryCost(acc);
+                          return(
+                            <label key={acc} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 10px",borderRadius:6,background:isLostAcc?"#2a0f14":"#0f1318",marginBottom:2,cursor:"pointer"}}>
+                              <input type="checkbox" checked={!isLostAcc} onChange={e=>{if(!e.target.checked)setCiLostAccessories(prev=>[...prev,{itemName:name,accessory:acc,cost}]);else setCiLostAccessories(prev=>prev.filter(a=>!(a.itemName===name&&a.accessory===acc)));}} style={{width:13,height:13,flexShrink:0}}/>
+                              <span style={{fontSize:12,color:isLostAcc?"#f87171":"#9ca3af",flex:1}}>{acc}</span>
+                              {isLostAcc&&<span style={{fontSize:11,color:"#f87171",fontWeight:500,whiteSpace:"nowrap"}}>Missing · R{cost}</span>}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {ciReturning.length>0&&(<>
+                <div style={{fontSize:13,fontWeight:500,margin:"12px 0 8px",color:"#9ca3af"}}>Mark any item as <strong style={{color:"#f87171"}}>entirely lost</strong>:</div>
+                {ciReturning.map(name=>(
+                  <label key={name} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:ciLost.includes(name)?"#2a0f14":"#1a1d28",marginBottom:6,cursor:"pointer"}}>
+                    <input type="checkbox" checked={ciLost.includes(name
