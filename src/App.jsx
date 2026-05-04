@@ -1731,4 +1731,33 @@ export default function App() {
                 <div style={{fontSize:13,fontWeight:500,margin:"12px 0 8px",color:"#9ca3af"}}>Mark any item as <strong style={{color:"#f87171"}}>entirely lost</strong>:</div>
                 {ciReturning.map(name=>(
                   <label key={name} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:8,background:ciLost.includes(name)?"#2a0f14":"#1a1d28",marginBottom:6,cursor:"pointer"}}>
-                    <input type="checkbox" checked={ciLost.includes(name
+                    <input type="checkbox" checked={ciLost.includes(name)} onChange={()=>setCiLost(l=>l.includes(name)?l.filter(x=>x!==name):[...l,name])} style={{width:15,height:15,flexShrink:0,accentColor:"#f87171"}}/>
+                    <span style={{fontSize:13,color:ciLost.includes(name)?"#f87171":"#e0e3ea"}}>{name}</span>
+                  </label>
+                ))}
+              </>)}
+              <div style={{marginTop:16}}>
+                <label style={{fontSize:12,color:"#6b7280",display:"block",marginBottom:4}}>Notes (optional)</label>
+                <textarea style={{width:"100%",background:"#1a1d28",border:"0.5px solid #1e2130",borderRadius:8,padding:"8px 10px",fontSize:13,color:"#e0e3ea",resize:"vertical",fontFamily:"inherit"}} rows={2} value={ciNotes} onChange={e=>setCiNotes(e.target.value)} placeholder="e.g. Returned in good condition"/>
+              </div>
+              {totalCharges>0&&(
+                <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",marginTop:12,fontSize:13}}>
+                  {lateFine>0&&<div style={{color:"#d4851a",marginBottom:4}}>Late fee: R{lateFine} ({lateDays} day{lateDays!==1?"s":""})</div>}
+                  {lostCosts>0&&<div style={{color:"#f87171",marginBottom:4}}>Lost items: R{lostCosts}</div>}
+                  <div style={{fontWeight:600,color:"#e0e3ea"}}>Total charges: R{totalCharges}</div>
+                </div>
+              )}
+              <div style={{display:"flex",gap:10,marginTop:16}}>
+                <Btn outline color="#4b5563" onClick={()=>{setCheckInModal(null);setCiReturning([]);setCiLost([]);setCiNotes("");setCiLostAccessories([]);}} style={{flex:1}}>Cancel</Btn>
+                <Btn color={TEAL} onClick={()=>confirmCheckIn(req,ciReturning,ciLost,ciNotes)} disabled={ciReturning.length===0} style={{flex:2}}>Confirm Check-In</Btn>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      </div>
+    </div>
+  );
+}
+}
