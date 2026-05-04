@@ -21,6 +21,7 @@ const EQ_TABLE = "tblc2MXweiXikz3wo";
 const CHECKOUT_TABLE = "tbl1DvH6ostZs7Jog";
 const FINES_TABLE = "tbliP9x6KL7EUABWc";
 const MEMBERS_TABLE = "tbloPfyyjQY79YxQd";
+const REQUESTS_TABLE = "tblAQE1leKVCRH51d";
 const HSMS_URL = "https://fineart-hsms.netlify.app/";
 
 const YEAR_LABELS = {"1":"1st year","2":"2nd year","3":"3rd year","4":"4th year","m":"Masters","s":"Staff","o":"Other"};
@@ -151,6 +152,63 @@ async function atPatch(table, recordId, fields) {
     body: JSON.stringify({ table, method: "PATCH", recordId, fields }),
   });
   return res.json();
+}
+
+// ── REQUEST ↔ AIRTABLE CONVERTERS ───────────────────────────────
+function reqToAirtable(req) {
+  return {
+    LocalId:      req.id || "",
+    StudentName:  req.name || "",
+    StudNo:       req.studNo || "",
+    Year:         req.year || "",
+    TypeId:       req.typeId || "",
+    Status:       req.status || "Pending",
+    Notes:        req.notes || "",
+    SchedDate:    req.schedDate || "",
+    DueDate:      req.dueDate || "",
+    Details:      JSON.stringify(req.details || {}),
+    WalkIn:       req.isWalkIn || false,
+    VisitorType:  req.visitorType || (req.isExternal ? "external" : "student"),
+    StaffNote:    req.staffNote || "",
+    CreatedAt:    req.createdAt || todayISO(),
+    UpdatedAt:    todayISO(),
+    ReturnedItems: JSON.stringify(req.returnedItems || []),
+    LostItems:    JSON.stringify(req.lostItems || []),
+    LateDays:     req.lateDays || 0,
+    LateFine:     req.lateFine || 0,
+    CheckInNotes: req.checkInNotes || "",
+  };
+}
+function airtableToReq(rec) {
+  const f = rec.fields || {};
+  let details={}, returnedItems=[], lostItems=[];
+  try{details=JSON.parse(f.Details||"{}");}catch(e){}
+  try{returnedItems=JSON.parse(f.ReturnedItems||"[]");}catch(e){}
+  try{lostItems=JSON.parse(f.LostItems||"[]");}catch(e){}
+  return {
+    id:           f.LocalId || rec.id,
+    airtableId:   rec.id,
+    name:         f.StudentName || "",
+    studNo:       f.StudNo || "",
+    year:         f.Year || "",
+    typeId:       f.TypeId || "",
+    type:         f.TypeId || "",
+    status:       f.Status || "Pending",
+    notes:        f.Notes || "",
+    schedDate:    f.SchedDate || null,
+    dueDate:      f.DueDate || null,
+    details,
+    isWalkIn:     f.WalkIn || false,
+    visitorType:  f.VisitorType || "student",
+    staffNote:    f.StaffNote || "",
+    createdAt:    f.CreatedAt || "",
+    updatedAt:    f.UpdatedAt || "",
+    returnedItems,
+    lostItems,
+    lateDays:     f.LateDays || 0,
+    lateFine:     f.LateFine || 0,
+    checkInNotes: f.CheckInNotes || "",
+  };
 }
 
 async function lookupStudent(studNo) {
@@ -395,8 +453,8 @@ export default function App() {
   const eqDueDate = eqColDate && eqStudent ? addCalendarDays(eqColDate, getLoanDays(eqStudent.year)) : "";
 
   useEffect(()=>{
+    // Staff-device settings stay in localStorage (schedule, blocks, etc.)
     try{
-      const r=localStorage.getItem(KEYS.req);if(r)setRequests(JSON.parse(r));
       const s=localStorage.getItem(KEYS.sched);if(s)setSchedule(JSON.parse(s));
       const b=localStorage.getItem(KEYS.block);if(b)setBlocks(JSON.parse(b));
       const m=localStorage.getItem(KEYS.maint);if(m)setMaintLogs(JSON.parse(m));
@@ -405,8 +463,28 @@ export default function App() {
       const i=localStorage.getItem(KEYS.it);if(i)setItReferrals(JSON.parse(i));
       const sn=localStorage.getItem(KEYS.savedStudNo);if(sn)setForm(f=>({...f,studNo:sn}));
     }catch(e){}
-    setLoaded(true);
+    // Requests come from Airtable so they're visible across all devices
+    atGet(REQUESTS_TABLE,{maxRecords:500}).then(data=>{
+      if(data.records){
+        const reqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+        setRequests(reqs);persist(KEYS.req,reqs);
+      }
+    }).catch(()=>{
+      // Fall back to localStorage cache if Airtable is unreachable
+      try{const r=localStorage.getItem(KEYS.req);if(r)setRequests(JSON.parse(r));}catch(e){}
+    }).finally(()=>setLoaded(true));
   },[]);
+
+  // Refresh requests from Airtable every time staff switches to the dashboard
+  useEffect(()=>{
+    if(view!=="dashboard")return;
+    atGet(REQUESTS_TABLE,{maxRecords:500}).then(data=>{
+      if(data.records){
+        const reqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+        setRequests(reqs);persist(KEYS.req,reqs);
+      }
+    }).catch(()=>{});
+  },[view]);
   useEffect(()=>{const handle=()=>setIsDesktop(window.innerWidth>=900);window.addEventListener("resize",handle);return()=>window.removeEventListener("resize",handle);},[]);
 
   useEffect(()=>{
@@ -428,7 +506,7 @@ export default function App() {
     if(selType==="gallery") return{eventType:form.eventType,eventStart:form.eventStart,eventEnd:form.eventEnd,attendance:form.attendance,setupNeeds:form.setupNeeds,venue:form.venue,techSupport:form.techSupport};
     return{};
   }
-  function submitRequest(isWalkIn=false){
+  async function submitRequest(isWalkIn=false){
     const isExt=visitorType==="external";
     if(isExt){if(!extForm.name.trim()||!selType)return;}
     else{if(!verifiedStudent||!selType)return;}
@@ -438,7 +516,13 @@ export default function App() {
       type.bookable&&selDate?`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`:
       form.when==="later"&&!isWalkIn?form.schedDate:null;
     const req={id:genId(),name:isExt?extForm.name.trim():verifiedStudent.name,studNo:isExt?"":verifiedStudent?.studNo||"",year:isExt?"":verifiedStudent?.year||"",affiliation:isExt?extForm.affiliation.trim():"",contact:isExt?extForm.contact.trim():"",type:type.label,typeId:selType,when:isWalkIn?"walkin":(type.bookable&&selDate)||(selType==="studio"&&form.studioDate)||(selType==="3d"&&form.dropOffDate)?"booked":form.when,schedDate:_schedDate,notes:form.notes.trim(),details:getDetails(),status:"Pending",staffNote:"",isWalkIn,isExternal:isExt,createdAt:todayISO(),updatedAt:todayISO()};
+    // Show immediately in UI
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
+    // Save to Airtable so staff can see it from any device
+    try{
+      const result=await atPost(REQUESTS_TABLE,reqToAirtable(req));
+      if(result.id){setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));}
+    }catch(e){}
     return req;
   }
   function updateStatus(id,status){
@@ -447,9 +531,15 @@ export default function App() {
       const ids=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
       if(ids.length){atPost(CHECKOUT_TABLE,{"Type":"Checking In","Checked Out Gear":ids}).catch(()=>{});}
     }
+    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{Status:status,UpdatedAt:todayISO()}).catch(()=>{});}
     const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);
   }
-  function updateReq(id,fields){const u=requests.map(r=>r.id===id?{...r,...fields,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);}
+  function updateReq(id,fields){
+    const req=requests.find(r=>r.id===id);
+    const updated={...req,...fields,updatedAt:todayISO()};
+    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,reqToAirtable(updated)).catch(()=>{});}
+    const u=requests.map(r=>r.id===id?updated:r);setRequests(u);persist(KEYS.req,u);
+  }
   async function confirmCheckIn(req,returningNames,lostItemNames,notes){
     const today=todayDate();
     const allItemNames=(req.details?.itemsData||[]).map(i=>i.name);
@@ -480,7 +570,12 @@ export default function App() {
     updateReq(req.id,{status:newStatus,returnedAt:allBack?today:req.returnedAt,returnedItems:allReturnedAfter,checkInNotes:notes,lostItems:[...(req.lostItems||[]),...lostItemNames],lateDays,lateFine});
     setCheckInModal(null);setCiReturning([]);setCiLost([]);setCiNotes("");setCiLostAccessories([]);
   }
-  function saveNote(id){const u=requests.map(r=>r.id===id?{...r,staffNote:staffNotes[id]||"",updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);}
+  function saveNote(id){
+    const note=staffNotes[id]||"";
+    const req=requests.find(r=>r.id===id);
+    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{StaffNote:note,UpdatedAt:todayISO()}).catch(()=>{});}
+    const u=requests.map(r=>r.id===id?{...r,staffNote:note,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);
+  }
   function updateSchedule(eqId,field,val){const u={...schedule,[eqId]:{...schedule[eqId],[field]:val}};setSchedule(u);persist(KEYS.sched,u);}
   function toggleDay(eqId,day){const curr=schedule[eqId]?.days||[];const u={...schedule,[eqId]:{...schedule[eqId],days:curr.includes(day)?curr.filter(d=>d!==day):[...curr,day].sort()}};setSchedule(u);persist(KEYS.sched,u);}
   function addBlock(){if(!blockDate||!blockReason.trim())return;const u={...blocks,[blockDate]:{reason:blockReason.trim(),createdAt:todayISO()}};setBlocks(u);persist(KEYS.block,u);setBlockDate("");setBlockReason("");}
