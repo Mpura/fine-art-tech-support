@@ -308,8 +308,8 @@ export default function App() {
   const [editEq, setEditEq] = useState(null);
 
   // Calendar
-  const [calYear, setCalYear] = useState(2026);
-  const [calMonth, setCalMonth] = useState(3);
+  const [calYear, setCalYear] = useState(new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [selDate, setSelDate] = useState(null);
 
   // Staff calendar
