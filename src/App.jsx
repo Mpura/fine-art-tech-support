@@ -603,6 +603,7 @@ export default function App() {
     const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:"Pending",staffNote:"",isWalkIn:false,createdAt:todayISO(),updatedAt:todayISO()};
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     setEqScreen("success");setEqSubmitting(false);
+    try{const result=await atPost(REQUESTS_TABLE,reqToAirtable(req));if(result.id){setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));}}catch(e){}
   }
   function resetEq(){setEqScreen("lookup");setEqStudNo("");setEqStudent(null);setEquipment([]);setSelItems([]);setEqFilter("All");setEqSearch("");setEqColDate("");setEqSlot("");setEqNotes("");setEqLookupErr("");setEqErr("");}
 
