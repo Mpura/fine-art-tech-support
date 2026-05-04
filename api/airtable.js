@@ -1,0 +1,67 @@
+// Vercel serverless function — keeps the Airtable token server-side only.
+// The frontend calls /api/airtable instead of Airtable directly.
+
+const BASE_ID = "appUqkCfnsOo2Jf7z";
+const AT_URL = `https://api.airtable.com/v0/${BASE_ID}`;
+
+export default async function handler(req, res) {
+  // Only allow POST from the app itself
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const PAT = process.env.AIRTABLE_PAT;
+  if (!PAT) {
+    return res.status(500).json({ error: "API token not configured on server" });
+  }
+
+  const { table, method, params, recordId, fields } = req.body || {};
+
+  if (!table || !method) {
+    return res.status(400).json({ error: "Missing table or method" });
+  }
+
+  const headers = {
+    Authorization: `Bearer ${PAT}`,
+    "Content-Type": "application/json",
+  };
+
+  let url;
+  let options = { headers };
+
+  try {
+    if (method === "GET") {
+      const u = new URL(`${AT_URL}/${table}`);
+      if (params) {
+        Object.entries(params).forEach(([k, v]) =>
+          Array.isArray(v)
+            ? v.forEach(val => u.searchParams.append(k, val))
+            : u.searchParams.set(k, v)
+        );
+      }
+      url = u.toString();
+      options.method = "GET";
+
+    } else if (method === "POST") {
+      url = `${AT_URL}/${table}`;
+      options.method = "POST";
+      options.body = JSON.stringify({ fields });
+
+    } else if (method === "PATCH") {
+      if (!recordId) return res.status(400).json({ error: "Missing recordId for PATCH" });
+      url = `${AT_URL}/${table}/${recordId}`;
+      options.method = "PATCH";
+      options.body = JSON.stringify({ fields });
+
+    } else {
+      return res.status(400).json({ error: "Invalid method — use GET, POST, or PATCH" });
+    }
+
+    const response = await fetch(url, options);
+    const data = await response.json();
+    return res.status(response.status).json(data);
+
+  } catch (e) {
+    return res.status(500).json({ error: "Failed to reach Airtable", detail: e.message });
+  }
+}

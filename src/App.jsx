@@ -123,35 +123,32 @@ const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false
   <button onClick={onClick} disabled={disabled} style={{padding:small?"7px 14px":"11px 20px",borderRadius:10,border:outline?`1.5px solid ${color}`:"none",background:disabled?"#1e2130":outline?"transparent":color,color:disabled?"#4b5563":outline?color:"#fff",fontSize:small?12:14,fontWeight:500,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",width:full?"100%":"auto",letterSpacing:"0.01em",...style}}>{children}</button>
 );
 
-// ── AIRTABLE REST API ────────────────────────────────────────────
-const AT_PAT = import.meta.env.VITE_AIRTABLE_PAT;
-const AT_URL = `https://api.airtable.com/v0/${BASE_ID}`;
+// ── AIRTABLE REST API (via secure server proxy) ──────────────────
+// All calls go to /api/airtable — the token never leaves the server.
 
 async function atGet(table, params = {}) {
-  const url = new URL(`${AT_URL}/${table}`);
-  Object.entries(params).forEach(([k, v]) =>
-    Array.isArray(v)
-      ? v.forEach(val => url.searchParams.append(k, val))
-      : url.searchParams.set(k, v)
-  );
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${AT_PAT}` } });
+  const res = await fetch("/api/airtable", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table, method: "GET", params }),
+  });
   return res.json();
 }
 
 async function atPost(table, fields) {
-  const res = await fetch(`${AT_URL}/${table}`, {
+  const res = await fetch("/api/airtable", {
     method: "POST",
-    headers: { Authorization: `Bearer ${AT_PAT}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ fields })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table, method: "POST", fields }),
   });
   return res.json();
 }
 
 async function atPatch(table, recordId, fields) {
-  const res = await fetch(`${AT_URL}/${table}/${recordId}`, {
-    method: "PATCH",
-    headers: { Authorization: `Bearer ${AT_PAT}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ fields })
+  const res = await fetch("/api/airtable", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table, method: "PATCH", recordId, fields }),
   });
   return res.json();
 }
