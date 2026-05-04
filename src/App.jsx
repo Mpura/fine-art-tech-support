@@ -1235,7 +1235,7 @@ export default function App() {
 
   // ── DASHBOARD ────────────────────────────────────────────────────
   if(view==="dashboard"){const desktopTwoCol=isDesktop&&(dashTab==="today"||dashTab==="queue");return(
-    <div style={isDesktop?{display:"flex",minHeight:"100vh",background:"#0F1117",alignItems:"flex-start"}:{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
+    <div style={isDesktop?{display:"flex",minHeight:"100vh",background:"#0F1117",alignItems:"flex-start",margin:"-24px -16px -48px",width:"calc(100% + 32px)"}:{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
       {isDesktop&&(
         <div style={{width:200,background:"#0a0d14",borderRight:"0.5px solid #1e2130",padding:"14px 10px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
           <div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>FATS</div><div style={{fontSize:10,color:"#4b5563",marginTop:2}}>Fine Art Department</div></div>
