@@ -238,7 +238,8 @@ async function lookupStudent(input) {
     return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo, email };
   }
   // 2. Fallback: search by name (for staff / visitors with no student number)
-  const nameFormula = `IFERROR(SEARCH(LOWER("${q}"),LOWER({Name})),0)>0`;
+  // FIND() returns 0 if not found (safe in filterByFormula), unlike SEARCH() which errors
+  const nameFormula = `FIND(LOWER("${q}"),LOWER({Name}))>0`;
   const nameData = await atGet(MEMBERS_TABLE, { filterByFormula: nameFormula, "fields[]": fields, maxRecords: 1 });
   if (nameData.records?.length) {
     const rec = nameData.records[0];
