@@ -227,33 +227,32 @@ function parseMemberName(fullName) {
 }
 async function lookupStudent(input) {
   const q = input.trim().replace(/"/g, "").replace(/\\/g, "");
+  const fields = ["Name","Yr","Email"];
   // 1. Try case-insensitive student number prefix match
   const snFormula = `LOWER(LEFT({Name},LEN(LOWER("${q}"))+1))=LOWER(CONCATENATE("${q}"," "))`;
-  const snData = await atGet(MEMBERS_TABLE, { filterByFormula: snFormula, "fields[]": ["Name","Yr"], maxRecords: 1 });
+  const snData = await atGet(MEMBERS_TABLE, { filterByFormula: snFormula, "fields[]": fields, maxRecords: 1 });
   if (snData.records?.length) {
     const rec = snData.records[0];
     const { studNo, name } = parseMemberName(rec.fields["Name"] || "");
-    return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo };
+    const email = rec.fields["Email"] || (studNo ? `${studNo.toLowerCase()}@campus.ru.ac.za` : null);
+    return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo, email };
   }
   // 2. Fallback: search by name (for staff / visitors with no student number)
   const nameFormula = `IFERROR(SEARCH(LOWER("${q}"),LOWER({Name})),0)>0`;
-  const nameData = await atGet(MEMBERS_TABLE, { filterByFormula: nameFormula, "fields[]": ["Name","Yr"], maxRecords: 1 });
+  const nameData = await atGet(MEMBERS_TABLE, { filterByFormula: nameFormula, "fields[]": fields, maxRecords: 1 });
   if (nameData.records?.length) {
     const rec = nameData.records[0];
     const { studNo, name } = parseMemberName(rec.fields["Name"] || "");
-    return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo };
+    const email = rec.fields["Email"] || (studNo ? `${studNo.toLowerCase()}@campus.ru.ac.za` : null);
+    return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo, email };
   }
   return { found: false };
 }
 
 // ── EMAIL ────────────────────────────────────────────────────────
-function studentEmail(studNo) {
-  return studNo ? `${studNo.toLowerCase()}@campus.ru.ac.za` : null;
-}
-
 async function sendConfirmationEmail(req) {
-  const email = studentEmail(req.studNo);
-  if (!email) return; // staff/visitors or walk-ins — skip
+  const email = req.studentEmail;
+  if (!email) return; // no email stored — skip
   const typeInfo = REQUEST_TYPES.find(t => t.id === req.typeId);
   const typeName = typeInfo?.label || req.type || "request";
   const icon = typeInfo?.icon || "📋";
@@ -567,7 +566,7 @@ export default function App() {
       selType==="3d"&&form.dropOffDate?form.dropOffDate:
       type.bookable&&selDate?`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`:
       form.when==="later"&&!isWalkIn?form.schedDate:null;
-    const req={id:genId(),name:isExt?extForm.name.trim():verifiedStudent.name,studNo:isExt?"":verifiedStudent?.studNo||"",year:isExt?"":verifiedStudent?.year||"",affiliation:isExt?extForm.affiliation.trim():"",contact:isExt?extForm.contact.trim():"",type:type.label,typeId:selType,when:isWalkIn?"walkin":(type.bookable&&selDate)||(selType==="studio"&&form.studioDate)||(selType==="3d"&&form.dropOffDate)?"booked":form.when,schedDate:_schedDate,notes:form.notes.trim(),details:getDetails(),status:"Pending",staffNote:"",isWalkIn,isExternal:isExt,createdAt:todayISO(),updatedAt:todayISO()};
+    const req={id:genId(),name:isExt?extForm.name.trim():verifiedStudent.name,studNo:isExt?"":verifiedStudent?.studNo||"",year:isExt?"":verifiedStudent?.year||"",studentEmail:isExt?null:verifiedStudent?.email||null,affiliation:isExt?extForm.affiliation.trim():"",contact:isExt?extForm.contact.trim():"",type:type.label,typeId:selType,when:isWalkIn?"walkin":(type.bookable&&selDate)||(selType==="studio"&&form.studioDate)||(selType==="3d"&&form.dropOffDate)?"booked":form.when,schedDate:_schedDate,notes:form.notes.trim(),details:getDetails(),status:"Pending",staffNote:"",isWalkIn,isExternal:isExt,createdAt:todayISO(),updatedAt:todayISO()};
     // Show immediately in UI
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     // Save to Airtable so staff can see it from any device
@@ -694,7 +693,7 @@ export default function App() {
     setEqSubmitting(true);
     try{await createEquipmentBooking(eqStudent,selItems,eqColDate,eqSlot,due,eqNotes);}catch(e){}
     const slotLabel=EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot;
-    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:"Pending",staffNote:"",isWalkIn:false,createdAt:todayISO(),updatedAt:todayISO()};
+    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,studentEmail:eqStudent.email||null,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:"Pending",staffNote:"",isWalkIn:false,createdAt:todayISO(),updatedAt:todayISO()};
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     setEqScreen("success");setEqSubmitting(false);
     try{
