@@ -559,6 +559,7 @@ export default function App() {
   const [eqSettingsForm, setEqSettingsForm] = useState(null);
   const [myFines, setMyFines] = useState(null);
   const [myFinesLoading, setMyFinesLoading] = useState(false);
+  const [checkShowArchive, setCheckShowArchive] = useState(false);
   const [eqCheckImages, setEqCheckImages] = useState({});
   const [queueEqImages, setQueueEqImages] = useState({});
 
@@ -1047,7 +1048,11 @@ export default function App() {
       {checkResults!==null&&checkResults.length===0&&(
         <div style={{textAlign:"center",padding:"2rem",color:"#374151",fontSize:14}}>No requests found for <strong style={{color:"#e0e3ea"}}>{checkStudNo}</strong>.</div>
       )}
-      {checkResults?.map(req=>(
+      {checkResults!==null&&(()=>{
+        const ARCHIVE_STATUSES=["Returned","Declined","Cancelled","Uncollected","Done"];
+        const active=checkResults.filter(r=>!ARCHIVE_STATUSES.includes(r.status));
+        const archived=checkResults.filter(r=>ARCHIVE_STATUSES.includes(r.status));
+        const ReqCard=({req})=>(
         <div key={req.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"16px 18px",marginBottom:12}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
             <div>
@@ -1095,8 +1100,23 @@ export default function App() {
           )}
           {req.staffNote&&req.status!=="Declined"&&<div style={{fontSize:12,color:"#60a5fa",background:"#0a1e35",borderRadius:8,padding:"6px 10px",marginBottom:6}}>📝 {req.staffNote}</div>}
           <div style={{fontSize:11,color:"#374151",textAlign:"right"}}>Ref: {req.id.slice(0,8).toUpperCase()}</div>
-        </div>
-      ))}
+        </div>);
+        return(<>
+          {active.length===0&&archived.length>0&&<div style={{textAlign:"center",padding:"1.5rem",color:"#374151",fontSize:14}}>No active requests — check your archive below.</div>}
+          {active.length===0&&archived.length===0&&null}
+          {active.map(req=><ReqCard key={req.id} req={req}/>)}
+          {/* Archive toggle */}
+          {archived.length>0&&(
+            <div style={{marginTop:4,marginBottom:8}}>
+              <button onClick={()=>setCheckShowArchive(v=>!v)} style={{width:"100%",background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",fontFamily:"inherit",color:"#6b7280",fontSize:13}}>
+                <span>📁 Past requests ({archived.length})</span>
+                <span style={{fontSize:16}}>{checkShowArchive?"▲":"▼"}</span>
+              </button>
+              {checkShowArchive&&<div style={{marginTop:8}}>{archived.map(req=><ReqCard key={req.id} req={req}/>)}</div>}
+            </div>
+          )}
+        </>);
+      })()}
       {/* Outstanding charges */}
       {(myFinesLoading||myFines!==null)&&(
         <div style={{marginTop:8}}>
