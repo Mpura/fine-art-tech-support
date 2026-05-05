@@ -246,6 +246,44 @@ async function lookupStudent(input) {
   return { found: false };
 }
 
+// ── EMAIL ────────────────────────────────────────────────────────
+function studentEmail(studNo) {
+  return studNo ? `${studNo.toLowerCase()}@campus.ru.ac.za` : null;
+}
+
+async function sendConfirmationEmail(req) {
+  const email = studentEmail(req.studNo);
+  if (!email) return; // staff/visitors or walk-ins — skip
+  const typeInfo = REQUEST_TYPES.find(t => t.id === req.typeId);
+  const typeName = typeInfo?.label || req.type || "request";
+  const icon = typeInfo?.icon || "📋";
+  const schedLine = req.schedDate ? `<p style="margin:0 0 8px"><strong>Scheduled:</strong> ${req.schedDate}</p>` : "";
+  const dueLine = req.dueDate ? `<p style="margin:0 0 8px"><strong>Due back:</strong> ${req.dueDate}</p>` : "";
+  const html = `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0f1117;color:#e0e3ea;padding:32px 24px;border-radius:12px">
+      <div style="font-size:28px;margin-bottom:8px">${icon}</div>
+      <h2 style="margin:0 0 4px;font-size:20px;color:#e0e3ea">Request received</h2>
+      <p style="margin:0 0 20px;font-size:14px;color:#9ca3af">Fine Art Tech Support</p>
+      <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your <strong>${typeName}</strong> request has been received and is being reviewed.</p>
+      <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:14px">
+        <p style="margin:0 0 8px"><strong>Status:</strong> Pending</p>
+        ${schedLine}${dueLine}
+        ${req.notes ? `<p style="margin:0;color:#9ca3af;font-style:italic">"${req.notes}"</p>` : ""}
+      </div>
+      <p style="font-size:13px;color:#6b7280;margin:0">Check your request status anytime at the FATS portal. You'll be notified of any updates.</p>
+    </div>`;
+  try {
+    await fetch("/api/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: email, subject: `${icon} Your ${typeName} request — FATS`, html }),
+    });
+  } catch (e) {
+    // Email failure is non-critical — request is already saved
+    console.warn("Email send failed:", e.message);
+  }
+}
+
 async function fetchEquipment(yearNum) {
   const data = await atGet(EQ_TABLE, {
     "fields[]": ["Name", "Type", "Equipment Status", "Status", "Image", "Restricted To Years", "Item Notes"]
@@ -538,6 +576,8 @@ export default function App() {
       if(result.id){setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));}
       else{console.error("FATS: request save failed",result);}
     }catch(e){console.error("FATS: request save error",e);}
+    // Send confirmation email to student (non-blocking)
+    sendConfirmationEmail(req);
     return req;
   }
   function updateStatus(id,status){
@@ -662,6 +702,8 @@ export default function App() {
       if(result.id){setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));}
       else{console.error("FATS: eq request save failed",result);}
     }catch(e){console.error("FATS: eq request save error",e);}
+    // Send confirmation email to student (non-blocking)
+    sendConfirmationEmail(req);
   }
   function resetEq(){setEqScreen("lookup");setEqStudNo("");setEqStudent(null);setEquipment([]);setSelItems([]);setEqFilter("All");setEqSearch("");setEqColDate("");setEqSlot("");setEqNotes("");setEqLookupErr("");setEqErr("");}
 
