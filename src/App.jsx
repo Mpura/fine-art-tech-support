@@ -216,25 +216,34 @@ function airtableToReq(rec) {
   };
 }
 
-async function lookupStudent(studNo) {
-  const formula = `LEFT({Name},LEN("${studNo}")+1)=CONCATENATE("${studNo}"," ")`;
-  const data = await atGet(MEMBERS_TABLE, {
-    filterByFormula: formula,
-    "fields[]": ["Name", "Yr"],
-    maxRecords: 1
-  });
-  if (!data.records?.length) return { found: false };
-  const rec = data.records[0];
-  const fullName = rec.fields["Name"] || "";
-  const parts = fullName.split(" ");
+function parseMemberName(fullName) {
+  const parts = fullName.trim().split(" ");
+  // Student numbers start with a letter and contain digits (e.g. g25K7744)
+  const hasStudNo = parts.length > 1 && /^[a-zA-Z][a-zA-Z0-9]*\d/.test(parts[0]);
   return {
-    found: true,
-    studentId: rec.id,
-    name: parts.slice(1).join(" "),
-    fullName,
-    year: String(rec.fields["Yr"] || ""),
-    studNo: parts[0]
+    studNo: hasStudNo ? parts[0] : "",
+    name:   hasStudNo ? parts.slice(1).join(" ") : fullName.trim(),
   };
+}
+async function lookupStudent(input) {
+  const q = input.trim().replace(/"/g, "").replace(/\\/g, "");
+  // 1. Try case-insensitive student number prefix match
+  const snFormula = `LOWER(LEFT({Name},LEN(LOWER("${q}"))+1))=LOWER(CONCATENATE("${q}"," "))`;
+  const snData = await atGet(MEMBERS_TABLE, { filterByFormula: snFormula, "fields[]": ["Name","Yr"], maxRecords: 1 });
+  if (snData.records?.length) {
+    const rec = snData.records[0];
+    const { studNo, name } = parseMemberName(rec.fields["Name"] || "");
+    return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo };
+  }
+  // 2. Fallback: search by name (for staff / visitors with no student number)
+  const nameFormula = `IFERROR(SEARCH(LOWER("${q}"),LOWER({Name})),0)>0`;
+  const nameData = await atGet(MEMBERS_TABLE, { filterByFormula: nameFormula, "fields[]": ["Name","Yr"], maxRecords: 1 });
+  if (nameData.records?.length) {
+    const rec = nameData.records[0];
+    const { studNo, name } = parseMemberName(rec.fields["Name"] || "");
+    return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo };
+  }
+  return { found: false };
 }
 
 async function fetchEquipment(yearNum) {
@@ -599,7 +608,7 @@ export default function App() {
     try{
       const result=await lookupStudent(form.studNo.trim());
       if(result?.found){setVerifiedStudent(result);if(rememberMe)localStorage.setItem(KEYS.savedStudNo,result.studNo);}
-      else{setVerifyErr("Student number not found. Check and try again.");}
+      else{setVerifyErr("Not found. Try your student number or full name.");}
     }catch(e){setVerifyErr("Could not connect. Please try again.");}
     setVerifyingStudent(false);
   }
@@ -625,7 +634,7 @@ export default function App() {
           setEquipment(items);setEqLoading(false);
         }
       } else {
-        setEqLookupErr("Student number not found. Please check and try again, or speak to Tech Support.");
+        setEqLookupErr("Not found. Try your student number or full name, or speak to Tech Support.");
       }
     }catch(e){setEqLookupErr("Could not connect. Please try again.");}
     setEqLooking(false);
@@ -863,10 +872,10 @@ export default function App() {
     <div style={{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
       <TabBar/><Back to="home" extra={()=>{setCheckStudNo("");setCheckResults(null);setMyFines(null);}}/>
       <div style={{fontSize:18,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Check my request</div>
-      <div style={{fontSize:13,color:"#4b5563",marginBottom:20}}>Enter your student number to see your submissions and charges</div>
+      <div style={{fontSize:13,color:"#4b5563",marginBottom:20}}>Enter your student number or name to see your submissions and charges</div>
       <div style={{display:"flex",gap:8,marginBottom:16}}>
-        <input style={{...ipt,flex:1}} value={checkStudNo} onChange={e=>setCheckStudNo(e.target.value.trim())} onKeyDown={async e=>{if(e.key==="Enter"&&checkStudNo.trim()){const res=requests.filter(r=>r.studNo?.toLowerCase()===checkStudNo.toLowerCase());setCheckResults(res);setMyFines(null);setMyFinesLoading(true);try{const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}const f=await fetchFinesForStudent(checkStudNo.trim());setMyFines(f);}catch(e){setMyFines([]);}setMyFinesLoading(false);}}} placeholder="e.g. g25K7744" autoFocus/>
-        <Btn onClick={async()=>{const res=requests.filter(r=>r.studNo?.toLowerCase()===checkStudNo.toLowerCase());setCheckResults(res);setMyFines(null);setMyFinesLoading(true);try{const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}const f=await fetchFinesForStudent(checkStudNo.trim());setMyFines(f);}catch(e){setMyFines([]);}setMyFinesLoading(false);}} disabled={!checkStudNo.trim()}>Search</Btn>
+        <input style={{...ipt,flex:1}} value={checkStudNo} onChange={e=>setCheckStudNo(e.target.value.trim())} onKeyDown={async e=>{if(e.key==="Enter"&&checkStudNo.trim()){const q=checkStudNo.trim().toLowerCase();const res=requests.filter(r=>r.studNo?.toLowerCase()===q||r.name?.toLowerCase().includes(q));setCheckResults(res);setMyFines(null);setMyFinesLoading(true);try{const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}const f=await fetchFinesForStudent(checkStudNo.trim());setMyFines(f);}catch(e){setMyFines([]);}setMyFinesLoading(false);}}} placeholder="e.g. g25K7744 or your name" autoFocus/>
+        <Btn onClick={async()=>{const q=checkStudNo.trim().toLowerCase();const res=requests.filter(r=>r.studNo?.toLowerCase()===q||r.name?.toLowerCase().includes(q));setCheckResults(res);setMyFines(null);setMyFinesLoading(true);try{const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}const f=await fetchFinesForStudent(checkStudNo.trim());setMyFines(f);}catch(e){setMyFines([]);}setMyFinesLoading(false);}} disabled={!checkStudNo.trim()}>Search</Btn>
       </div>
       {checkResults!==null&&checkResults.length===0&&(
         <div style={{textAlign:"center",padding:"2rem",color:"#374151",fontSize:14}}>No requests found for <strong style={{color:"#e0e3ea"}}>{checkStudNo}</strong>.</div>
@@ -956,13 +965,13 @@ export default function App() {
         <TabBar/>
         <Back to="home" label="← Back"/>
         <div style={{fontSize:18,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Equipment Booking</div>
-        <div style={{fontSize:13,color:"#4b5563",marginBottom:20}}>Enter your student number to see available equipment</div>
+        <div style={{fontSize:13,color:"#4b5563",marginBottom:20}}>Enter your student number or name to see available equipment</div>
         <div style={{background:"#0a1e35",borderRadius:10,padding:"12px 14px",marginBottom:20,fontSize:13,color:"#60a5fa"}}>
           Your year is verified automatically — equipment available to your year will be shown.
         </div>
         <div style={{marginBottom:16}}>
-          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Student number *</label>
-          <input style={{...ipt,fontSize:16,letterSpacing:"0.05em"}} value={eqStudNo} onChange={e=>setEqStudNo(e.target.value.trim())} onKeyDown={e=>e.key==="Enter"&&handleEqLookup()} placeholder="e.g. g25K7744" autoFocus/>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Student number or name *</label>
+          <input style={{...ipt,fontSize:16,letterSpacing:"0.05em"}} value={eqStudNo} onChange={e=>setEqStudNo(e.target.value.trim())} onKeyDown={e=>e.key==="Enter"&&handleEqLookup()} placeholder="e.g. g25K7744 or your name" autoFocus/>
           {eqLookupErr&&<div style={{marginTop:8,fontSize:13,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"10px 12px"}}>⚠️ {eqLookupErr}</div>}
         </div>
         <Btn onClick={handleEqLookup} disabled={!eqStudNo.trim()||eqLooking} full style={{padding:"13px",fontSize:15}}>
@@ -1125,9 +1134,9 @@ export default function App() {
       </div>
       {visitorType==="student"&&(!verifiedStudent?(
         <div style={{marginBottom:20}}>
-          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Student number *</label>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Student number or name *</label>
           <div style={{display:"flex",gap:8}}>
-            <input style={{...ipt,flex:1}} value={form.studNo} onChange={e=>{setF("studNo",e.target.value);setVerifyErr("");}} onKeyDown={e=>e.key==="Enter"&&handleVerifyStudent()} placeholder="e.g. g25K7744" autoFocus/>
+            <input style={{...ipt,flex:1}} value={form.studNo} onChange={e=>{setF("studNo",e.target.value);setVerifyErr("");}} onKeyDown={e=>e.key==="Enter"&&handleVerifyStudent()} placeholder="e.g. g25K7744 or your name" autoFocus/>
             <Btn onClick={handleVerifyStudent} disabled={!form.studNo.trim()||verifyingStudent}>{verifyingStudent?"...":"Verify"}</Btn>
           </div>
           <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"#6b7280",marginTop:10,cursor:"pointer"}}>
