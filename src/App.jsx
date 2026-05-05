@@ -662,14 +662,15 @@ export default function App() {
     try{
       const result=await lookupStudent(eqStudNo.trim());
       if(result?.found){
-        if(result.year==="1"){
+        // If year is missing or unrecognised, treat as "other" (staff/visitor — gets masters cap & loan days)
+        const yr=(result.year&&["1","2","3","4","m","s","o"].includes(result.year))?result.year:"o";
+        const student={...result,year:yr};
+        if(yr==="1"){
           setEqLookupErr("Equipment booking is available from 2nd year onwards. 1st year students can still log other requests at the main desk.");
-        } else if(!result.year||!["2","3","4","m","s","o"].includes(result.year)){
-          setEqLookupErr("Year group not set for this student in Airtable. Please ask Tech Support to update the record before booking.");
         } else {
-          setEqStudent(result);setEqScreen("browse");
+          setEqStudent(student);setEqScreen("browse");
           setEqLoading(true);
-          const items=await fetchEquipment(result.year);
+          const items=await fetchEquipment(yr);
           setEquipment(items);setEqLoading(false);
         }
       } else {
