@@ -560,6 +560,7 @@ export default function App() {
   const [myFines, setMyFines] = useState(null);
   const [myFinesLoading, setMyFinesLoading] = useState(false);
   const [checkShowArchive, setCheckShowArchive] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [eqCheckImages, setEqCheckImages] = useState({});
   const [queueEqImages, setQueueEqImages] = useState({});
 
@@ -653,7 +654,7 @@ export default function App() {
     else{if(!verifiedStudent||!selType)return;}
     const _schedDate=
       selType==="studio"&&form.studioDate&&form.studioSlot?`${form.studioDate} (${EQ_COL_SLOTS.find(s=>s.id===form.studioSlot)?.label||form.studioSlot})`:
-      selType==="3d"&&form.dropOffDate?form.dropOffDate:
+      selType==="3d"&&form.dropOffDate?`Drop-off: ${fmtDate(form.dropOffDate)}`:
       type.bookable&&selDate?`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`:
       form.when==="later"&&!isWalkIn?form.schedDate:null;
     const req={id:genId(),name:isExt?extForm.name.trim():verifiedStudent.name,studNo:isExt?"":verifiedStudent?.studNo||"",year:isExt?"":verifiedStudent?.year||"",studentEmail:isExt?null:verifiedStudent?.email||null,affiliation:isExt?extForm.affiliation.trim():"",contact:isExt?extForm.contact.trim():"",type:type.label,typeId:selType,when:isWalkIn?"walkin":(type.bookable&&selDate)||(selType==="studio"&&form.studioDate)||(selType==="3d"&&form.dropOffDate)?"booked":form.when,schedDate:_schedDate,notes:form.notes.trim(),details:getDetails(),status:"Pending",staffNote:"",isWalkIn,isExternal:isExt,createdAt:todayISO(),updatedAt:todayISO()};
@@ -891,7 +892,7 @@ export default function App() {
     const firstDay=new Date(calYear,calMonth,1).getDay();
     const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
     const cells=[];for(let i=0;i<firstDay;i++)cells.push(null);for(let d=1;d<=daysInMonth;d++)cells.push(d);
-    const isAvail=(d)=>{const date=new Date(calYear,calMonth,d);if(date<today)return false;const k=toKey(calYear,calMonth,d);if(minAllowed&&k<=minAllowed)return false;if(blocks[k])return false;if(!sched.days.includes(date.getDay()))return false;return getBookings(eqId,k,"morning")<sched.morningSlots||getBookings(eqId,k,"afternoon")<sched.afternoonSlots;};
+    const isAvail=(d)=>{const date=new Date(calYear,calMonth,d);if(date<today)return false;const k=toKey(calYear,calMonth,d);if(minAllowed&&k<minAllowed)return false;if(blocks[k])return false;if(!sched.days.includes(date.getDay()))return false;return getBookings(eqId,k,"morning")<sched.morningSlots||getBookings(eqId,k,"afternoon")<sched.afternoonSlots;};
     return(
       <div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -1443,7 +1444,7 @@ export default function App() {
         </>}
       </div>}
       <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Additional notes (optional)</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder="Any extra details Tech Support should know..."/></div>
-      <Btn onClick={()=>{const r=submitRequest();setLastReq(r);setScreen("success");}} disabled={(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&!form.sessionDuration)||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot))} full style={{padding:"13px",fontSize:15}}>Submit a request</Btn>
+      <Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&!form.sessionDuration)||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot))} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>
     </div>
   );
 
