@@ -48,7 +48,7 @@ const DEFAULT_SCHEDULE = {
 
 const STATUSES = ["Pending","In Progress","Done","Declined"];
 const LASER_STATUSES = ["Pending","Material test required","Ready to cut","In Progress","Done","Declined"];
-const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined"];
+const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"];
 const IT_STATUSES = ["Logged","Awaiting IT","In Progress","Resolved","Escalated"];
 
 const statusStyle = {
@@ -64,6 +64,7 @@ const statusStyle = {
   "Partially Returned":{bg:"#1a2a1a",color:"#4ade80"},
   "Returned":{bg:"#1a1d28",color:"#6b7280"},
   "Uncollected":{bg:"#2a1500",color:"#fb923c"},
+  "Cancelled":{bg:"#1a1a2a",color:"#9ca3af"},
 };
 const itStatusStyle = {
   "Logged":{bg:"#2a1f0a",color:"#d4851a"},
@@ -532,7 +533,7 @@ export default function App() {
   }
   function updateStatus(id,status){
     const req=requests.find(r=>r.id===id);
-    if(req?.typeId==="equipment"&&["Declined","Uncollected"].includes(status)){
+    if(req?.typeId==="equipment"&&["Declined","Uncollected","Cancelled"].includes(status)){
       const ids=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
       if(ids.length){atPost(CHECKOUT_TABLE,{"Type":"Checking In","Checked Out Gear":ids}).catch(()=>{});}
     }
@@ -603,7 +604,7 @@ export default function App() {
     setVerifyingStudent(false);
   }
 
-  function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"(Morning)":"(Afternoon)")&&r.status!=="Declined").length;}
+  function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"(Morning)":"(Afternoon)")&&r.status!=="Declined"&&r.status!=="Cancelled").length;}
   function getReqsForDate(dateKey){return requests.filter(r=>r.schedDate&&r.schedDate.startsWith(dateKey));}
 
   // Equipment booking handlers
@@ -668,9 +669,9 @@ export default function App() {
   const morningToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Morning")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done");
   const afternoonToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Afternoon")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done");
   const studioToday=requests.filter(r=>r.typeId==="studio"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Done");
-  const eqCollectionsToday=requests.filter(r=>r.typeId==="equipment"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Returned");
-  const eqDueToday=requests.filter(r=>r.typeId==="equipment"&&r.dueDate===_today&&r.status!=="Returned"&&r.status!=="Declined");
-  const eqOverdue=requests.filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<_today&&r.status!=="Returned"&&r.status!=="Declined");
+  const eqCollectionsToday=requests.filter(r=>r.typeId==="equipment"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Cancelled"&&r.status!=="Returned");
+  const eqDueToday=requests.filter(r=>r.typeId==="equipment"&&r.dueDate===_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
+  const eqOverdue=requests.filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
 
   // ── TODAY CARD ───────────────────────────────────────────────────
   const TodayCard=({req,actionLabel,actionStatus})=>{
@@ -904,6 +905,7 @@ export default function App() {
           {req.status==="Ready to collect"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>📦 Your equipment is ready to collect. Bring your student card.</div>}
           {req.status==="Done"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>✅ Done — your request has been completed.</div>}
           {req.status==="Declined"&&<div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#f87171",marginBottom:6}}>❌ Declined{req.staffNote?` — ${req.staffNote}`:". Please contact Tech Support for more info."}.</div>}
+          {req.status==="Cancelled"&&<div style={{background:"#1a1a2a",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#9ca3af",marginBottom:6}}>🚫 Cancelled{req.staffNote?` — ${req.staffNote}`:". This request has been cancelled."}.</div>}
           {req.status==="Pending"&&<div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#d4851a",marginBottom:6}}>⏳ Pending — Tech Support will review your request. Check back soon.</div>}
           {req.typeId==="laser"&&req.status==="Material test required"&&(
             <div style={{background:"#2a1500",borderRadius:10,padding:"12px 14px",marginBottom:6,borderLeft:"4px solid #E65C00"}}>
