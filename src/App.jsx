@@ -155,21 +155,64 @@ async function atPatch(table, recordId, fields) {
 }
 
 // ── REQUEST ↔ AIRTABLE CONVERTERS ───────────────────────────────
-// Uses two fields only: "Name" (LocalId) + "Data" (full JSON blob)
 function reqToAirtable(req) {
   return {
-    Name: req.id || "",
-    Data: JSON.stringify({...req, updatedAt: todayISO()}),
+    Name:          req.id || "",
+    StudentName:   req.name || "",
+    StudNo:        req.studNo || "",
+    Year:          req.year || "",
+    TypeId:        req.typeId || "",
+    Status:        req.status || "Pending",
+    Notes:         req.notes || "",
+    SchedDate:     req.schedDate || "",
+    DueDate:       req.dueDate || "",
+    Details:       JSON.stringify(req.details || {}),
+    WalkIn:        req.isWalkIn || false,
+    VisitorType:   req.visitorType || (req.isExternal ? "external" : "student"),
+    StaffNote:     req.staffNote || "",
+    CreatedAt:     req.createdAt || todayISO(),
+    UpdatedAt:     todayISO(),
+    ReturnedItems: JSON.stringify(req.returnedItems || []),
+    LostItems:     JSON.stringify(req.lostItems || []),
+    LateDays:      req.lateDays || 0,
+    LateFine:      req.lateFine || 0,
+    CheckInNotes:  req.checkInNotes || "",
   };
 }
 function airtableToReq(rec) {
   const f = rec.fields || {};
-  try {
-    const req = JSON.parse(f.Data || "{}");
-    return { ...req, airtableId: rec.id };
-  } catch(e) {
-    return { id: f.Name || rec.id, airtableId: rec.id, status: "Pending", name: "", studNo: "", typeId: "", createdAt: "" };
+  // Existing records saved with the old Data blob — fall back gracefully
+  if (!f.StudentName && f.Data) {
+    try { return { ...JSON.parse(f.Data), airtableId: rec.id }; } catch(e) {}
   }
+  let details = {}, returnedItems = [], lostItems = [];
+  try { details = JSON.parse(f.Details || "{}"); } catch(e) {}
+  try { returnedItems = JSON.parse(f.ReturnedItems || "[]"); } catch(e) {}
+  try { lostItems = JSON.parse(f.LostItems || "[]"); } catch(e) {}
+  return {
+    id:           f.Name || rec.id,
+    airtableId:   rec.id,
+    name:         f.StudentName || "",
+    studNo:       f.StudNo || "",
+    year:         f.Year || "",
+    typeId:       f.TypeId || "",
+    type:         f.TypeId || "",
+    status:       f.Status || "Pending",
+    notes:        f.Notes || "",
+    schedDate:    f.SchedDate || null,
+    dueDate:      f.DueDate || null,
+    details,
+    isWalkIn:     f.WalkIn || false,
+    visitorType:  f.VisitorType || "student",
+    staffNote:    f.StaffNote || "",
+    createdAt:    f.CreatedAt || "",
+    updatedAt:    f.UpdatedAt || "",
+    returnedItems,
+    lostItems,
+    lateDays:     f.LateDays || 0,
+    lateFine:     f.LateFine || 0,
+    checkInNotes: f.CheckInNotes || "",
+  };
 }
 
 async function lookupStudent(studNo) {
@@ -493,13 +536,13 @@ export default function App() {
       const ids=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
       if(ids.length){atPost(CHECKOUT_TABLE,{"Type":"Checking In","Checked Out Gear":ids}).catch(()=>{});}
     }
-    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{Data:JSON.stringify({...req,status,updatedAt:todayISO()})}).catch(()=>{});}
+    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{Status:status,UpdatedAt:todayISO()}).catch(()=>{});}
     const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);
   }
   function updateReq(id,fields){
     const req=requests.find(r=>r.id===id);
     const updated={...req,...fields,updatedAt:todayISO()};
-    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{Data:JSON.stringify(updated)}).catch(()=>{});}
+    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,reqToAirtable(updated)).catch(()=>{});}
     const u=requests.map(r=>r.id===id?updated:r);setRequests(u);persist(KEYS.req,u);
   }
   async function confirmCheckIn(req,returningNames,lostItemNames,notes){
@@ -535,7 +578,7 @@ export default function App() {
   function saveNote(id){
     const note=staffNotes[id]||"";
     const req=requests.find(r=>r.id===id);
-    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{Data:JSON.stringify({...req,staffNote:note,updatedAt:todayISO()})}).catch(()=>{});}
+    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{StaffNote:note,UpdatedAt:todayISO()}).catch(()=>{});}
     const u=requests.map(r=>r.id===id?{...r,staffNote:note,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);
   }
   function updateSchedule(eqId,field,val){const u={...schedule,[eqId]:{...schedule[eqId],[field]:val}};setSchedule(u);persist(KEYS.sched,u);}
