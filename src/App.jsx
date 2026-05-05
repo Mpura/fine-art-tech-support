@@ -1006,14 +1006,43 @@ export default function App() {
   );
 
   // ── CHECK STATUS ────────────────────────────────────────────────
-  if(view==="student"&&screen==="check") return(
+  if(view==="student"&&screen==="check") {
+    async function runCheckSearch(rawQ){
+      const q=(rawQ||checkStudNo).trim();
+      if(!q)return;
+      localStorage.setItem("fats_last_check",q);
+      setCheckResults(null);setMyFines(null);setMyFinesLoading(true);
+      // Always fetch fresh data from Airtable so status is live
+      let freshReqs=requests;
+      try{
+        const data=await atGet(REQUESTS_TABLE,{maxRecords:500});
+        if(data.records){
+          freshReqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+          setRequests(freshReqs);persist(KEYS.req,freshReqs);
+        }
+      }catch(e){}
+      const lower=q.toLowerCase();
+      const res=freshReqs.filter(r=>r.studNo?.toLowerCase()===lower||r.name?.toLowerCase().includes(lower));
+      setCheckResults(res);
+      try{
+        const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];
+        if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}
+        const f=await fetchFinesForStudent(q);setMyFines(f);
+      }catch(e){setMyFines([]);}
+      setMyFinesLoading(false);
+    }
+    // Auto-fill + auto-search from last session
+    const _savedCheck=localStorage.getItem("fats_last_check");
+    if(_savedCheck&&!checkStudNo&&checkResults===null){setCheckStudNo(_savedCheck);setTimeout(()=>runCheckSearch(_savedCheck),0);}
+  return(
     <div style={{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
       <TabBar/><Back to="home" extra={()=>{setCheckStudNo("");setCheckResults(null);setMyFines(null);}}/>
       <div style={{fontSize:18,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Check my request</div>
       <div style={{fontSize:13,color:"#4b5563",marginBottom:20}}>Enter your student number or name to see your submissions and charges</div>
       <div style={{display:"flex",gap:8,marginBottom:16}}>
-        <input style={{...ipt,flex:1}} value={checkStudNo} onChange={e=>setCheckStudNo(e.target.value.trim())} onKeyDown={async e=>{if(e.key==="Enter"&&checkStudNo.trim()){const q=checkStudNo.trim().toLowerCase();const res=requests.filter(r=>r.studNo?.toLowerCase()===q||r.name?.toLowerCase().includes(q));setCheckResults(res);setMyFines(null);setMyFinesLoading(true);try{const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}const f=await fetchFinesForStudent(checkStudNo.trim());setMyFines(f);}catch(e){setMyFines([]);}setMyFinesLoading(false);}}} placeholder="e.g. g25K7744 or your name" autoFocus/>
-        <Btn onClick={async()=>{const q=checkStudNo.trim().toLowerCase();const res=requests.filter(r=>r.studNo?.toLowerCase()===q||r.name?.toLowerCase().includes(q));setCheckResults(res);setMyFines(null);setMyFinesLoading(true);try{const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}const f=await fetchFinesForStudent(checkStudNo.trim());setMyFines(f);}catch(e){setMyFines([]);}setMyFinesLoading(false);}} disabled={!checkStudNo.trim()}>Search</Btn>
+        <input style={{...ipt,flex:1}} value={checkStudNo} onChange={e=>setCheckStudNo(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&checkStudNo.trim())runCheckSearch();}} placeholder="e.g. g25K7744 or your name" autoFocus/>
+        <Btn onClick={()=>runCheckSearch()} disabled={!checkStudNo.trim()}>Search</Btn>
+        {checkResults!==null&&<button onClick={()=>runCheckSearch()} style={{background:"#1a1d28",border:"0.5px solid #2a2d3e",borderRadius:8,color:"#9ca3af",fontSize:13,padding:"0 12px",cursor:"pointer",fontFamily:"inherit"}}>↻ Refresh</button>}
       </div>
       {checkResults!==null&&checkResults.length===0&&(
         <div style={{textAlign:"center",padding:"2rem",color:"#374151",fontSize:14}}>No requests found for <strong style={{color:"#e0e3ea"}}>{checkStudNo}</strong>.</div>
@@ -1093,7 +1122,7 @@ export default function App() {
         </div>
       )}
     </div>
-  );
+  );}
 
   // ── EQUIPMENT BOOKING SCREENS ────────────────────────────────────
   if(view==="student"&&screen==="equipment") {
