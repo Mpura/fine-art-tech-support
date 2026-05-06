@@ -2050,7 +2050,7 @@ export default function App() {
         const [hsLoading,setHsLoading]=React.useState(false);
         const [showMaintForm,setShowMaintForm]=React.useState(false);
         const [showPmForm,setShowPmForm]=React.useState(false);
-        const [maintForm,setMaintForm]=React.useState({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:""});
+        const [maintForm,setMaintForm]=React.useState({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:"",emailDateTime:""});
         const [pmForm,setPmForm]=React.useState({taskName:"",machine:"",interval:"",lastDone:todayDate(),nextDue:"",notes:""});
         const [editMaint,setEditMaint]=React.useState(null);
         const [editPm,setEditPm]=React.useState(null);
@@ -2059,7 +2059,6 @@ export default function App() {
 
         // Parse RU Estates email into form fields
         function parseRUEmail(text){
-          const get=(label)=>{const m=text.match(new RegExp(label+"[:\\s]+([^\\n\\r]+?)(?:\\s+(?:and|with|$))",""+"i"));return m?m[1].trim():"";}
           const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
           const rawType=(text.match(/Problem Type[:\s]+([^\n\r]+?)(?:\s+at\s|\s+Location|$)/i)||[])[1]||"";
           const typeMap={electrical:"Electrical",plumbing:"Plumbing",structural:"Structural",pest:"Pest Control",clean:"Cleaning",mechanical:"Equipment",hvac:"Equipment",equipment:"Equipment"};
@@ -2072,7 +2071,10 @@ export default function App() {
           const rawStatus=(text.match(/Status been changed to[:\s]+(\w+)/i)||[])[1]||"";
           const statusMap={requested:"Submitted to Estates",inprogress:"In Progress","in progress":"In Progress",completed:"Resolved",resolved:"Resolved",closed:"Closed"};
           const status=statusMap[rawStatus.toLowerCase()]||"Submitted to Estates";
-          return{universityRef:id,problemType:probType,location,description:desc,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:"",parsedStatus:status};
+          // Parse email date/time — e.g. "Mon 16 Mar, 11:36" or "Mon 16 Mar 2026, 11:36"
+          const dtMatch=text.match(/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}\s+\w+(?:\s+\d{4})?,\s*\d{1,2}:\d{2}/i);
+          const emailDateTime=dtMatch?dtMatch[0]:"";
+          return{universityRef:id,problemType:probType,location,description:desc,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:"",parsedStatus:status,emailDateTime};
         }
 
         // Days since date helper
@@ -2100,7 +2102,7 @@ export default function App() {
 
         async function saveMaintReq(){
           const autoStatus=maintForm.universityRef?"Submitted to Estates":"Open";
-          const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined};
+          const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined,"EmailDateTime":maintForm.emailDateTime||undefined};
           if(editMaint){
             await atPatch(MAINT_TABLE,editMaint.id,fields);
             setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...fields}:r));
@@ -2108,7 +2110,7 @@ export default function App() {
             const res=await atPost(MAINT_TABLE,fields);
             if(res.id) setMaintReqs(prev=>[{id:res.id,...fields},...(prev||[])]);
           }
-          setShowMaintForm(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:""});
+          setShowMaintForm(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:"",emailDateTime:""});
         }
 
         async function updateMaintStatus(req,status){
@@ -2188,7 +2190,7 @@ export default function App() {
                     <textarea style={{...ipt,resize:"vertical",fontSize:12}} rows={8} value={pasteEmail} onChange={e=>setPasteEmail(e.target.value)} placeholder={"Paste the email text here, e.g.:\n\nYour work request with ID: 104694 with\nProblem Type: ELECTRICAL|...\nLocation: B1 and\nBuilding Name: B1-FINE ARTS GRAPHICS DEPT and\nFloor: G and\nRoom: G019 and\nDescription: ..."}/>
                   </div>
                   <div style={{display:"flex",gap:8,marginBottom:12}}>
-                    <Btn color="#60a5fa" onClick={()=>{const parsed=parseRUEmail(pasteEmail);setMaintForm({description:parsed.description,location:parsed.location,problemType:parsed.problemType,universityRef:parsed.universityRef,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:""});setPasteMode(false);}} disabled={!pasteEmail.trim()} style={{flex:2}}>Parse email →</Btn>
+                    <Btn color="#60a5fa" onClick={()=>{const parsed=parseRUEmail(pasteEmail);setMaintForm({description:parsed.description,location:parsed.location,problemType:parsed.problemType,universityRef:parsed.universityRef,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:"",emailDateTime:parsed.emailDateTime||""});setPasteMode(false);}} disabled={!pasteEmail.trim()} style={{flex:2}}>Parse email →</Btn>
                     <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setPasteMode(false);}} style={{flex:1}}>Cancel</Btn>
                   </div>
                   <div style={{fontSize:12,color:"#4b5563",background:"#0f1117",borderRadius:8,padding:"10px 12px"}}>The parser will extract the request ID, problem type, building, floor, room, and description automatically. You can review and edit everything before saving.</div>
@@ -2205,6 +2207,7 @@ export default function App() {
                   <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date logged</label><input type="date" style={ipt} value={maintForm.dateLogged} onChange={e=>setMaintForm(f=>({...f,dateLogged:e.target.value}))}/></div>
                   <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date submitted to Estates</label><input type="date" style={ipt} value={maintForm.dateSubmitted} onChange={e=>setMaintForm(f=>({...f,dateSubmitted:e.target.value}))}/></div>
                 </div>
+                {maintForm.emailDateTime&&(<div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Email timestamp (from parsed email)</label><input style={{...ipt,color:"#60a5fa",background:"#0a1e35"}} value={maintForm.emailDateTime} readOnly/></div>)}
                 <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>University reference no.</label><input style={ipt} value={maintForm.universityRef} onChange={e=>setMaintForm(f=>({...f,universityRef:e.target.value}))} placeholder="e.g. REQ-2026-1234"/></div>
                 <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={maintForm.notes} onChange={e=>setMaintForm(f=>({...f,notes:e.target.value}))} placeholder="Any additional details…"/></div>
                 <div style={{display:"flex",gap:8}}>
@@ -2234,6 +2237,7 @@ export default function App() {
                         {req.DateLogged&&<span>Logged: {fmtDate(req.DateLogged)}</span>}
                         {req.DateSubmitted&&<span style={{color:col}}>Submitted: {fmtDate(req.DateSubmitted)} · {days}d ago</span>}
                         {req.UniversityRef&&<span style={{color:"#60a5fa"}}>Ref: {req.UniversityRef}</span>}
+                        {req.EmailDateTime&&<span style={{color:"#9ca3af"}}>📧 {req.EmailDateTime}</span>}
                       </div>
                       {req.Notes&&<div style={{fontSize:12,color:"#4b5563",marginTop:4,fontStyle:"italic"}}>"{req.Notes}"</div>}
                     </div>
