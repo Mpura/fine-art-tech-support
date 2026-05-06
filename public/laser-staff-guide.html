@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Laser Operator Reference — FATS Staff</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#0f1117;color:#e0e3ea;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px 16px;max-width:760px;margin:0 auto;line-height:1.6;}
+  h1{font-size:20px;font-weight:600;margin-bottom:4px;color:#e0e3ea;}
+  .sub{font-size:13px;color:#6b7280;margin-bottom:32px;}
+  h2{font-size:15px;font-weight:600;color:#e0e3ea;margin:28px 0 10px;}
+  h3{font-size:13px;font-weight:600;color:#9ca3af;margin:14px 0 6px;text-transform:uppercase;letter-spacing:0.05em;}
+  p{font-size:14px;color:#9ca3af;margin-bottom:10px;}
+  .card{background:#141720;border:0.5px solid #1e2130;border-radius:12px;padding:16px 18px;margin-bottom:16px;}
+  .warn{background:#2a0f14;border-left:3px solid #f87171;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#f87171;}
+  .info{background:#0a1e35;border-left:3px solid #E65C00;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fb923c;}
+  .note{background:#0a2218;border-left:3px solid #20B07F;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#20B07F;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;}
+  th{background:#1a1d28;color:#9ca3af;padding:8px 10px;text-align:left;font-weight:500;font-size:12px;}
+  td{padding:8px 10px;color:#e0e3ea;border-top:0.5px solid #1e2130;vertical-align:top;}
+  td.muted{color:#9ca3af;}
+  tr:hover td{background:#141720;}
+  ul{padding-left:18px;margin-bottom:8px;}
+  li{font-size:13px;color:#9ca3af;margin-bottom:5px;}
+  .badge{display:inline-block;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;}
+  .badge-slow{background:#2a1500;color:#fb923c;}
+  .badge-fast{background:#0a1e35;color:#60a5fa;}
+  .badge-eng{background:#0a2218;color:#20B07F;}
+  .step{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;}
+  .step-num{width:24px;height:24px;border-radius:50%;background:#1a1d28;border:1.5px solid #2a2d3e;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#E65C00;flex-shrink:0;margin-top:1px;}
+  .step-body{flex:1;font-size:13px;color:#9ca3af;}
+  .step-body strong{color:#e0e3ea;}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:500px){.two-col{grid-template-columns:1fr;}}
+  .sub-card{background:#1a1d28;border-radius:8px;padding:12px 14px;}
+  .sub-card-title{font-size:12px;font-weight:600;color:#e0e3ea;margin-bottom:6px;}
+  footer{margin-top:40px;padding-top:16px;border-top:0.5px solid #1e2130;font-size:12px;color:#374151;text-align:center;}
+  .staff-badge{display:inline-block;background:#2a1f0a;color:#d4851a;border:0.5px solid #3a2f1a;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<h1>⚡ Laser Operator Reference</h1>
+<p class="sub">Fine Art Tech Support — Staff only · SA Argus 80W CO₂ Laser · Bed: 1000mm × 600mm</p>
+<div class="staff-badge">🔒 STAFF USE ONLY — not for students</div>
+
+<div class="info">This guide covers cutting and engraving profiles, pulse settings, startup procedure, and safety. The <a href="/laser-guide.html" style="color:#fb923c;">student guide</a> covers file prep only.</div>
+
+<!-- STARTUP -->
+<h2>Machine Startup Procedure</h2>
+<div class="card">
+  <div class="step"><div class="step-num">1</div><div class="step-body"><strong>Switch on the laser</strong> using the key switch on the control panel.</div></div>
+  <div class="step"><div class="step-num">2</div><div class="step-body"><strong>Press the Motors button</strong> — the machine will home automatically.</div></div>
+  <div class="step"><div class="step-num">3</div><div class="step-body"><strong>Check water cooler</strong> — ensure water is flowing and temperature is 20–30°C. Do not run the machine if water temperature exceeds 33°C.</div></div>
+  <div class="step"><div class="step-num">4</div><div class="step-body"><strong>Turn on Air Assist and Exhaust</strong> — air must be on for all cutting. Keep it on even at low level to protect the lens.</div></div>
+  <div class="step"><div class="step-num">5</div><div class="step-body"><strong>Open VectorDRAW</strong> → Processing Path → <strong>Select USB Device</strong> to connect the PC to the laser (do this every time VectorDRAW starts).</div></div>
+  <div class="step"><div class="step-num">6</div><div class="step-body"><strong>Import student's .AI file</strong>, set up paths, assign templates, set processing order (engrave before cut).</div></div>
+  <div class="step"><div class="step-num">7</div><div class="step-body"><strong>Send to machine</strong> — file names are max 8 characters.</div></div>
+  <div class="step"><div class="step-num">8</div><div class="step-body"><strong>Place material on bed</strong>, use focus tool to set correct height, zero the position on hand control (bottom-left default).</div></div>
+  <div class="step"><div class="step-num">9</div><div class="step-body"><strong>Switch on Laser button</strong>, set to Auto function, and run the job.</div></div>
+  <div class="step"><div class="step-num">10</div><div class="step-body"><strong>When done</strong>: turn off laser, air, exhaust, and send head to Home position.</div></div>
+  <div class="info" style="margin-top:4px">💡 For thick materials (>9mm), lower the focus by moving the nozzle closer to the material. Ensure the nozzle does not touch the material — this restricts airflow and contaminates the lens.</div>
+</div>
+
+<!-- CUTTING PROFILES -->
+<h2>Cutting Profiles</h2>
+
+<div class="card">
+  <h3><span class="badge badge-slow">SLOW MODE</span> — below 35 mm/s · Air at full capacity · Start Power: 100%</h3>
+  <table>
+    <tr><th>Material</th><th>Speed (mm/s)</th><th>Power %</th><th>Pulse (Hz)</th><th>Notes</th></tr>
+    <tr><td>3mm MDF</td><td>15</td><td>95</td><td class="muted">15,000</td><td class="muted"></td></tr>
+    <tr><td>6mm MDF</td><td>8</td><td>95</td><td class="muted">15,000</td><td class="muted"></td></tr>
+    <tr><td>9mm MDF</td><td>3</td><td>95</td><td class="muted">15,000</td><td class="muted"></td></tr>
+    <tr><td>3mm Plywood</td><td>15</td><td>95</td><td class="muted">15,000</td><td class="muted">Darker/impure wood: reduce speed</td></tr>
+    <tr><td>6mm Plywood</td><td>8</td><td>95</td><td class="muted">15,000</td><td class="muted"></td></tr>
+    <tr><td>9mm Plywood</td><td>3</td><td>95</td><td class="muted">15,000</td><td class="muted"></td></tr>
+    <tr><td>3mm Acrylic</td><td>12</td><td>95</td><td class="muted">50,000</td><td class="muted">High pulse = smooth edges. Adjust air for cutting effect.</td></tr>
+    <tr><td>6mm Acrylic</td><td>7</td><td>95</td><td class="muted">50,000</td><td class="muted"></td></tr>
+    <tr><td>10mm Acrylic</td><td>3</td><td>95</td><td class="muted">15,000</td><td class="muted"></td></tr>
+    <tr><td>RowMark</td><td>22</td><td>75</td><td class="muted">30,000</td><td class="muted"></td></tr>
+    <tr><td>Rubber (stamp)</td><td>20</td><td>70</td><td class="muted">5,000</td><td class="muted"></td></tr>
+    <tr><td>High density foam 3mm</td><td>30</td><td>60–95</td><td class="muted">10,000</td><td class="muted"></td></tr>
+    <tr><td>High density foam 20mm</td><td>16</td><td>90</td><td class="muted">10,000</td><td class="muted"></td></tr>
+    <tr><td>Stamp board</td><td>20</td><td>60</td><td class="muted">10,000</td><td class="muted"></td></tr>
+  </table>
+  <p style="font-size:12px;color:#6b7280;">80W machine: a higher speed applies versus lower-watt machines. Softer woods cut faster. Dark/brownish grain indicates impurities — reduce speed for a clean cut.</p>
+
+  <h3 style="margin-top:16px"><span class="badge badge-fast">FAST MODE</span> — above 35 mm/s · Start Power: 0% · Min Power: ~50%</h3>
+  <table>
+    <tr><th>Material</th><th>Speed (mm/s)</th><th>Power %</th><th>Min Power %</th><th>Notes</th></tr>
+    <tr><td>Paper</td><td>50–100</td><td>40</td><td>21</td><td class="muted">Straight lines not cutting → increase Power. Curves not cutting → increase Min Power.</td></tr>
+    <tr><td>Cardboard</td><td>50</td><td>40</td><td>21</td><td class="muted"></td></tr>
+    <tr><td>Edging</td><td>70</td><td>40</td><td>21</td><td class="muted"></td></tr>
+    <tr><td>Cloth</td><td>50–100</td><td>40–65</td><td>20–32</td><td class="muted"></td></tr>
+  </table>
+  <p style="font-size:12px;color:#6b7280;">In fast mode, pulse frequency is set automatically. Min Power applies at corners where head speed slows.</p>
+</div>
+
+<!-- ENGRAVING PROFILES -->
+<h2>Engraving / Sweep Profiles</h2>
+<div class="card">
+  <div class="note" style="margin-bottom:12px">Deeper engraving = more power or less speed. Always sweep/engrave before cutting. Bi-directional is 2× faster; uni-directional is more accurate.</div>
+  <table>
+    <tr><th>Material</th><th>Speed (mm/s)</th><th>Power %</th><th>Step (mm)</th><th>Notes</th></tr>
+    <tr><td>Wood (standard)</td><td>400</td><td>40–60</td><td>0.10–0.14</td><td class="muted"></td></tr>
+    <tr><td>Acrylic / Perspex</td><td>400</td><td>24–26</td><td>0.08</td><td class="muted"></td></tr>
+    <tr><td>Acrylic / Perspex (finer)</td><td>250</td><td>23–25</td><td>0.07</td><td class="muted">Time-saving fine detail</td></tr>
+    <tr><td>Glass</td><td>250</td><td>23–45</td><td>0.07</td><td class="muted">Use masking tape or wet copy paper + Windowlene. Don't use air with wet paper method.</td></tr>
+    <tr><td>Metal (anodised)</td><td>100–250</td><td>80–95</td><td>0.06</td><td class="muted">May need engraving paste (e.g. TherMark LMM14)</td></tr>
+    <tr><td>RowMark</td><td>250</td><td>23–25</td><td>0.06</td><td class="muted"></td></tr>
+    <tr><td>Stamp rubber</td><td>250</td><td>40</td><td>0.07</td><td class="muted">Mirror the design before engraving</td></tr>
+    <tr><td>Rough / time-saving</td><td>450</td><td>50</td><td>0.10–0.14</td><td class="muted">General fast pass</td></tr>
+    <tr><td>Granite (text)</td><td>450</td><td>95</td><td>0.10</td><td class="muted"></td></tr>
+    <tr><td>Granite (photo)</td><td>400</td><td>35–50</td><td>Auto from DPI</td><td class="muted">Use PhotoGrav 3.1. Invert image. Good source photo quality essential.</td></tr>
+    <tr><td>Wood (photo)</td><td>400</td><td>30–40</td><td>Auto from DPI</td><td class="muted"></td></tr>
+    <tr><td>Acrylic (photo)</td><td>400</td><td>23–25</td><td>Auto from DPI</td><td class="muted"></td></tr>
+  </table>
+
+  <h3 style="margin-top:12px">Step options</h3>
+  <p style="font-size:13px;color:#9ca3af;">Step = Y-axis distance between scan lines. Available options: <strong style="color:#e0e3ea">0.2mm · 0.5mm · 0.8mm</strong> (in VectorDRAW). Smaller step = finer result, slower job. Use 0.07–0.14mm for fine detail; 0.1–0.14mm for time-saving passes.</p>
+
+  <h3 style="margin-top:12px">Bitmap / Photo image settings</h3>
+  <table>
+    <tr><th>Job size</th><th>Speed (mm/s)</th><th>DPI (VectorDRAW)</th><th>Mode</th></tr>
+    <tr><td>Small</td><td>200</td><td rowspan="3">~600</td><td rowspan="3" class="muted">Bitmap Out (B&amp;W) or Grid Out (colour bitmaps)</td></tr>
+    <tr><td>Medium</td><td>250–300</td></tr>
+    <tr><td>Large</td><td>350–400</td></tr>
+  </table>
+  <p style="font-size:12px;color:#6b7280;">Export bitmap from CorelDRAW as Grayscale 8-bit BMP at 150–300 DPI. Process through PhotoGrav 3.1 for photo engraving on granite/wood/acrylic.</p>
+</div>
+
+<!-- PULSE GUIDE -->
+<h2>Pulse Frequency Guide</h2>
+<div class="card">
+  <p>Pulse frequency controls how the laser fires during slow cuts. Applies to slow mode only — pulse is automatic in fast mode.</p>
+  <table>
+    <tr><th>Pulse range</th><th>When to use</th></tr>
+    <tr><td><strong>1,000–5,000 Hz</strong></td><td class="muted">Wood, MDF, foam, rubber — materials prone to burning. Lower pulse reduces char.</td></tr>
+    <tr><td><strong>15,000 Hz</strong></td><td class="muted">General wood and MDF cutting profiles.</td></tr>
+    <tr><td><strong>30,000 Hz</strong></td><td class="muted">RowMark and similar engraving panels.</td></tr>
+    <tr><td><strong>50,000 Hz</strong></td><td class="muted">Acrylic (cast) — high pulse generates heat that fuses edges smoothly. Reduce for frosted/matte edge effect.</td></tr>
+  </table>
+</div>
+
+<!-- PATH SETTINGS -->
+<h2>VectorDRAW Path Settings Reference</h2>
+<div class="card">
+  <div class="two-col">
+    <div class="sub-card">
+      <div class="sub-card-title">Slow Mode (Cut)</div>
+      <ul>
+        <li>Speed: 0.1–200 mm/s</li>
+        <li>Power: 1–95% (Start Power: 100%)</li>
+        <li>Pulse: 1,000–50,000 Hz</li>
+        <li>Start Power: power as beam enters material</li>
+        <li>Delay Laser: pause before cutting — useful for thick wood to allow beam to penetrate</li>
+        <li>Min Power: applies at corners when head slows (fast mode only)</li>
+      </ul>
+    </div>
+    <div class="sub-card">
+      <div class="sub-card-title">Fast Mode (Cut/Score)</div>
+      <ul>
+        <li>Speed: above 35 mm/s</li>
+        <li>Start Power: always 0%</li>
+        <li>Min Power: ~50% (half of Power value)</li>
+        <li>Pulse: automatic</li>
+        <li>Use for: paper, card, cloth, surface scoring</li>
+      </ul>
+    </div>
+    <div class="sub-card">
+      <div class="sub-card-title">Sweep / Engrave</div>
+      <ul>
+        <li>Speed: 100–800 mm/s</li>
+        <li>Power: 1–95%</li>
+        <li>Step: 0.2 / 0.5 / 0.8mm</li>
+        <li>Bi-directional: 2× faster</li>
+        <li>Uni-directional: more accurate</li>
+        <li>Always process before cutting</li>
+      </ul>
+    </div>
+    <div class="sub-card">
+      <div class="sub-card-title">Contour / Line options</div>
+      <ul>
+        <li>Outer / Inner / Online</li>
+        <li>Offset: set distance from artwork</li>
+        <li>Close cut line: overlaps start/end for smoother entry</li>
+        <li>Processing order: top = first</li>
+        <li>Max 16 templates saved</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ROTARY -->
+<h2>Rotary Attachment</h2>
+<div class="card">
+  <ul>
+    <li>Clamps numbered 1, 2, 3 — slide in anticlockwise, lock clockwise</li>
+    <li>Lower the bed to fit the rotary; zero on the top sharp edge of the cone</li>
+    <li>Rotate artwork 90° in VectorDRAW to align with rotary axis</li>
+    <li>Y-pulse formula: <strong>51.5 ÷ diameter (mm) × 200</strong></li>
+    <li>Switch hand control to Rotary mode before sending</li>
+    <li>Glass engraving: use 80gsm copy paper wet with Windowlene on the engraving area — do not use air assist with this method</li>
+    <li><strong>After use:</strong> switch hand control back from Rotary mode and reset Y-pulse to 200</li>
+  </ul>
+</div>
+
+<!-- WATER COOLING -->
+<h2>Water Cooling &amp; Maintenance</h2>
+<div class="card">
+  <div class="warn">Never run the laser if water temperature exceeds 33°C. Absolute maximum is 35°C — exceeding this will damage the laser tube.</div>
+  <ul>
+    <li><strong>Water type:</strong> Distilled water only (available at Midas)</li>
+    <li><strong>Operating temperature:</strong> 20–30°C (min 12°C, max 33°C)</li>
+    <li><strong>Water level:</strong> Check weekly</li>
+    <li><strong>Replace water:</strong> At least once a month to prevent algae build-up</li>
+    <li><strong>Alarm test:</strong> Squeeze the water pipe — alarm should sound. If it doesn't, contact a technician before using the machine.</li>
+  </ul>
+
+  <h3 style="margin-top:14px">Maintenance schedule</h3>
+  <ul>
+    <li><strong>After every session:</strong> Wipe motion arm/rail with soft cloth. Clean slats if charred (use Hand Cleaner / Handy Andy). Dirty slats increase flashback and fire risk.</li>
+    <li><strong>Lens:</strong> Spray with cleaning solvent, wipe in quarters then halves then full circles with lens paper.</li>
+    <li><strong>Mirrors:</strong> Clean with lens paper in circular motions using cleaning solution.</li>
+    <li><strong>Rails:</strong> Grease rails and grease nipples regularly. Lubricate rotary after every use.</li>
+    <li><strong>Bed levelling:</strong> Check all 4 corners in cross-over fashion.</li>
+    <li><strong>USB for file transfer:</strong> Must be under 1 GB, formatted as FAT (not FAT32 or NTFS).</li>
+  </ul>
+</div>
+
+<!-- SAFETY -->
+<h2>Safety Checklist</h2>
+<div class="card">
+  <div class="warn">Never leave the machine unattended while it is running. You must be present for the entire job.</div>
+  <ul>
+    <li>Air assist on full capacity for all cutting jobs</li>
+    <li>Exhaust on before starting</li>
+    <li>Water cooler running and within temperature range</li>
+    <li>No banned materials — if in doubt, refuse and ask student to verify material</li>
+    <li>Lightweight materials must be secured before cutting</li>
+    <li>Do not exceed 95% power</li>
+    <li>Run a test cut for first-time students and new materials before the full job</li>
+    <li>Keep fire extinguisher accessible</li>
+    <li>Emergency stop button location: right side of control panel</li>
+  </ul>
+
+  <h3 style="margin-top:14px">Banned materials (never cut or engrave)</h3>
+  <ul>
+    <li>PVC / vinyl / any chlorine-based material — produces toxic chlorine gas</li>
+    <li>Polycarbonate (Lexan) — produces toxic fumes, doesn't cut cleanly</li>
+    <li>Fibreglass / coated carbon fibre — toxic particulate</li>
+    <li>Foam core / polystyrene foam — fire risk, toxic fumes</li>
+    <li>Galvanised or mirrored metal — toxic zinc fumes</li>
+    <li>HDPE (milk bottle plastic) — melts and clogs, fire risk</li>
+    <li>Pressure-treated wood — toxic chemical fumes</li>
+    <li>Casting resins — toxic fumes</li>
+    <li>Felt — fire risk, inconsistent results</li>
+  </ul>
+</div>
+
+<footer>Fine Art Tech Support · Rhodes University Fine Art Department · <a href="/" style="color:#E65C00;text-decoration:none">← Back to FATS</a> · <a href="/laser-guide.html" style="color:#E65C00;text-decoration:none">Student guide →</a></footer>
+
+</body>
+</html>

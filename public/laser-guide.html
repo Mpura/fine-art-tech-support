@@ -13,7 +13,7 @@
   p{font-size:14px;color:#9ca3af;margin-bottom:10px;}
   .card{background:#141720;border:0.5px solid #1e2130;border-radius:12px;padding:16px 18px;margin-bottom:16px;}
   .step{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px;}
-  .step-num{width:26px;height:26px;border-radius:50%;background:#1a1d28;border:1.5px solid #2a2d3e;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#6366f1;flex-shrink:0;}
+  .step-num{width:26px;height:26px;border-radius:50%;background:#1a1d28;border:1.5px solid #2a2d3e;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#E65C00;flex-shrink:0;}
   .step-body{flex:1;}
   .step-title{font-size:14px;font-weight:500;color:#e0e3ea;margin-bottom:3px;}
   .step-desc{font-size:13px;color:#9ca3af;}
@@ -22,8 +22,9 @@
   .tag-blue{background:#0a1e35;color:#60a5fa;}
   .tag-black{background:#1a1d28;color:#9ca3af;}
   .tag-green{background:#0a2218;color:#20B07F;}
+  .tag-orange{background:#2a1500;color:#fb923c;}
   .warn{background:#2a0f14;border-left:3px solid #f87171;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#f87171;}
-  .info{background:#0a1e35;border-left:3px solid #6366f1;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#818cf8;}
+  .info{background:#0a1e35;border-left:3px solid #E65C00;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#fb923c;}
   table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;}
   th{background:#1a1d28;color:#9ca3af;padding:8px 10px;text-align:left;font-weight:500;}
   td{padding:8px 10px;color:#e0e3ea;border-top:0.5px solid #1e2130;}
@@ -32,74 +33,107 @@
   .no{color:#f87171;}
   ul{padding-left:18px;margin-bottom:8px;}
   li{font-size:13px;color:#9ca3af;margin-bottom:5px;}
-  .badge{display:inline-block;background:#2a1f0a;color:#d4851a;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;}
+  .badge{display:inline-block;background:#2a1500;color:#fb923c;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;}
+  .soft-box{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .soft-pill{background:#1a1d28;border:0.5px solid #2a2d3e;border-radius:8px;padding:8px 14px;font-size:13px;color:#e0e3ea;display:flex;align-items:center;gap:6px;}
+  .soft-pill span{font-size:11px;color:#6b7280;}
   footer{margin-top:40px;padding-top:16px;border-top:0.5px solid #1e2130;font-size:12px;color:#374151;text-align:center;}
 </style>
 </head>
 <body>
 
 <h1>⚡ Laser Cutter File Preparation Guide</h1>
-<p class="sub">Fine Art Tech Support — Rhodes University Fine Art Department</p>
+<p class="sub">Fine Art Tech Support — Rhodes University Fine Art Department · SA Argus 80W Laser</p>
 
-<div class="info">Read this guide before your session. Correct file setup avoids wasted time and re-cuts.</div>
+<div class="info">Read this guide before your session. Correct file setup avoids wasted time and re-cuts. Share your file link in your booking request so Tech Support can check it before you arrive.</div>
+
+<!-- SOFTWARE -->
+<h2>Software used on this machine</h2>
+<div class="card">
+  <p>This laser uses a two-program workflow. You prepare your design in <strong>CorelDRAW</strong>, then send it to the laser through <strong>VectorDRAW</strong>.</p>
+  <div class="soft-box">
+    <div class="soft-pill">🎨 <div><strong>CorelDRAW</strong><br><span>Design &amp; layout</span></div></div>
+    <div class="soft-pill">⚡ <div><strong>VectorDRAW</strong><br><span>Laser control &amp; path settings</span></div></div>
+  </div>
+  <p style="font-size:13px;color:#6b7280;">Both programs are installed on the lab computer connected to the laser. You do not need to install anything yourself — just bring your file on a USB stick (under 1 GB, formatted as FAT).</p>
+</div>
 
 <!-- STEP 1 -->
-<h2>Step 1 — Set up your Illustrator file</h2>
+<h2>Step 1 — Set up your CorelDRAW file</h2>
 <div class="card">
   <div class="step">
     <div class="step-num">1</div>
     <div class="step-body">
-      <div class="step-title">Document size</div>
-      <div class="step-desc">Set your artboard to match the laser bed. Keep your design within the printable area and leave at least 6mm margin from all edges.</div>
+      <div class="step-title">Set the page size</div>
+      <div class="step-desc">Set your CorelDRAW page/artboard to match the size of your material or the laser bed. The laser bed is <strong>1000mm × 600mm</strong> — keep your design within the bounds of your material and leave a small margin from all edges.</div>
     </div>
   </div>
   <div class="step">
     <div class="step-num">2</div>
     <div class="step-body">
-      <div class="step-title">Colour mode: RGB</div>
-      <div class="step-desc">Go to <strong>File → Document Colour Mode → RGB Colour</strong>. CMYK files will not drive the laser correctly.</div>
+      <div class="step-title">Use different colours for different operations</div>
+      <div class="step-desc">Each colour in your file becomes a separate path in VectorDRAW, and each path gets its own speed and power template. Use one colour for cutting lines, a different colour for engraving areas. Keep them on separate layers so they are easy to select.</div>
     </div>
   </div>
   <div class="step">
     <div class="step-num">3</div>
     <div class="step-body">
-      <div class="step-title">Stroke weight: hairline</div>
-      <div class="step-desc">All vector cut/engrave lines must have a stroke weight of <strong>0.001–0.005pt</strong> with <strong>NO fill</strong>. Thicker strokes are treated as raster etches.</div>
+      <div class="step-title">Convert text to curves</div>
+      <div class="step-desc">Before exporting, select all text and press <strong>Ctrl+Q</strong> (Arrange → Convert to Curves). This prevents font substitution errors when the file opens on the lab computer.</div>
     </div>
   </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <div class="step-title">Check your file in Wireframe view</div>
+      <div class="step-desc">Go to <strong>View → Wireframe</strong>. What you see in Wireframe is exactly what the laser will cut or engrave. Hidden fills, duplicate lines, or dotted strokes may not behave as expected — clean these up before exporting.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <div class="step-title">Export as .AI (Adobe Illustrator format)</div>
+      <div class="step-desc">Go to <strong>File → Export</strong> (Ctrl+E). Choose <strong>.AI</strong> format. Tick <em>"Export text as Curves"</em> in the export dialog. This is the file you bring to your session — VectorDRAW imports .AI files for vector cutting and engraving.</div>
+    </div>
+  </div>
+  <div class="info" style="margin-top:4px">💡 For photo or image engraving (not vector lines), export as <strong>.BMP</strong> instead — Grayscale, 150–300 DPI.</div>
 </div>
 
 <!-- STEP 2 — Colour coding -->
-<h2>Step 2 — Colour-code your layers</h2>
+<h2>Step 2 — Colour coding your paths</h2>
 <div class="card">
-  <p>The laser reads specific RGB colours to decide what to do. Use separate layers for each operation.</p>
+  <p>VectorDRAW reads each colour in your design as a separate operation. You assign a <strong>speed and power template</strong> to each colour when you set up the paths in VectorDRAW. There is no single fixed colour standard — but it helps to be consistent. A common setup is:</p>
   <table>
-    <tr><th>Colour</th><th>RGB Value</th><th>Operation</th><th>Speed</th></tr>
-    <tr><td><span class="tag tag-red">Red</span></td><td>255, 0, 0</td><td>Vector Cut — cuts all the way through</td><td>Fast</td></tr>
-    <tr><td><span class="tag tag-blue">Blue</span></td><td>0, 0, 255</td><td>Vector Engrave — scores the surface</td><td>Fast</td></tr>
-    <tr><td><span class="tag tag-black">Black</span></td><td>0, 0, 0</td><td>Raster Etch — detailed shading/images</td><td>Slow ⚠️</td></tr>
+    <tr><th>Suggested colour</th><th>Operation</th><th>Typical speed</th></tr>
+    <tr><td><span class="tag tag-red">Red</span></td><td>Vector Cut — cuts all the way through</td><td>Slow (20–60 mm/s)</td></tr>
+    <tr><td><span class="tag tag-blue">Blue</span> or other</td><td>Vector Engrave — scores the surface</td><td>Medium (60–200 mm/s)</td></tr>
+    <tr><td><span class="tag tag-black">Black fill</span></td><td>Raster/Sweep Etch — filled areas, images</td><td>Fast (200–400 mm/s)</td></tr>
   </table>
-  <div class="info" style="margin-top:8px">💡 Tip: Engrave (etch) first, then cut. In Illustrator, place your etch layer above your cut layer so it runs first.</div>
-  <div class="warn" style="margin-top:8px">⚠️ Raster etching takes much longer than vector cutting. A job with heavy etching may need a 2-hour session.</div>
+  <div class="info" style="margin-top:8px">💡 Always engrave (sweep) first, then cut. In VectorDRAW, set engrave paths above cut paths in the path list — the laser processes top-to-bottom.</div>
+  <div class="warn" style="margin-top:8px">⚠️ Raster/sweep etching is much slower than vector cutting. A job with heavy raster etching can take significantly longer — plan your session time accordingly.</div>
 </div>
 
 <!-- STEP 3 — Materials -->
 <h2>Step 3 — Know your material</h2>
 <div class="card">
-  <p><strong>Maximum cut depth: 12mm.</strong> Materials thicker than this cannot be cut through.</p>
-  <p>Be aware of material warping — wood, card and some plastics warp, which can cause inaccurate cuts. Cutting smaller sheets produces better results.</p>
+  <p>This machine is an <strong>80W CO₂ laser</strong>. Ask Tech Support for the correct speed and power settings for your specific material — settings vary and incorrect settings can damage the machine or your work.</p>
+  <p>Be aware of material warping — wood, card and some plastics warp under heat, which can cause inaccurate cuts. Cutting smaller sheets produces better results.</p>
 
   <h2 style="font-size:14px;margin-top:12px;margin-bottom:8px;">✅ Approved materials</h2>
+  <p style="font-size:12px;color:#6b7280;margin-bottom:8px;">Maximum cut depth: <strong style="color:#e0e3ea">12mm</strong>. Tech Support will set the correct speed and power for your material.</p>
   <table>
     <tr><th>Material</th><th>Cut</th><th>Engrave</th><th>Notes</th></tr>
-    <tr><td>Plywood / Solid wood</td><td class="ok">✓</td><td class="ok">✓</td><td>Max 12mm for cuts</td></tr>
-    <tr><td>Acrylic (cast)</td><td class="ok">✓</td><td class="ok">✓</td><td>Up to 12mm</td></tr>
+    <tr><td>Plywood / Solid wood</td><td class="ok">✓</td><td class="ok">✓</td><td>Up to 12mm</td></tr>
+    <tr><td>MDF</td><td class="ok">✓</td><td class="ok">✓</td><td>Up to 9mm recommended — ensure good ventilation</td></tr>
+    <tr><td>Acrylic / Perspex (cast)</td><td class="ok">✓</td><td class="ok">✓</td><td>Up to 12mm; finer engraving possible</td></tr>
     <tr><td>Cardboard / Mount board</td><td class="ok">✓</td><td class="ok">✓</td><td>Secure lightweight sheets</td></tr>
     <tr><td>Leather</td><td class="ok">✓</td><td class="ok">✓</td><td>Glue or secure to board first</td></tr>
-    <tr><td>Paper</td><td class="ok">✓</td><td class="ok">✓</td><td>Must be secured — fire risk if loose</td></tr>
+    <tr><td>Paper / Stencil paper</td><td class="ok">✓</td><td class="ok">✓</td><td>Must be secured — fire risk if loose</td></tr>
     <tr><td>Mylar / film</td><td class="ok">✓</td><td class="ok">✓</td><td>Must be secured</td></tr>
-    <tr><td>Glass / Stone / Ceramic</td><td class="no">✗</td><td class="ok">✓</td><td>Engrave only</td></tr>
-    <tr><td>Anodised metal</td><td class="no">✗</td><td class="ok">✓</td><td>Engrave only</td></tr>
+    <tr><td>Rubber</td><td class="ok">✓</td><td class="ok">✓</td><td>Stamp rubber only — check with Tech Support first</td></tr>
+    <tr><td>High density foam</td><td class="ok">✓</td><td class="ok">✓</td><td>Check with Tech Support before bringing</td></tr>
+    <tr><td>Glass / Stone / Ceramic / Granite</td><td class="no">✗</td><td class="ok">✓</td><td>Engrave only — masking tape or wet paper required</td></tr>
+    <tr><td>Anodised metal</td><td class="no">✗</td><td class="ok">✓</td><td>Engrave only — may need engraving paste</td></tr>
   </table>
 
   <h2 style="font-size:14px;margin-top:16px;margin-bottom:8px;color:#f87171;">🚫 Banned materials — DO NOT BRING</h2>
@@ -107,17 +141,15 @@
   <ul>
     <li>PVC / vinyl / any chlorine-based material</li>
     <li>Polycarbonate (Lexan)</li>
-    <li>Rubber (all forms)</li>
     <li>Fibreglass / coated carbon fibre</li>
-    <li>MDF or LDF (toxic glue fumes)</li>
-    <li>Foam core / polystyrene foam</li>
+    <li>Foam core / polystyrene foam (not high density foam)</li>
     <li>Galvanised or mirrored metal</li>
     <li>HDPE (milk bottle plastic)</li>
     <li>Pressure-treated wood</li>
     <li>Casting resins</li>
     <li>Felt</li>
   </ul>
-  <p style="color:#6b7280;font-size:12px;">Not sure? Ask Tech Support before your session — do not bring untested materials on the day.</p>
+  <p style="color:#6b7280;font-size:12px;">Not sure about your material? Ask Tech Support before your session — do not bring untested materials on the day.</p>
 </div>
 
 <!-- STEP 4 — Lightweight materials -->
@@ -133,11 +165,39 @@
   <div class="info">All jobs must be watched for the full duration of the session. Do not leave the machine unattended.</div>
 </div>
 
-<!-- STEP 5 — Submit -->
-<h2>Step 5 — Share your file before your session</h2>
+<!-- STEP 5 — VectorDRAW quick ref -->
+<h2>Step 5 — What happens in VectorDRAW (for reference)</h2>
+<div class="card">
+  <p>Tech Support will set up and run VectorDRAW. This is just so you understand the process:</p>
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Import your .AI file</div>
+      <div class="step-desc">VectorDRAW imports your exported .AI file. Each colour appears as a separate entry in the path list.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Assign a template to each colour</div>
+      <div class="step-desc">Each colour is assigned a speed/power template (e.g. Cut template or Sweep/Engrave template). Engrave paths are placed above cut paths so they run first.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Send to machine</div>
+      <div class="step-desc">The job is sent via USB to the laser's hand control. The machine is zeroed on your material and the job runs.</div>
+    </div>
+  </div>
+  <div class="info">💡 File names sent to the laser are limited to <strong>8 characters</strong>. Tech Support will handle naming — just make sure your file is clearly labelled on your USB.</div>
+</div>
+
+<!-- STEP 6 — Submit -->
+<h2>Step 6 — Share your file before your session</h2>
 <div class="card">
   <p>Upload your finished file to <strong>Google Drive</strong> or <strong>WeTransfer</strong> and paste the link into your booking request. This lets Tech Support check your file before you arrive — saving time and avoiding re-cuts on the day.</p>
-  <p>Accepted formats: <strong>SVG, AI</strong> — not JPEG, PNG or PDF.</p>
+  <p>Accepted formats: <strong>.AI</strong> (vector jobs) or <strong>.BMP</strong> (photo/image engraving) — not JPEG, PNG or PDF.</p>
   <div class="info">💡 If this is your first time using the laser, tick the "First time" box in your request. A short test cut will be done before your main job to confirm settings for your material.</div>
 </div>
 
@@ -145,17 +205,18 @@
 <h2>Quick checklist before you submit</h2>
 <div class="card">
   <ul>
-    <li>File is SVG or AI (not JPEG/PNG/PDF)</li>
-    <li>Document colour mode is RGB</li>
-    <li>Vector lines are 0.001–0.005pt stroke, no fill</li>
-    <li>Cut lines are Red (255,0,0), Engrave lines Blue (0,0,255)</li>
-    <li>Material is on the approved list and is ≤12mm thick</li>
+    <li>File exported from CorelDRAW as <strong>.AI</strong> (or .BMP for photo engraving)</li>
+    <li>All text converted to curves (Ctrl+Q) before exporting</li>
+    <li>Cutting and engraving paths use different colours</li>
+    <li>File checked in Wireframe view — no unwanted lines or hidden objects</li>
+    <li>Material is on the approved list</li>
+    <li>USB stick is under 1 GB and formatted as FAT</li>
     <li>File link shared in your booking request</li>
     <li>You will be present for the full session</li>
   </ul>
 </div>
 
-<footer>Fine Art Tech Support · Rhodes University Fine Art Department · <a href="/" style="color:#6366f1;text-decoration:none">← Back to FATS</a></footer>
+<footer>Fine Art Tech Support · Rhodes University Fine Art Department · <a href="/" style="color:#E65C00;text-decoration:none">← Back to FATS</a></footer>
 
 </body>
 </html>
