@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Laser Cutter File Preparation Guide — FATS</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#0f1117;color:#e0e3ea;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px 16px;max-width:680px;margin:0 auto;line-height:1.6;}
+  h1{font-size:20px;font-weight:600;margin-bottom:4px;color:#e0e3ea;}
+  .sub{font-size:13px;color:#6b7280;margin-bottom:32px;}
+  h2{font-size:15px;font-weight:600;color:#e0e3ea;margin:28px 0 10px;}
+  p{font-size:14px;color:#9ca3af;margin-bottom:10px;}
+  .card{background:#141720;border:0.5px solid #1e2130;border-radius:12px;padding:16px 18px;margin-bottom:16px;}
+  .step{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px;}
+  .step-num{width:26px;height:26px;border-radius:50%;background:#1a1d28;border:1.5px solid #2a2d3e;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#6366f1;flex-shrink:0;}
+  .step-body{flex:1;}
+  .step-title{font-size:14px;font-weight:500;color:#e0e3ea;margin-bottom:3px;}
+  .step-desc{font-size:13px;color:#9ca3af;}
+  .tag{display:inline-block;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:500;margin:3px 3px 3px 0;}
+  .tag-red{background:#2a0f14;color:#f87171;}
+  .tag-blue{background:#0a1e35;color:#60a5fa;}
+  .tag-black{background:#1a1d28;color:#9ca3af;}
+  .tag-green{background:#0a2218;color:#20B07F;}
+  .warn{background:#2a0f14;border-left:3px solid #f87171;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#f87171;}
+  .info{background:#0a1e35;border-left:3px solid #6366f1;border-radius:8px;padding:12px 14px;margin-bottom:12px;font-size:13px;color:#818cf8;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px;}
+  th{background:#1a1d28;color:#9ca3af;padding:8px 10px;text-align:left;font-weight:500;}
+  td{padding:8px 10px;color:#e0e3ea;border-top:0.5px solid #1e2130;}
+  tr:hover td{background:#141720;}
+  .ok{color:#20B07F;}
+  .no{color:#f87171;}
+  ul{padding-left:18px;margin-bottom:8px;}
+  li{font-size:13px;color:#9ca3af;margin-bottom:5px;}
+  .badge{display:inline-block;background:#2a1f0a;color:#d4851a;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;}
+  footer{margin-top:40px;padding-top:16px;border-top:0.5px solid #1e2130;font-size:12px;color:#374151;text-align:center;}
+</style>
+</head>
+<body>
+
+<h1>⚡ Laser Cutter File Preparation Guide</h1>
+<p class="sub">Fine Art Tech Support — Rhodes University Fine Art Department</p>
+
+<div class="info">Read this guide before your session. Correct file setup avoids wasted time and re-cuts.</div>
+
+<!-- STEP 1 -->
+<h2>Step 1 — Set up your Illustrator file</h2>
+<div class="card">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <div class="step-title">Document size</div>
+      <div class="step-desc">Set your artboard to match the laser bed. Keep your design within the printable area and leave at least 6mm margin from all edges.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <div class="step-title">Colour mode: RGB</div>
+      <div class="step-desc">Go to <strong>File → Document Colour Mode → RGB Colour</strong>. CMYK files will not drive the laser correctly.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <div class="step-title">Stroke weight: hairline</div>
+      <div class="step-desc">All vector cut/engrave lines must have a stroke weight of <strong>0.001–0.005pt</strong> with <strong>NO fill</strong>. Thicker strokes are treated as raster etches.</div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 2 — Colour coding -->
+<h2>Step 2 — Colour-code your layers</h2>
+<div class="card">
+  <p>The laser reads specific RGB colours to decide what to do. Use separate layers for each operation.</p>
+  <table>
+    <tr><th>Colour</th><th>RGB Value</th><th>Operation</th><th>Speed</th></tr>
+    <tr><td><span class="tag tag-red">Red</span></td><td>255, 0, 0</td><td>Vector Cut — cuts all the way through</td><td>Fast</td></tr>
+    <tr><td><span class="tag tag-blue">Blue</span></td><td>0, 0, 255</td><td>Vector Engrave — scores the surface</td><td>Fast</td></tr>
+    <tr><td><span class="tag tag-black">Black</span></td><td>0, 0, 0</td><td>Raster Etch — detailed shading/images</td><td>Slow ⚠️</td></tr>
+  </table>
+  <div class="info" style="margin-top:8px">💡 Tip: Engrave (etch) first, then cut. In Illustrator, place your etch layer above your cut layer so it runs first.</div>
+  <div class="warn" style="margin-top:8px">⚠️ Raster etching takes much longer than vector cutting. A job with heavy etching may need a 2-hour session.</div>
+</div>
+
+<!-- STEP 3 — Materials -->
+<h2>Step 3 — Know your material</h2>
+<div class="card">
+  <p><strong>Maximum cut depth: 12mm.</strong> Materials thicker than this cannot be cut through.</p>
+  <p>Be aware of material warping — wood, card and some plastics warp, which can cause inaccurate cuts. Cutting smaller sheets produces better results.</p>
+
+  <h2 style="font-size:14px;margin-top:12px;margin-bottom:8px;">✅ Approved materials</h2>
+  <table>
+    <tr><th>Material</th><th>Cut</th><th>Engrave</th><th>Notes</th></tr>
+    <tr><td>Plywood / Solid wood</td><td class="ok">✓</td><td class="ok">✓</td><td>Max 12mm for cuts</td></tr>
+    <tr><td>Acrylic (cast)</td><td class="ok">✓</td><td class="ok">✓</td><td>Up to 12mm</td></tr>
+    <tr><td>Cardboard / Mount board</td><td class="ok">✓</td><td class="ok">✓</td><td>Secure lightweight sheets</td></tr>
+    <tr><td>Leather</td><td class="ok">✓</td><td class="ok">✓</td><td>Glue or secure to board first</td></tr>
+    <tr><td>Paper</td><td class="ok">✓</td><td class="ok">✓</td><td>Must be secured — fire risk if loose</td></tr>
+    <tr><td>Mylar / film</td><td class="ok">✓</td><td class="ok">✓</td><td>Must be secured</td></tr>
+    <tr><td>Glass / Stone / Ceramic</td><td class="no">✗</td><td class="ok">✓</td><td>Engrave only</td></tr>
+    <tr><td>Anodised metal</td><td class="no">✗</td><td class="ok">✓</td><td>Engrave only</td></tr>
+  </table>
+
+  <h2 style="font-size:14px;margin-top:16px;margin-bottom:8px;color:#f87171;">🚫 Banned materials — DO NOT BRING</h2>
+  <div class="warn">These materials produce toxic fumes, damage the machine, or create fire hazards. Any attempt to cut banned materials will result in immediate loss of laser privileges.</div>
+  <ul>
+    <li>PVC / vinyl / any chlorine-based material</li>
+    <li>Polycarbonate (Lexan)</li>
+    <li>Rubber (all forms)</li>
+    <li>Fibreglass / coated carbon fibre</li>
+    <li>MDF or LDF (toxic glue fumes)</li>
+    <li>Foam core / polystyrene foam</li>
+    <li>Galvanised or mirrored metal</li>
+    <li>HDPE (milk bottle plastic)</li>
+    <li>Pressure-treated wood</li>
+    <li>Casting resins</li>
+    <li>Felt</li>
+  </ul>
+  <p style="color:#6b7280;font-size:12px;">Not sure? Ask Tech Support before your session — do not bring untested materials on the day.</p>
+</div>
+
+<!-- STEP 4 — Lightweight materials -->
+<h2>Step 4 — Securing lightweight materials</h2>
+<div class="card">
+  <div class="warn">Lightweight materials (paper, card, leather, film) can be lifted by the exhaust system, causing incorrect cuts or fire. You MUST secure them before cutting.</div>
+  <p>Options:</p>
+  <ul>
+    <li><strong>Tape the edges</strong> to the rulers on the laser bed (bring your own tape)</li>
+    <li><strong>Glue to a heavier board</strong> — good for leather and thin plastic</li>
+    <li><strong>Design tabs</strong> into your vector file so cut pieces stay connected until you remove them</li>
+  </ul>
+  <div class="info">All jobs must be watched for the full duration of the session. Do not leave the machine unattended.</div>
+</div>
+
+<!-- STEP 5 — Submit -->
+<h2>Step 5 — Share your file before your session</h2>
+<div class="card">
+  <p>Upload your finished file to <strong>Google Drive</strong> or <strong>WeTransfer</strong> and paste the link into your booking request. This lets Tech Support check your file before you arrive — saving time and avoiding re-cuts on the day.</p>
+  <p>Accepted formats: <strong>SVG, AI</strong> — not JPEG, PNG or PDF.</p>
+  <div class="info">💡 If this is your first time using the laser, tick the "First time" box in your request. A short test cut will be done before your main job to confirm settings for your material.</div>
+</div>
+
+<!-- Quick checklist -->
+<h2>Quick checklist before you submit</h2>
+<div class="card">
+  <ul>
+    <li>File is SVG or AI (not JPEG/PNG/PDF)</li>
+    <li>Document colour mode is RGB</li>
+    <li>Vector lines are 0.001–0.005pt stroke, no fill</li>
+    <li>Cut lines are Red (255,0,0), Engrave lines Blue (0,0,255)</li>
+    <li>Material is on the approved list and is ≤12mm thick</li>
+    <li>File link shared in your booking request</li>
+    <li>You will be present for the full session</li>
+  </ul>
+</div>
+
+<footer>Fine Art Tech Support · Rhodes University Fine Art Department · <a href="/" style="color:#6366f1;text-decoration:none">← Back to FATS</a></footer>
+
+</body>
+</html>

@@ -28,7 +28,7 @@ const YEAR_LABELS = {"1":"1st year","2":"2nd year","3":"3rd year","4":"4th year"
 
 const REQUEST_TYPES = [
   {id:"print",label:"Large format & photographic printing",icon:"🖨️",booking:"advance booking only",bookable:true,needsFiles:true,prep:["File must be PDF, JPEG or TIFF","Colour profile must be sRGB or CMYK","Know your paper size (A4 → A0)","Decide paper type: normal, glossy, newsprint or photographic","Know how many copies you need","⚠️ Minimum 2 business days advance booking required","⚠️ Test print may be needed — same-day completion is NOT guaranteed"]},
-  {id:"laser",label:"Laser cutter & engraving",icon:"⚡",booking:"advance booking only",bookable:true,needsFiles:true,prep:["File must be SVG, AI or DXF","Know your material type (wood, acrylic, cardboard...)","Have your exact dimensions ready","Decide: cut, engrave or both","⚠️ First-time users: material test session required before any cutting","⚠️ Minimum 3 business days advance — no same-day or next-day bookings"]},
+  {id:"laser",label:"Laser cutter & engraving",icon:"⚡",booking:"advance booking only",bookable:true,needsFiles:true,prep:["File must be SVG or AI — not JPEG, PNG or PDF","Document must be in RGB colour mode (File → Document Colour Mode → RGB)","Vector lines must be hairline stroke (0.001–0.005pt) with NO fill","Use colour-coded layers: Red = Cut, Blue = Engrave, Black = Raster etch","Know your exact material type and thickness in mm","Bring your own tape if securing lightweight materials to the bed","⚠️ Maximum cut depth is 12mm — thicker materials cannot be cut through","⚠️ Banned materials: PVC, polycarbonate, rubber, fibreglass, foam, galvanised metal, MDF — see guide","⚠️ You MUST be present for the full duration of your session — no drop-off jobs","⚠️ First-time users: a material test is required before any cutting","⚠️ Minimum 3 business days advance — no same-day or next-day bookings"]},
   {id:"3d",label:"3D printing",icon:"🧱",booking:"advance booking only",bookable:false,needsFiles:true,prep:["File must be STL or OBJ","Know your dimensions and scale","Decide material preference","Decide infill density","⚠️ Minimum 5 business days advance — prints take hours to complete","⚠️ Drop-off service: you will be notified when your print is ready to collect"]},
   {id:"software",label:"Software install",icon:"💻",booking:"walk-in",bookable:false,needsFiles:false,prep:["Know the exact software name","Have the download URL ready","Know which Mac number and lab room"]},
   {id:"studio",label:"Lighting studio",icon:"💡",booking:"advance booking only",bookable:false,needsFiles:false,prep:["Studio orientation required before first use — speak to Tech Support","Keys must be returned same day by 17:00","Bring your student card when collecting","⚠️ Studio is for photography students only"]},
@@ -511,7 +511,7 @@ export default function App() {
   const [itUpdateNote, setItUpdateNote] = useState({});
 
   // Student request form
-  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",sessionDuration:""});
+  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",sessionDuration:"",fileLink:"",firstTime:false});
 
   // Equipment booking state
   const [eqScreen, setEqScreen] = useState("lookup"); // lookup | browse | confirm | success
@@ -641,7 +641,7 @@ export default function App() {
 
   function getDetails(){
     if(selType==="print") return{paperSize:form.paperSize,paperType:form.paperType,colour:form.colour,copies:form.copies,printPresent:form.printPresent};
-    if(selType==="laser") return{material:form.material,dimensions:form.dimensions,jobType:form.jobType,sessionDuration:form.sessionDuration};
+    if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,sessionDuration:form.sessionDuration,fileLink:form.fileLink,firstTime:form.firstTime};
     if(selType==="3d") return{dimensions:form.dimensions,material3d:form.material3d,infill:form.infill,dropOffDate:form.dropOffDate};
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
     if(selType==="studio") return{shootType:form.shootType};
@@ -829,7 +829,7 @@ export default function App() {
     const d=req.details||{};
     let summary="";
     if(req.typeId==="print"){summary=[d.paperSize,d.paperType,d.colour,d.copies&&`×${d.copies}`].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
-    else if(req.typeId==="laser"){summary=[d.material,d.dimensions,d.jobType,d.sessionDuration].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
+    else if(req.typeId==="laser"){summary=[d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material,d.dimensions,d.jobType,d.sessionDuration,d.firstTime?"⭐ First time":null].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
     else if(req.typeId==="studio"){const sm=req.schedDate?.match(/\((.+?)\)/);summary=(d.shootType&&!d.shootType.startsWith("Select")?d.shootType+" · ":"")+(sm?sm[1]:"");}
     else if(req.typeId==="equipment"){summary=d.items||(d.itemsData||[]).map(i=>i.name).join(", ")||"Equipment";}
     const isOverdue=req.dueDate&&req.dueDate<_today;
@@ -1288,6 +1288,16 @@ export default function App() {
         <div style={{fontSize:13,fontWeight:500,color:"#d4851a",marginBottom:10}}>Before you submit — make sure you have:</div>
         {type.prep.map((p,i)=><div key={i} style={{fontSize:13,color:p.startsWith("⚠️")?"#f87171":"#9ca3af",marginBottom:6,display:"flex",gap:8,alignItems:"flex-start"}}><span style={{flexShrink:0}}>{p.startsWith("⚠️")?"":"✓"}</span><span>{p}</span></div>)}
       </div>
+      {type.id==="laser"&&(
+        <a href="/laser-guide.html" target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"12px 14px",marginBottom:16,textDecoration:"none"}}>
+          <span style={{fontSize:20}}>📄</span>
+          <div>
+            <div style={{fontSize:13,fontWeight:500,color:"#60a5fa"}}>Laser File Preparation Guide</div>
+            <div style={{fontSize:12,color:"#4b5563"}}>File setup, colour coding, banned materials &amp; examples — opens in new tab</div>
+          </div>
+          <span style={{marginLeft:"auto",color:"#374151",fontSize:14}}>↗</span>
+        </a>
+      )}
       {type.needsFiles&&<label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:20,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px"}}>
         <input type="checkbox" checked={prepOk} onChange={e=>setPrepOk(e.target.checked)} style={{marginTop:2,width:16,height:16,flexShrink:0}}/>
         <span style={{fontSize:14,color:"#e0e3ea"}}>I have everything ready and understand the requirements</span>
@@ -1364,10 +1374,35 @@ export default function App() {
         </div>
       </>)}
       {type.id==="laser"&&(<>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Material type</label><input style={ipt} value={form.material} onChange={e=>setF("material",e.target.value)} placeholder="e.g. 3mm plywood"/></div>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Dimensions</label><input style={ipt} value={form.dimensions} onChange={e=>setF("dimensions",e.target.value)} placeholder="e.g. 300 x 200mm"/></div>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Job type</label><div style={{display:"flex",gap:8}}>{["Cut","Engrave","Both"].map(j=><button key={j} onClick={()=>setF("jobType",j)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.jobType===j?TEAL:"#1a1d28",color:form.jobType===j?"#fff":"#e0e3ea",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{j}</button>)}</div></div>
+        {/* First-time user toggle */}
+        <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",marginBottom:16,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px"}}>
+          <input type="checkbox" checked={form.firstTime} onChange={e=>setF("firstTime",e.target.checked)} style={{width:16,height:16,flexShrink:0}}/>
+          <div>
+            <div style={{fontSize:14,color:"#e0e3ea"}}>This is my first time using the laser cutter</div>
+            <div style={{fontSize:12,color:"#6b7280"}}>A short test cut will be run before your session</div>
+          </div>
+        </label>
+        <div style={{display:"flex",gap:10,marginBottom:14}}>
+          <div style={{flex:2}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Material type *</label><input style={ipt} value={form.material} onChange={e=>setF("material",e.target.value)} placeholder="e.g. plywood, acrylic, cardboard"/></div>
+          <div style={{flex:1}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Thickness (mm) *</label><input style={ipt} type="number" min="1" max="12" value={form.materialThickness} onChange={e=>setF("materialThickness",e.target.value)} placeholder="e.g. 3"/></div>
+        </div>
+        {form.materialThickness&&Number(form.materialThickness)>12&&(
+          <div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#f87171",marginBottom:14}}>⚠️ Maximum cut depth is 12mm. This material may not cut through fully — Tech Support will advise.</div>
+        )}
+        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Dimensions (W × H mm)</label><input style={ipt} value={form.dimensions} onChange={e=>setF("dimensions",e.target.value)} placeholder="e.g. 300 × 200mm"/></div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Job type *</label>
+          <div style={{display:"flex",gap:8}}>{["Cut","Engrave","Both"].map(j=><button key={j} onClick={()=>setF("jobType",j)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.jobType===j?TEAL:"#1a1d28",color:form.jobType===j?"#fff":"#e0e3ea",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{j}</button>)}</div>
+          {["Engrave","Both"].includes(form.jobType)&&(
+            <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#d4851a",marginTop:8}}>⏱ Raster engraving takes significantly longer than cutting. A 2-hour session is recommended for jobs that include engraving.</div>
+          )}
+        </div>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Session duration *</label><div style={{display:"flex",gap:8}}>{["1 hour","2 hours"].map(d=><button key={d} onClick={()=>setF("sessionDuration",d)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.sessionDuration===d?TEAL:"#1a1d28",color:form.sessionDuration===d?"#fff":"#e0e3ea",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{d}</button>)}</div></div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>File link (Google Drive or WeTransfer)</label>
+          <input style={ipt} value={form.fileLink} onChange={e=>setF("fileLink",e.target.value)} placeholder="https://drive.google.com/..."/>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Share your file before your session so Tech Support can check it in advance.</div>
+        </div>
       </>)}
       {type.id==="3d"&&(<>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Dimensions / scale</label><input style={ipt} value={form.dimensions} onChange={e=>setF("dimensions",e.target.value)} placeholder="e.g. 15cm tall"/></div>
@@ -1741,10 +1776,12 @@ export default function App() {
                   {req.details.colour&&<span style={{marginRight:10}}>🎨 {req.details.colour}</span>}
                   {req.details.copies&&<span style={{marginRight:10}}>×{req.details.copies}</span>}
                   {req.details.printPresent&&<span style={{marginRight:10}}>{req.details.printPresent==="yes"?"👤 Present":"📬 Drop-off"}</span>}
-                  {req.details.material&&<span style={{marginRight:10}}>🪵 {req.details.material}</span>}
+                  {req.details.material&&<span style={{marginRight:10}}>🪵 {req.details.material}{req.details.materialThickness?` · ${req.details.materialThickness}mm`:""}</span>}
                   {req.details.dimensions&&<span style={{marginRight:10}}>📏 {req.details.dimensions}</span>}
                   {req.details.jobType&&req.typeId==="laser"&&<span style={{marginRight:10}}>⚡ {req.details.jobType}</span>}
                   {req.details.sessionDuration&&<span style={{marginRight:10}}>⏱ {req.details.sessionDuration}</span>}
+                  {req.details.firstTime&&<span style={{marginRight:10,background:"#2a1f0a",color:"#d4851a",borderRadius:6,padding:"2px 7px",fontWeight:600}}>⭐ FIRST TIME</span>}
+                  {req.details.fileLink&&<a href={req.details.fileLink} target="_blank" rel="noreferrer" style={{marginRight:10,color:"#60a5fa",textDecoration:"none"}}>📎 File link</a>}
                   {req.details.softwareName&&<span style={{marginRight:10}}>💻 {req.details.softwareName}</span>}
                   {req.details.macLocation&&<span style={{marginRight:10}}>🖥️ {req.details.macLocation}</span>}
                   {req.details.shootType&&!req.details.shootType.startsWith("Select")&&<span style={{marginRight:10}}>💡 {req.details.shootType}</span>}
