@@ -2054,6 +2054,26 @@ export default function App() {
         const [pmForm,setPmForm]=React.useState({taskName:"",machine:"",interval:"",lastDone:todayDate(),nextDue:"",notes:""});
         const [editMaint,setEditMaint]=React.useState(null);
         const [editPm,setEditPm]=React.useState(null);
+        const [pasteEmail,setPasteEmail]=React.useState("");
+        const [pasteMode,setPasteMode]=React.useState(false);
+
+        // Parse RU Estates email into form fields
+        function parseRUEmail(text){
+          const get=(label)=>{const m=text.match(new RegExp(label+"[:\\s]+([^\\n\\r]+?)(?:\\s+(?:and|with|$))",""+"i"));return m?m[1].trim():"";}
+          const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
+          const rawType=(text.match(/Problem Type[:\s]+([^\n\r]+?)(?:\s+at\s|\s+Location|$)/i)||[])[1]||"";
+          const typeMap={electrical:"Electrical",plumbing:"Plumbing",structural:"Structural",pest:"Pest Control",clean:"Cleaning",mechanical:"Equipment",hvac:"Equipment",equipment:"Equipment"};
+          const probType=Object.entries(typeMap).find(([k])=>rawType.toLowerCase().includes(k))?.[1]||"Other";
+          const building=(text.match(/Building Name[:\s]+([^\n\r]+?)(?:\s+and\s|\s+Floor|$)/i)||[])[1]?.trim()||"";
+          const floor=(text.match(/Floor[:\s]+([^\n\r]+?)(?:\s+and\s|\s+Room|$)/i)||[])[1]?.trim()||"";
+          const room=(text.match(/Room[:\s]+([^\n\r]+?)(?:\s+and\s|\s+Description|$)/i)||[])[1]?.trim()||"";
+          const location=[building,floor&&`Floor ${floor}`,room&&`Room ${room}`].filter(Boolean).join(", ");
+          const desc=(text.match(/Description[:\s]+([\s\S]+?)(?:[\r\n]+\s*(?:Status|Thanks|If you|$))/i)||[])[1]?.trim()||"";
+          const rawStatus=(text.match(/Status been changed to[:\s]+(\w+)/i)||[])[1]||"";
+          const statusMap={requested:"Submitted to Estates",inprogress:"In Progress","in progress":"In Progress",completed:"Resolved",resolved:"Resolved",closed:"Closed"};
+          const status=statusMap[rawStatus.toLowerCase()]||"Submitted to Estates";
+          return{universityRef:id,problemType:probType,location,description:desc,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:"",parsedStatus:status};
+        }
 
         // Days since date helper
         function daysSince(d){if(!d)return null;const diff=new Date()-new Date(d+"T00:00:00");return Math.floor(diff/86400000);}
@@ -2079,7 +2099,8 @@ export default function App() {
         function intervalDays(iv){return iv==="Daily"?1:iv==="Weekly"?7:iv==="Monthly"?30:iv==="Per Term"?90:365;}
 
         async function saveMaintReq(){
-          const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":"Open","UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined};
+          const autoStatus=maintForm.universityRef?"Submitted to Estates":"Open";
+          const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined};
           if(editMaint){
             await atPatch(MAINT_TABLE,editMaint.id,fields);
             setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...fields}:r));
@@ -2151,11 +2172,30 @@ export default function App() {
 
           {/* ── REQUISITIONS ── */}
           {!hsLoading&&hsTab==="reqs"&&(<>
-            <Btn outline color={TEAL} onClick={()=>{setShowMaintForm(true);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:""}); }} full style={{marginBottom:16}}>+ Log new request</Btn>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              <Btn outline color={TEAL} onClick={()=>{setShowMaintForm(true);setPasteMode(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:""});}} style={{flex:1}}>+ Manual</Btn>
+              <Btn outline color="#60a5fa" onClick={()=>{setShowMaintForm(true);setPasteMode(true);setEditMaint(null);setPasteEmail("");}} style={{flex:1}}>📧 Paste RU email</Btn>
+            </div>
 
             {showMaintForm&&(
               <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,padding:"16px",marginBottom:16}}>
-                <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>{editMaint?"Edit request":"New maintenance request"}</div>
+                <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>{editMaint?"Edit request":pasteMode?"Paste university email":"New maintenance request"}</div>
+
+                {/* PASTE MODE */}
+                {pasteMode&&!editMaint&&(<>
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Paste the RU email body below</label>
+                    <textarea style={{...ipt,resize:"vertical",fontSize:12}} rows={8} value={pasteEmail} onChange={e=>setPasteEmail(e.target.value)} placeholder={"Paste the email text here, e.g.:\n\nYour work request with ID: 104694 with\nProblem Type: ELECTRICAL|...\nLocation: B1 and\nBuilding Name: B1-FINE ARTS GRAPHICS DEPT and\nFloor: G and\nRoom: G019 and\nDescription: ..."}/>
+                  </div>
+                  <div style={{display:"flex",gap:8,marginBottom:12}}>
+                    <Btn color="#60a5fa" onClick={()=>{const parsed=parseRUEmail(pasteEmail);setMaintForm({description:parsed.description,location:parsed.location,problemType:parsed.problemType,universityRef:parsed.universityRef,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:""});setPasteMode(false);}} disabled={!pasteEmail.trim()} style={{flex:2}}>Parse email →</Btn>
+                    <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setPasteMode(false);}} style={{flex:1}}>Cancel</Btn>
+                  </div>
+                  <div style={{fontSize:12,color:"#4b5563",background:"#0f1117",borderRadius:8,padding:"10px 12px"}}>The parser will extract the request ID, problem type, building, floor, room, and description automatically. You can review and edit everything before saving.</div>
+                </>)}
+
+                {/* FORM FIELDS — shown after paste parse OR in manual mode */}
+                {!pasteMode&&(<>
                 <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Description *</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={maintForm.description} onChange={e=>setMaintForm(f=>({...f,description:e.target.value}))} placeholder="What is the problem?"/></div>
                 <div style={{display:"flex",gap:8,marginBottom:10}}>
                   <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Location</label><input style={ipt} value={maintForm.location} onChange={e=>setMaintForm(f=>({...f,location:e.target.value}))} placeholder="e.g. Mac lab, Workshop"/></div>
@@ -2168,9 +2208,10 @@ export default function App() {
                 <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>University reference no.</label><input style={ipt} value={maintForm.universityRef} onChange={e=>setMaintForm(f=>({...f,universityRef:e.target.value}))} placeholder="e.g. REQ-2026-1234"/></div>
                 <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={maintForm.notes} onChange={e=>setMaintForm(f=>({...f,notes:e.target.value}))} placeholder="Any additional details…"/></div>
                 <div style={{display:"flex",gap:8}}>
-                  <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setEditMaint(null);}} style={{flex:1}}>Cancel</Btn>
+                  <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setEditMaint(null);setPasteMode(false);}} style={{flex:1}}>Cancel</Btn>
                   <Btn color={TEAL} onClick={saveMaintReq} disabled={!maintForm.description.trim()} style={{flex:2}}>Save</Btn>
                 </div>
+                </>)}
               </div>
             )}
 
