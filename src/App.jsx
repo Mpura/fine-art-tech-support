@@ -809,6 +809,9 @@ export default function App() {
   const eqFiltered=equipment.filter(e=>(eqFilter==="All"||e.type===eqFilter)&&(!eqSearch||e.name?.toLowerCase().includes(eqSearch.toLowerCase())));
   const sortedRequests=[...requests].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   const filtered=filterStatus==="All"?sortedRequests:sortedRequests.filter(r=>r.status===filterStatus);
+  const QUEUE_DONE=["Done","Declined","Cancelled","Returned","Uncollected"];
+  const queueActive=filtered.filter(r=>!QUEUE_DONE.includes(r.status));
+  const queueArchive=filtered.filter(r=>QUEUE_DONE.includes(r.status));
   const counts=STATUSES.reduce((a,s)=>({...a,[s]:requests.filter(r=>r.status===s).length}),{});
   const openIt=itReferrals.filter(r=>r.status!=="Resolved").length;
   const itFiltered=itFilter==="All"?itReferrals:itReferrals.filter(r=>r.status===itFilter);
@@ -1570,7 +1573,7 @@ export default function App() {
   );
 
   // ── DASHBOARD ────────────────────────────────────────────────────
-  if(view==="dashboard"){const desktopTwoCol=isDesktop&&(dashTab==="today"||dashTab==="queue");return(
+  if(view==="dashboard"){const desktopTwoCol=false;return(
     <div style={isDesktop?{display:"flex",minHeight:"100vh",background:"#0F1117",alignItems:"flex-start",margin:"-24px -16px -48px",width:"calc(100% + 32px)"}:{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
       {isDesktop&&(
         <div style={{width:200,background:"#0a0d14",borderRight:"0.5px solid #1e2130",padding:"14px 10px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
@@ -1712,8 +1715,8 @@ export default function App() {
           <select style={{...ipt,flex:1}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option>All</option>{STATUSES.map(s=><option key={s}>{s}</option>)}</select>
         </div>
         {!loaded&&<div style={{color:"#6b7280",fontSize:14}}>Loading...</div>}
-        {loaded&&filtered.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>No requests yet</div>}
-        {filtered.map(req=>{
+        {loaded&&queueActive.length===0&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>No requests yet</div>}
+        {queueActive.map(req=>{
           const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
           const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
           const hasItems=req.typeId==="equipment"&&req.details?.itemsData?.length>0;
@@ -1815,6 +1818,33 @@ export default function App() {
             </div>
           );
         })}
+        {/* ── ARCHIVE ── */}
+        {queueArchive.length>0&&filterStatus==="All"&&(
+          <details style={{marginTop:8,marginBottom:8}}>
+            <summary style={{fontSize:13,color:"#4b5563",cursor:"pointer",padding:"10px 14px",background:"#0f1117",borderRadius:8,border:"0.5px solid #1e2130",listStyle:"none",display:"flex",alignItems:"center",gap:8,userSelect:"none"}}>
+              <span style={{fontSize:11,color:"#4b5563"}}>▶</span>
+              <span>Archive — {queueArchive.length} completed / declined</span>
+            </summary>
+            <div style={{marginTop:8,opacity:0.7}}>
+              {queueArchive.map(req=>{
+                const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
+                const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
+                return(
+                  <div key={req.id} style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:12,padding:"10px 14px",marginBottom:8,borderLeft:`3px solid ${typeColor}55`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                      <div style={{minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:600,color:`${typeColor}99`}}>{typeInfo.icon} {req.type||typeInfo.label}</div>
+                        <div style={{fontSize:14,fontWeight:500,color:"#9ca3af"}}>{req.name}{req.studNo&&<span style={{fontWeight:400,fontSize:12,color:"#374151",marginLeft:6}}>#{req.studNo}</span>}</div>
+                        {req.schedDate&&<div style={{fontSize:11,color:"#374151",marginTop:2}}>📅 {req.schedDate}</div>}
+                      </div>
+                      {pill(req.status)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        )}
       </>)}
 
       </div></div>
@@ -1926,7 +1956,7 @@ export default function App() {
               const sel=staffCalDay===k;
               const today=todayDate()===k;
               return(
-                <div key={i} onClick={()=>setStaffCalDay(sel?null:k)} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderRadius:8,fontSize:12,cursor:"pointer",background:sel?TEAL:today?"#0a2218":"#141720",border:`0.5px solid ${sel?TEAL:today?TEAL:"#1e2130"}`,color:sel?"#fff":today?TEAL:"#e0e3ea",fontWeight:sel||today?500:400}}>
+                <div key={i} onClick={()=>{setStaffCalDay(sel?null:k);if(!sel)setTimeout(()=>document.getElementById("cal-day-detail")?.scrollIntoView({behavior:"smooth",block:"nearest"}),80);}} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderRadius:8,fontSize:12,cursor:"pointer",background:sel?TEAL:today?"#0a2218":"#141720",border:`0.5px solid ${sel?TEAL:today?TEAL:"#1e2130"}`,color:sel?"#fff":today?TEAL:"#e0e3ea",fontWeight:sel||today?500:400}}>
                   <span>{d}</span>
                   {dayReqs.length>0&&<span style={{width:6,height:6,borderRadius:"50%",background:sel?"rgba(255,255,255,0.8)":TEAL,marginTop:2,flexShrink:0}}/>}
                 </div>
@@ -1936,19 +1966,31 @@ export default function App() {
           {staffCalDay&&(()=>{
             const dayReqs=getReqsForDate(staffCalDay);
             return(
-              <div style={{background:"#141720",border:`0.5px solid ${TEAL}`,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-                <div style={{fontWeight:500,fontSize:14,marginBottom:dayReqs.length>0?12:0,color:TEAL}}>{fmtDate(staffCalDay)}</div>
+              <div id="cal-day-detail" style={{background:"#141720",border:`0.5px solid ${TEAL}`,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:dayReqs.length>0?12:4}}>
+                  <div style={{fontWeight:500,fontSize:14,color:TEAL}}>{fmtDate(staffCalDay)}</div>
+                  <div style={{fontSize:11,color:"#4b5563"}}>{dayReqs.length} booking{dayReqs.length!==1?"s":""}</div>
+                </div>
                 {dayReqs.length===0&&<div style={{fontSize:13,color:"#6b7280"}}>No bookings on this date.</div>}
-                {dayReqs.map(r=>(
-                  <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:"0.5px solid #1e2130",paddingBottom:10,marginBottom:10}}>
-                    <div>
-                      <div style={{fontSize:13,fontWeight:500}}>{r.name}{r.studNo&&<span style={{fontWeight:400,color:"#6b7280",fontSize:12,marginLeft:6}}>#{r.studNo}</span>}</div>
-                      <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{r.type}</div>
-                      <div style={{fontSize:11,color:"#6b7280",marginTop:1}}>{(()=>{const m=r.schedDate?.match(/\((.+)\)/);return m?`🕐 ${m[1]}`:(r.schedDate?.includes("Morning")?"🌅 Morning":"🌆 Afternoon");})()}</div>
+                {dayReqs.map((r,idx)=>{
+                  const typeColor=TYPE_COLOR[r.typeId]||"#6B7280";
+                  const slotMatch=r.schedDate?.match(/\((.+)\)/);
+                  const slotLabel=slotMatch?slotMatch[1]:(r.schedDate?.includes("Morning")?"Morning":"Afternoon");
+                  return(
+                    <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:idx<dayReqs.length-1?"0.5px solid #1e2130":"none",paddingBottom:idx<dayReqs.length-1?10:0,marginBottom:idx<dayReqs.length-1?10:0}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:600,color:typeColor,marginBottom:2}}>{REQUEST_TYPES.find(t=>t.id===r.typeId)?.icon} {r.type}</div>
+                        <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{r.name}{r.studNo&&<span style={{fontWeight:400,color:"#6b7280",fontSize:12,marginLeft:6}}>#{r.studNo}</span>}</div>
+                        <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>🕐 {slotLabel}</div>
+                        {r.notes&&<div style={{fontSize:12,color:"#4b5563",marginTop:2,fontStyle:"italic"}}>"{r.notes}"</div>}
+                        {r.details?.material&&<div style={{fontSize:12,color:"#6b7280",marginTop:1}}>🪵 {r.details.material}{r.details.materialThickness?` · ${r.details.materialThickness}mm`:""}</div>}
+                        {r.details?.paperSize&&<div style={{fontSize:12,color:"#6b7280",marginTop:1}}>📐 {r.details.paperSize}{r.details.copies?` · ×${r.details.copies}`:""}</div>}
+                        {r.details?.firstTime&&<div style={{fontSize:11,background:"#2a1f0a",color:"#d4851a",borderRadius:5,padding:"1px 6px",marginTop:3,display:"inline-block"}}>⭐ First time</div>}
+                      </div>
+                      <div style={{marginLeft:8,flexShrink:0}}>{pill(r.status)}</div>
                     </div>
-                    {pill(r.status)}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })()}
