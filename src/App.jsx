@@ -156,6 +156,15 @@ async function atPatch(table, recordId, fields) {
   return res.json();
 }
 
+async function atDelete(table, recordId) {
+  const res = await fetch("/api/airtable", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ table, method: "DELETE", recordId }),
+  });
+  return res.json();
+}
+
 // ── REQUEST ↔ AIRTABLE CONVERTERS ───────────────────────────────
 function reqToAirtable(req) {
   return {
@@ -479,6 +488,7 @@ function HsPanel(){
   const [pasteMode,setPasteMode]=useState(false);
   const [resolvingId,setResolvingId]=useState(null);
   const [resolveDate,setResolveDate]=useState("");
+  const [submitting,setSubmitting]=useState(false);
   const [reportPeriod,setReportPeriod]=useState("month");
 
   function parseRUEmail(text){
@@ -531,16 +541,25 @@ function HsPanel(){
   },[]);
 
   async function saveMaintReq(){
-    const autoStatus=maintForm.universityRef?"Submitted to Estates":"Open";
-    const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined,"EmailDateTime":maintForm.emailDateTime||undefined};
-    if(editMaint){
-      await atPatch(MAINT_TABLE,editMaint.id,fields);
-      setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...fields}:r));
-    } else {
-      const res=await atPost(MAINT_TABLE,fields);
-      if(res.id) setMaintReqs(prev=>[{id:res.id,...fields},...(prev||[])]);
-    }
-    setShowMaintForm(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:"",emailDateTime:""});
+    if(submitting)return;
+    setSubmitting(true);
+    try{
+      const autoStatus=maintForm.universityRef?"Submitted to Estates":"Open";
+      const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined,"EmailDateTime":maintForm.emailDateTime||undefined};
+      if(editMaint){
+        await atPatch(MAINT_TABLE,editMaint.id,fields);
+        setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...fields}:r));
+      } else {
+        const res=await atPost(MAINT_TABLE,fields);
+        if(res.id) setMaintReqs(prev=>[{id:res.id,...fields},...(prev||[])]);
+      }
+      setShowMaintForm(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:"",emailDateTime:""});
+    }finally{setSubmitting(false);}
+  }
+  async function deleteMaintReq(req){
+    if(!window.confirm(`Delete this request?\n\n"${req.Description}"\n\nThis cannot be undone.`))return;
+    await atDelete(MAINT_TABLE,req.id);
+    setMaintReqs(prev=>prev.filter(r=>r.id!==req.id));
   }
   async function updateMaintStatus(req,status,dateResolved){
     const extra=status==="Resolved"?{DateResolved:dateResolved||todayDate()}:{};
@@ -630,8 +649,8 @@ function HsPanel(){
             <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>University reference no.</label><input style={ipt} value={maintForm.universityRef} onChange={e=>setMaintForm(f=>({...f,universityRef:e.target.value}))} placeholder="e.g. REQ-2026-1234"/></div>
             <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={maintForm.notes} onChange={e=>setMaintForm(f=>({...f,notes:e.target.value}))} placeholder="Any additional details…"/></div>
             <div style={{display:"flex",gap:8}}>
-              <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setEditMaint(null);setPasteMode(false);}} style={{flex:1}}>Cancel</Btn>
-              <Btn color={TEAL} onClick={saveMaintReq} disabled={!maintForm.description.trim()} style={{flex:2}}>Save</Btn>
+              <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setEditMaint(null);setPasteMode(false);}} style={{flex:1}} disabled={submitting}>Cancel</Btn>
+              <Btn color={TEAL} onClick={saveMaintReq} disabled={!maintForm.description.trim()||submitting} style={{flex:2}}>{submitting?"Saving…":"Save"}</Btn>
             </div>
           </>)}
         </div>
@@ -683,6 +702,7 @@ function HsPanel(){
                 }} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #d4851a",background:"#2a1f0a",cursor:"pointer",color:"#d4851a",fontSize:11,fontFamily:"inherit"}}>📧 Chase Estates</button>
               )}
               <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||"",emailDateTime:req.EmailDateTime||""});setShowMaintForm(true);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
+              <button onClick={()=>deleteMaintReq(req)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:11,fontFamily:"inherit"}}>🗑 Delete</button>
             </div>
           </div>
         );

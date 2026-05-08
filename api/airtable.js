@@ -64,8 +64,13 @@ export default async function handler(req, res) {
       options.method = "PATCH";
       options.body = JSON.stringify({ fields });
 
+    } else if (method === "DELETE") {
+      if (!recordId) return res.status(400).json({ error: "Missing recordId for DELETE" });
+      url = `${AT_URL}/${table}/${recordId}`;
+      options.method = "DELETE";
+
     } else {
-      return res.status(400).json({ error: "Invalid method — use GET, POST, or PATCH" });
+      return res.status(400).json({ error: "Invalid method — use GET, POST, PATCH, or DELETE" });
     }
 
     const response = await fetch(url, options);
