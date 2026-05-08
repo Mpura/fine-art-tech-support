@@ -477,6 +477,8 @@ function HsPanel(){
   const [editPm,setEditPm]=useState(null);
   const [pasteEmail,setPasteEmail]=useState("");
   const [pasteMode,setPasteMode]=useState(false);
+  const [resolvingId,setResolvingId]=useState(null);
+  const [resolveDate,setResolveDate]=useState("");
 
   function parseRUEmail(text){
     const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
@@ -526,10 +528,14 @@ function HsPanel(){
     }
     setShowMaintForm(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:"",emailDateTime:""});
   }
-  async function updateMaintStatus(req,status){
-    const extra=status==="Resolved"?{DateResolved:todayDate()}:{};
+  async function updateMaintStatus(req,status,dateResolved){
+    const extra=status==="Resolved"?{DateResolved:dateResolved||todayDate()}:{};
     await atPatch(MAINT_TABLE,req.id,{Status:status,...extra});
     setMaintReqs(prev=>prev.map(r=>r.id===req.id?{...r,Status:status,...extra}:r));
+  }
+  async function confirmResolve(req){
+    await updateMaintStatus(req,"Resolved",resolveDate||todayDate());
+    setResolvingId(null);setResolveDate("");
   }
   async function savePmTask(){
     const lastDone=pmForm.lastDone||todayDate();
@@ -643,8 +649,17 @@ function HsPanel(){
               </div>
             </div>
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
-              {["Submitted to Estates","In Progress","Resolved","Closed"].filter(s=>s!==req.Status).map(s=>(
+              {["Submitted to Estates","In Progress","Closed"].filter(s=>s!==req.Status).map(s=>(
                 <button key={s} onClick={()=>updateMaintStatus(req,s)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ {s}</button>
+              ))}
+              {req.Status!=="Resolved"&&(resolvingId===req.id?(
+                <span style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
+                  <input type="date" value={resolveDate} onChange={e=>setResolveDate(e.target.value)} style={{...ipt,padding:"3px 7px",fontSize:11,width:"auto"}}/>
+                  <button onClick={()=>confirmResolve(req)} style={{padding:"4px 10px",borderRadius:7,border:"none",background:"#20B07F",cursor:"pointer",color:"#fff",fontSize:11,fontFamily:"inherit"}}>✓ Confirm</button>
+                  <button onClick={()=>{setResolvingId(null);setResolveDate("");}} style={{padding:"4px 8px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#6b7280",fontSize:11,fontFamily:"inherit"}}>✕</button>
+                </span>
+              ):(
+                <button onClick={()=>{setResolvingId(req.id);setResolveDate(todayDate());}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ Resolved</button>
               ))}
               <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||"",emailDateTime:req.EmailDateTime||""});setShowMaintForm(true);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
             </div>
