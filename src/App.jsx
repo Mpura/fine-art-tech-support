@@ -1037,6 +1037,12 @@ export default function App() {
   const [eqCheckImages, setEqCheckImages] = useState({});
   const [queueEqImages, setQueueEqImages] = useState({});
 
+  // Walk-in equipment picker
+  const [wiEqItems, setWiEqItems] = useState([]);
+  const [wiEqLoading, setWiEqLoading] = useState(false);
+  const [wiSelEqItems, setWiSelEqItems] = useState([]);
+  const [wiEqSearch, setWiEqSearch] = useState("");
+
   const type = REQUEST_TYPES.find(t=>t.id===selType);
   const getLoanDays = (yearStr) => {
     const y = String(yearStr);
@@ -1102,6 +1108,13 @@ export default function App() {
   },[view]);
   useEffect(()=>{const handle=()=>setIsDesktop(window.innerWidth>=900);window.addEventListener("resize",handle);return()=>window.removeEventListener("resize",handle);},[]);
 
+  // Fetch equipment for walk-in picker whenever type=equipment or year changes
+  useEffect(()=>{
+    if(screen!=="walkin"||selType!=="equipment")return;
+    setWiEqLoading(true);setWiEqItems([]);setWiSelEqItems([]);setWiEqSearch("");
+    fetchEquipment(form.year||"o").then(items=>setWiEqItems(items)).catch(()=>{}).finally(()=>setWiEqLoading(false));
+  },[screen,selType,form.year]);
+
   useEffect(()=>{
     if(view!=="staff"||dashTab!=="queue")return;
     const ids=[...new Set(requests.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];
@@ -1119,6 +1132,7 @@ export default function App() {
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
     if(selType==="studio") return{shootType:form.shootType};
     if(selType==="gallery") return{eventType:form.eventType,eventStart:form.eventStart,eventEnd:form.eventEnd,attendance:form.attendance,setupNeeds:form.setupNeeds,venue:form.venue,techSupport:form.techSupport};
+    if(selType==="equipment") return{itemsData:wiSelEqItems.map(i=>({id:i.id,name:i.name,type:i.type,image:i.image}))};
     return{};
   }
   async function submitRequest(isWalkIn=false){
@@ -2039,9 +2053,33 @@ export default function App() {
         <div key={i} style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{lbl}</label><input style={ipt} value={i===0?form.name:form.studNo} onChange={e=>setF(i===0?"name":"studNo",e.target.value)} placeholder={i===0?"e.g. Sipho Nkosi":"e.g. g25K7744"}/></div>
       ))}
       <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Year</label><select style={ipt} value={form.year} onChange={e=>setF("year",e.target.value)}>{[["","Select year"],["1","1st year"],["2","2nd year"],["3","3rd year"],["4","4th year"],["m","Masters"],["s","Staff"],["o","Other"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></div>
-      <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>What do they need?</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{REQUEST_TYPES.map(t=><button key={t.id} onClick={()=>setSelType(t.id)} style={{padding:"8px 12px",borderRadius:8,border:"none",background:selType===t.id?TEAL:"#1a1d28",color:selType===t.id?"#fff":"#e0e3ea",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{t.icon} {t.label}</button>)}</div></div>
+      <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>What do they need?</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{REQUEST_TYPES.map(t=><button key={t.id} onClick={()=>{setSelType(t.id);setWiSelEqItems([]);setWiEqSearch("");}} style={{padding:"8px 12px",borderRadius:8,border:"none",background:selType===t.id?TEAL:"#1a1d28",color:selType===t.id?"#fff":"#e0e3ea",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{t.icon} {t.label}</button>)}</div></div>
+      {selType==="equipment"&&(
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Select items to book</label>
+          {!form.year&&<div style={{fontSize:13,color:"#d4851a",background:"#2a1f0a",borderRadius:8,padding:"10px 12px",marginBottom:8}}>⚠ Select a year above first to see available equipment.</div>}
+          {wiEqLoading&&<div style={{textAlign:"center",padding:"1.5rem",color:"#6b7280",fontSize:13}}>Loading equipment…</div>}
+          {!wiEqLoading&&form.year&&wiEqItems.length===0&&<div style={{fontSize:13,color:"#6b7280",padding:"0.5rem 0"}}>No equipment available for {YEAR_LABELS[form.year]||"this year"}.</div>}
+          {wiEqItems.length>0&&(<>
+            {wiSelEqItems.length>0&&<div style={{fontSize:12,color:"#20B07F",background:"#0a2218",borderRadius:8,padding:"8px 12px",marginBottom:8}}>✓ {wiSelEqItems.length} selected: {wiSelEqItems.map(i=>i.name).join(", ")}</div>}
+            <input style={{...ipt,marginBottom:10,fontSize:13}} placeholder="Search equipment…" value={wiEqSearch} onChange={e=>setWiEqSearch(e.target.value)}/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,maxHeight:360,overflowY:"auto"}}>
+              {wiEqItems.filter(i=>!wiEqSearch||i.name.toLowerCase().includes(wiEqSearch.toLowerCase())).map(item=>{
+                const sel=!!wiSelEqItems.find(i=>i.id===item.id);
+                return(
+                  <div key={item.id} onClick={()=>setWiSelEqItems(prev=>sel?prev.filter(i=>i.id!==item.id):[...prev,item])} style={{background:"#141720",border:sel?`2px solid ${TEAL}`:"0.5px solid #1e2130",borderRadius:10,overflow:"hidden",cursor:"pointer",position:"relative"}}>
+                    {sel&&<div style={{position:"absolute",top:6,right:6,background:TEAL,borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:11,zIndex:1}}>✓</div>}
+                    {item.image?<img src={item.image} alt={item.name} style={{width:"100%",height:80,objectFit:"cover",display:"block"}} onError={e=>{e.target.style.display="none";}}/>:<div style={{height:80,background:"#1a1d28",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>📷</div>}
+                    <div style={{padding:"8px 10px"}}><div style={{fontSize:12,fontWeight:500,color:"#e0e3ea",lineHeight:1.3}}>{item.name}</div><div style={{fontSize:10,color:"#4b5563",marginTop:2}}>{item.type}</div></div>
+                  </div>
+                );
+              })}
+            </div>
+          </>)}
+        </div>
+      )}
       <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Quick notes</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder="e.g. Software on Mac 4 — told to come back Thursday"/></div>
-      <Btn onClick={()=>{if(!form.name.trim()||!selType)return;submitRequest(true);setScreen("home");setSelType(null);setForm(f=>({...f,name:"",studNo:"",year:"",notes:""}));}} disabled={!form.name.trim()||!selType} full style={{padding:"13px",fontSize:15}}>Log walk-in</Btn>
+      <Btn onClick={()=>{if(!form.name.trim()||!selType)return;submitRequest(true);setScreen("home");setSelType(null);setWiSelEqItems([]);setWiEqSearch("");setForm(f=>({...f,name:"",studNo:"",year:"",notes:""}));}} disabled={!form.name.trim()||!selType} full style={{padding:"13px",fontSize:15}}>Log walk-in</Btn>
     </div>
   );
 
