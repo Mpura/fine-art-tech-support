@@ -27,7 +27,14 @@ const STAFF = [
 ];
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // Accept POST (manual from Report tab) or GET (Vercel cron)
+  if (req.method !== "POST" && req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+
+  // Cron GET requests must carry the secret; POST from the app is always allowed
+  const secret = process.env.CRON_SECRET;
+  if (req.method === "GET" && secret && req.headers.authorization !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   const PAT       = process.env.AIRTABLE_PAT;
   const gmailUser = process.env.GMAIL_USER;

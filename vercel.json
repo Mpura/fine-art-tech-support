@@ -3,6 +3,10 @@
     {
       "path": "/api/cron-followup",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/staff-report",
+      "schedule": "0 7 1 * *"
     }
   ]
 }
