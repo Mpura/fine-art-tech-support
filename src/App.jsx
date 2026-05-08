@@ -508,7 +508,7 @@ function HsPanel(){
       const year=m[3]||String(new Date().getFullYear());
       return`${year}-${String(mon).padStart(2,"0")}-${day}`;
     }
-    const dateSubmitted=emailDateToISO(emailDateTime)||todayDate();
+    const dateSubmitted=emailDateToISO(emailDateTime)||"";
     return{universityRef:id,problemType:probType,location,description:desc,dateLogged:todayDate(),dateSubmitted,notes:"",parsedStatus:status,emailDateTime};
   }
   function daysSince(d){if(!d)return null;const diff=new Date()-new Date(d+"T00:00:00");return Math.floor(diff/86400000);}
@@ -624,7 +624,7 @@ function HsPanel(){
             </div>
             <div style={{display:"flex",gap:8,marginBottom:10}}>
               <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date logged</label><input type="date" style={ipt} value={maintForm.dateLogged} onChange={e=>setMaintForm(f=>({...f,dateLogged:e.target.value}))}/></div>
-              <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date submitted to Estates</label><input type="date" style={ipt} value={maintForm.dateSubmitted} onChange={e=>setMaintForm(f=>({...f,dateSubmitted:e.target.value}))}/></div>
+              <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date submitted to Estates{!maintForm.dateSubmitted&&<span style={{color:"#f87171",marginLeft:6,fontSize:11}}>⚠ enter manually</span>}</label><input type="date" style={{...ipt,...(!maintForm.dateSubmitted?{borderColor:"#f87171"}:{})}} value={maintForm.dateSubmitted} onChange={e=>setMaintForm(f=>({...f,dateSubmitted:e.target.value}))}/></div>
             </div>
             {maintForm.emailDateTime&&(<div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Email timestamp (from parsed email)</label><input style={{...ipt,color:"#60a5fa",background:"#0a1e35"}} value={maintForm.emailDateTime} readOnly/></div>)}
             <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>University reference no.</label><input style={ipt} value={maintForm.universityRef} onChange={e=>setMaintForm(f=>({...f,universityRef:e.target.value}))} placeholder="e.g. REQ-2026-1234"/></div>
