@@ -8,22 +8,9 @@ import nodemailer from "nodemailer";
 const BASE_ID     = "appUqkCfnsOo2Jf7z";
 const MAINT_TABLE = "tbldZisWbs1WQIr09";
 
+// TEST MODE — send to one recipient only
 const STAFF = [
-  "Maureen De Jager <m.dejager@ru.ac.za>",
-  "Ruth Simbao <r.simbao@ru.ac.za>",
-  "Stephen Fọlárànmí <s.folaranmi@ru.ac.za>",
-  "Thembinkosi Goniwe <t.goniwe@ru.ac.za>",
-  "Rat Western <n.western@ru.ac.za>",
-  "Christine Dixie <c.dixie@ru.ac.za>",
-  "Sikhumbuzo Makandula <s.makandula@ru.ac.za>",
-  "Mbali Khoza <m.khoza@ru.ac.za>",
-  "Jarrett Erasmus <jarrett.erasmus@ru.ac.za>",
-  "Robyn Munnick <r.munnick@ru.ac.za>",
-  "Jan Nell <j.nell@ru.ac.za>",
   "Mpumzi Mpati <m.mpati@ru.ac.za>",
-  "Heidi Smith <h.smith@ru.ac.za>",
-  "Leroy Payne <leroyspayne@gmail.com>",
-  "Phila Phaliso <philaphaliso@gmail.com>",
 ];
 
 export default async function handler(req, res) {
