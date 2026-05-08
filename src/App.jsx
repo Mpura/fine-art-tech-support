@@ -53,6 +53,12 @@ const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Parti
 const IT_STATUSES = ["Logged","Awaiting IT","In Progress","Resolved","Escalated"];
 
 const statusStyle = {
+  // Maintenance statuses
+  "Open":{bg:"#1a1d28",color:"#9ca3af"},
+  "Submitted to Estates":{bg:"#0a1e35",color:"#60a5fa"},
+  "Resolved":{bg:"#0a2218",color:"#20B07F"},
+  "Closed":{bg:"#1a1d28",color:"#4b5563"},
+  // Request statuses
   "Pending":{bg:"#2a1f0a",color:"#d4851a"},
   "In Progress":{bg:"#0a1e35",color:"#60a5fa"},
   "Material test required":{bg:"#2a0f1a",color:"#c96090"},
@@ -545,11 +551,12 @@ function HsPanel(){
     setSubmitting(true);
     try{
       const autoStatus=maintForm.universityRef?"Submitted to Estates":"Open";
-      const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined,"EmailDateTime":maintForm.emailDateTime||undefined};
+      const baseFields={"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined,"EmailDateTime":maintForm.emailDateTime||undefined};
       if(editMaint){
-        await atPatch(MAINT_TABLE,editMaint.id,fields);
-        setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...fields}:r));
+        await atPatch(MAINT_TABLE,editMaint.id,baseFields);
+        setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...baseFields}:r));
       } else {
+        const fields={"Name":genId(),...baseFields};
         const res=await atPost(MAINT_TABLE,fields);
         if(res.id) setMaintReqs(prev=>[{id:res.id,...fields},...(prev||[])]);
       }
@@ -560,6 +567,26 @@ function HsPanel(){
     if(!window.confirm(`Delete this request?\n\n"${req.Description}"\n\nThis cannot be undone.`))return;
     await atDelete(MAINT_TABLE,req.id);
     setMaintReqs(prev=>prev.filter(r=>r.id!==req.id));
+  }
+  async function deletePmTask(task){
+    if(!window.confirm(`Delete PM task?\n\n"${task.TaskName}"\n\nThis cannot be undone.`))return;
+    await atDelete(PM_TABLE,task.id);
+    setPmTasks(prev=>prev.filter(r=>r.id!==task.id));
+  }
+  async function reopenMaintReq(req){
+    await atPatch(MAINT_TABLE,req.id,{Status:"Open",DateResolved:undefined});
+    setMaintReqs(prev=>prev.map(r=>r.id===req.id?{...r,Status:"Open",DateResolved:undefined}:r));
+  }
+  function refreshHs(){
+    setHsLoading(true);
+    Promise.all([
+      atGet(MAINT_TABLE,{maxRecords:200,sort:[{field:"DateLogged",direction:"desc"}]}).then(d=>{
+        setMaintReqs(d.records?d.records.map(r=>({id:r.id,...r.fields})):[]);
+      }).catch(()=>setMaintReqs([])),
+      atGet(PM_TABLE,{maxRecords:200,sort:[{field:"NextDue",direction:"asc"}]}).then(d=>{
+        setPmTasks(d.records?d.records.map(r=>({id:r.id,...r.fields})):[]);
+      }).catch(()=>setPmTasks([]))
+    ]).finally(()=>setHsLoading(false));
   }
   async function updateMaintStatus(req,status,dateResolved){
     const extra=status==="Resolved"?{DateResolved:dateResolved||todayDate()}:{};
@@ -600,7 +627,10 @@ function HsPanel(){
   const dueSoonPm=(pmTasks||[]).filter(t=>t.Status==="Due Soon").length;
 
   return(<>
-    <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>🦺 H&S / Maintenance</div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+      <div style={{fontSize:15,fontWeight:500}}>🦺 H&S / Maintenance</div>
+      <button onClick={refreshHs} title="Refresh from Airtable" style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#6b7280",fontSize:11,fontFamily:"inherit"}}>↻ Refresh</button>
+    </div>
     <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Requisitions and preventive maintenance log</div>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
       {[["Open",openReqs.length,"#d4851a","#2a1f0a"],["PM Overdue",overduePm,"#f87171","#2a0f14"],["PM Due Soon",dueSoonPm,"#60a5fa","#0a1e35"]].map(([l,n,col,bg])=>(
@@ -695,11 +725,11 @@ function HsPanel(){
                 <button onClick={()=>{setResolvingId(req.id);setResolveDate(todayDate());}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ Resolved</button>
               ))}
               {req.DateSubmitted&&daysSince(req.DateSubmitted)>=7&&(
-                <button onClick={async()=>{
+                <button title="Sends a single follow-up email to Estates listing all requests outstanding 7+ days" onClick={async()=>{
                   const r=await fetch("/api/cron-followup",{method:"POST"});
                   const d=await r.json();
-                  alert(d.sent>0?`Follow-up sent to Estates for ${d.sent} outstanding request(s).`:"No stale requests found to chase.");
-                }} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #d4851a",background:"#2a1f0a",cursor:"pointer",color:"#d4851a",fontSize:11,fontFamily:"inherit"}}>📧 Chase Estates</button>
+                  alert(d.sent>0?`Follow-up sent to Estates covering ${d.sent} outstanding request(s).`:"No requests over 7 days found.");
+                }} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #d4851a",background:"#2a1f0a",cursor:"pointer",color:"#d4851a",fontSize:11,fontFamily:"inherit"}}>📧 Chase Estates (all stale)</button>
               )}
               <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||"",emailDateTime:req.EmailDateTime||""});setShowMaintForm(true);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
               <button onClick={()=>deleteMaintReq(req)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:11,fontFamily:"inherit"}}>🗑 Delete</button>
@@ -712,15 +742,19 @@ function HsPanel(){
           <summary style={{fontSize:13,color:"#4b5563",cursor:"pointer",padding:"10px 14px",background:"#0f1117",borderRadius:8,border:"0.5px solid #1e2130",listStyle:"none",display:"flex",alignItems:"center",gap:8,userSelect:"none"}}>
             <span style={{fontSize:11}}>▶</span> Archive — {closedReqs.length} resolved / closed
           </summary>
-          <div style={{marginTop:8,opacity:0.65}}>
+          <div style={{marginTop:8}}>
             {closedReqs.map(req=>(
-              <div key={req.id} style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:6}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div>
+              <div key={req.id} style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:6,opacity:0.8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                  <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,color:"#9ca3af"}}>{req.Description}</div>
                     <div style={{fontSize:11,color:"#374151",marginTop:2}}>{req.Location&&`📍 ${req.Location} · `}{req.DateResolved&&`Resolved ${fmtDate(req.DateResolved)}`}</div>
                   </div>
-                  <span style={{fontSize:11,color:"#4b5563",background:"#1a1d28",borderRadius:5,padding:"2px 7px"}}>{req.Status}</span>
+                  <span style={{fontSize:11,color:"#4b5563",background:"#1a1d28",borderRadius:5,padding:"2px 7px",whiteSpace:"nowrap"}}>{req.Status}</span>
+                </div>
+                <div style={{display:"flex",gap:6,marginTop:8}}>
+                  <button onClick={()=>reopenMaintReq(req)} style={{padding:"3px 9px",borderRadius:6,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>↩ Reopen</button>
+                  <button onClick={()=>deleteMaintReq(req)} style={{padding:"3px 9px",borderRadius:6,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:11,fontFamily:"inherit"}}>🗑 Delete</button>
                 </div>
               </div>
             ))}
@@ -774,6 +808,7 @@ function HsPanel(){
             <div style={{display:"flex",gap:6,marginTop:8}}>
               <Btn small color={TEAL} onClick={()=>markPmDone(task)}>✓ Mark done today</Btn>
               <button onClick={()=>{setEditPm(task);setPmForm({taskName:task.TaskName||"",machine:task.Machine||"",interval:task.Interval||"",lastDone:task.LastDone||todayDate(),nextDue:task.NextDue||"",notes:task.Notes||""});setShowPmForm(true);}} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:12,fontFamily:"inherit"}}>✏ Edit</button>
+              <button onClick={()=>deletePmTask(task)} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:12,fontFamily:"inherit"}}>🗑 Delete</button>
             </div>
           </div>
         );
@@ -2481,298 +2516,7 @@ export default function App() {
 
       {/* ── H&S / MAINTENANCE ── */}
       {dashTab==="hs"&&<HsPanel/>}
-      {false&&(()=>{
-        const [hsTab,setHsTab]=React.useState("reqs");
-        const [maintReqs,setMaintReqs]=React.useState(null);
-        const [pmTasks,setPmTasks]=React.useState(null);
-        const [hsLoading,setHsLoading]=React.useState(false);
-        const [showMaintForm,setShowMaintForm]=React.useState(false);
-        const [showPmForm,setShowPmForm]=React.useState(false);
-        const [maintForm,setMaintForm]=React.useState({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:"",emailDateTime:""});
-        const [pmForm,setPmForm]=React.useState({taskName:"",machine:"",interval:"",lastDone:todayDate(),nextDue:"",notes:""});
-        const [editMaint,setEditMaint]=React.useState(null);
-        const [editPm,setEditPm]=React.useState(null);
-        const [pasteEmail,setPasteEmail]=React.useState("");
-        const [pasteMode,setPasteMode]=React.useState(false);
-
-        // Parse RU Estates email into form fields
-        function parseRUEmail(text){
-          const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
-          const rawType=(text.match(/Problem Type[:\s]+([^\n\r]+?)(?:\s+at\s|\s+Location|$)/i)||[])[1]||"";
-          const typeMap={electrical:"Electrical",plumbing:"Plumbing",structural:"Structural",pest:"Pest Control",clean:"Cleaning",mechanical:"Equipment",hvac:"Equipment",equipment:"Equipment"};
-          const probType=Object.entries(typeMap).find(([k])=>rawType.toLowerCase().includes(k))?.[1]||"Other";
-          const building=(text.match(/Building Name[:\s]+([^\n\r]+?)(?:\s+and\s|\s+Floor|$)/i)||[])[1]?.trim()||"";
-          const floor=(text.match(/Floor[:\s]+([^\n\r]+?)(?:\s+and\s|\s+Room|$)/i)||[])[1]?.trim()||"";
-          const room=(text.match(/Room[:\s]+([^\n\r]+?)(?:\s+and\s|\s+Description|$)/i)||[])[1]?.trim()||"";
-          const location=[building,floor&&`Floor ${floor}`,room&&`Room ${room}`].filter(Boolean).join(", ");
-          const desc=(text.match(/Description[:\s]+([\s\S]+?)(?:[\r\n]+\s*(?:Status|Thanks|If you|$))/i)||[])[1]?.trim()||"";
-          const rawStatus=(text.match(/Status been changed to[:\s]+(\w+)/i)||[])[1]||"";
-          const statusMap={requested:"Submitted to Estates",inprogress:"In Progress","in progress":"In Progress",completed:"Resolved",resolved:"Resolved",closed:"Closed"};
-          const status=statusMap[rawStatus.toLowerCase()]||"Submitted to Estates";
-          // Parse email date/time — e.g. "Mon 16 Mar, 11:36" or "Mon 16 Mar 2026, 11:36"
-          const dtMatch=text.match(/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}\s+\w+(?:\s+\d{4})?,\s*\d{1,2}:\d{2}/i);
-          const emailDateTime=dtMatch?dtMatch[0]:"";
-          return{universityRef:id,problemType:probType,location,description:desc,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:"",parsedStatus:status,emailDateTime};
-        }
-
-        // Days since date helper
-        function daysSince(d){if(!d)return null;const diff=new Date()-new Date(d+"T00:00:00");return Math.floor(diff/86400000);}
-        function daysUntil(d){if(!d)return null;const diff=new Date(d+"T00:00:00")-new Date();return Math.floor(diff/86400000);}
-        function escalationColor(days){if(days===null)return"#6b7280";if(days<14)return"#20B07F";if(days<30)return"#d4851a";return"#f87171";}
-        function pmStatusColor(s){return s==="Overdue"?"#f87171":s==="Due Soon"?"#d4851a":"#20B07F";}
-        function pmStatusBg(s){return s==="Overdue"?"#2a0f14":s==="Due Soon"?"#2a1f0a":"#0a2218";}
-
-        // Fetch data
-        React.useEffect(()=>{
-          setHsLoading(true);
-          Promise.all([
-            atGet(MAINT_TABLE,{maxRecords:200,sort:[{field:"DateLogged",direction:"desc"}]}).then(d=>{
-              if(d.records) setMaintReqs(d.records.map(r=>({id:r.id,...r.fields})));
-            }).catch(()=>setMaintReqs([])),
-            atGet(PM_TABLE,{maxRecords:200,sort:[{field:"NextDue",direction:"asc"}]}).then(d=>{
-              if(d.records) setPmTasks(d.records.map(r=>({id:r.id,...r.fields})));
-            }).catch(()=>setPmTasks([]))
-          ]).finally(()=>setHsLoading(false));
-        },[]);
-
-        // Interval → days
-        function intervalDays(iv){return iv==="Daily"?1:iv==="Weekly"?7:iv==="Monthly"?30:iv==="Per Term"?90:365;}
-
-        async function saveMaintReq(){
-          const autoStatus=maintForm.universityRef?"Submitted to Estates":"Open";
-          const fields={"Name":genId(),"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined,"EmailDateTime":maintForm.emailDateTime||undefined};
-          if(editMaint){
-            await atPatch(MAINT_TABLE,editMaint.id,fields);
-            setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...fields}:r));
-          } else {
-            const res=await atPost(MAINT_TABLE,fields);
-            if(res.id) setMaintReqs(prev=>[{id:res.id,...fields},...(prev||[])]);
-          }
-          setShowMaintForm(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:"",emailDateTime:""});
-        }
-
-        async function updateMaintStatus(req,status){
-          const extra=status==="Resolved"?{DateResolved:todayDate()}:{};
-          await atPatch(MAINT_TABLE,req.id,{Status:status,...extra});
-          setMaintReqs(prev=>prev.map(r=>r.id===req.id?{...r,Status:status,...extra}:r));
-        }
-
-        async function savePmTask(){
-          const lastDone=pmForm.lastDone||todayDate();
-          const nextDue=pmForm.nextDue||(()=>{const d=new Date(lastDone+"T00:00:00");d.setDate(d.getDate()+intervalDays(pmForm.interval));return d.toISOString().slice(0,10);})();
-          const du=daysUntil(nextDue);
-          const status=du===null?"On Track":du<0?"Overdue":du<=7?"Due Soon":"On Track";
-          const fields={"TaskName":pmForm.taskName,"Machine":pmForm.machine,"Interval":pmForm.interval||undefined,"LastDone":lastDone,"NextDue":nextDue,"Notes":pmForm.notes||undefined,"Status":status};
-          if(editPm){
-            await atPatch(PM_TABLE,editPm.id,fields);
-            setPmTasks(prev=>prev.map(r=>r.id===editPm.id?{...r,...fields}:r));
-          } else {
-            const res=await atPost(PM_TABLE,fields);
-            if(res.id) setPmTasks(prev=>[...(prev||[]),{id:res.id,...fields}].sort((a,b)=>(a.NextDue||"").localeCompare(b.NextDue||"")));
-          }
-          setShowPmForm(false);setEditPm(null);setPmForm({taskName:"",machine:"",interval:"",lastDone:todayDate(),nextDue:"",notes:""});
-        }
-
-        async function markPmDone(task){
-          const lastDone=todayDate();
-          const d=new Date(lastDone+"T00:00:00");d.setDate(d.getDate()+intervalDays(task.Interval||"Monthly"));
-          const nextDue=d.toISOString().slice(0,10);
-          const fields={LastDone:lastDone,NextDue:nextDue,Status:"On Track"};
-          await atPatch(PM_TABLE,task.id,fields);
-          setPmTasks(prev=>prev.map(r=>r.id===task.id?{...r,...fields}:r).sort((a,b)=>(a.NextDue||"").localeCompare(b.NextDue||"")));
-        }
-
-        const openReqs=(maintReqs||[]).filter(r=>!["Resolved","Closed"].includes(r.Status));
-        const closedReqs=(maintReqs||[]).filter(r=>["Resolved","Closed"].includes(r.Status));
-        const overduePm=(pmTasks||[]).filter(t=>t.Status==="Overdue").length;
-        const dueSoonPm=(pmTasks||[]).filter(t=>t.Status==="Due Soon").length;
-
-        return(<>
-          <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>🦺 H&S / Maintenance</div>
-          <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Requisitions and preventive maintenance log</div>
-
-          {/* Stats */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
-            {[["Open",openReqs.length,"#d4851a","#2a1f0a"],["PM Overdue",overduePm,"#f87171","#2a0f14"],["PM Due Soon",dueSoonPm,"#60a5fa","#0a1e35"]].map(([l,n,col,bg])=>(
-              <div key={l} style={{background:bg,borderRadius:8,padding:"10px 12px",border:`0.5px solid ${col}22`}}>
-                <div style={{fontSize:22,fontWeight:500,color:col,lineHeight:1}}>{n}</div>
-                <div style={{fontSize:10,color:col,marginTop:3}}>{l}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Sub-tabs */}
-          <div style={{display:"flex",gap:6,marginBottom:16}}>
-            {[["reqs","🔧 Requisitions"],["pm","📋 PM Schedule"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setHsTab(v)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",background:hsTab===v?TEAL:"#141720",color:hsTab===v?"#fff":"#6b7280",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:hsTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
-            ))}
-          </div>
-
-          {hsLoading&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>Loading...</div>}
-
-          {/* ── REQUISITIONS ── */}
-          {!hsLoading&&hsTab==="reqs"&&(<>
-            <div style={{display:"flex",gap:8,marginBottom:16}}>
-              <Btn outline color={TEAL} onClick={()=>{setShowMaintForm(true);setPasteMode(false);setEditMaint(null);setMaintForm({description:"",location:"",problemType:"",universityRef:"",dateLogged:todayDate(),dateSubmitted:"",notes:""});}} style={{flex:1}}>+ Manual</Btn>
-              <Btn outline color="#60a5fa" onClick={()=>{setShowMaintForm(true);setPasteMode(true);setEditMaint(null);setPasteEmail("");}} style={{flex:1}}>📧 Paste RU email</Btn>
-            </div>
-
-            {showMaintForm&&(
-              <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,padding:"16px",marginBottom:16}}>
-                <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>{editMaint?"Edit request":pasteMode?"Paste university email":"New maintenance request"}</div>
-
-                {/* PASTE MODE */}
-                {pasteMode&&!editMaint&&(<>
-                  <div style={{marginBottom:10}}>
-                    <label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Paste the RU email body below</label>
-                    <textarea style={{...ipt,resize:"vertical",fontSize:12}} rows={8} value={pasteEmail} onChange={e=>setPasteEmail(e.target.value)} placeholder={"Paste the email text here, e.g.:\n\nYour work request with ID: 104694 with\nProblem Type: ELECTRICAL|...\nLocation: B1 and\nBuilding Name: B1-FINE ARTS GRAPHICS DEPT and\nFloor: G and\nRoom: G019 and\nDescription: ..."}/>
-                  </div>
-                  <div style={{display:"flex",gap:8,marginBottom:12}}>
-                    <Btn color="#60a5fa" onClick={()=>{const parsed=parseRUEmail(pasteEmail);setMaintForm({description:parsed.description,location:parsed.location,problemType:parsed.problemType,universityRef:parsed.universityRef,dateLogged:todayDate(),dateSubmitted:parsed.dateSubmitted||"",notes:"",emailDateTime:parsed.emailDateTime||""});setPasteMode(false);}} disabled={!pasteEmail.trim()} style={{flex:2}}>Parse email →</Btn>
-                    <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setPasteMode(false);}} style={{flex:1}}>Cancel</Btn>
-                  </div>
-                  <div style={{fontSize:12,color:"#4b5563",background:"#0f1117",borderRadius:8,padding:"10px 12px"}}>The parser will extract the request ID, problem type, building, floor, room, and description automatically. You can review and edit everything before saving.</div>
-                </>)}
-
-                {/* FORM FIELDS — shown after paste parse OR in manual mode */}
-                {!pasteMode&&(<>
-                <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Description *</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={maintForm.description} onChange={e=>setMaintForm(f=>({...f,description:e.target.value}))} placeholder="What is the problem?"/></div>
-                <div style={{display:"flex",gap:8,marginBottom:10}}>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Location</label><input style={ipt} value={maintForm.location} onChange={e=>setMaintForm(f=>({...f,location:e.target.value}))} placeholder="e.g. Mac lab, Workshop"/></div>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Problem type</label><select style={ipt} value={maintForm.problemType} onChange={e=>setMaintForm(f=>({...f,problemType:e.target.value}))}><option value="">Select…</option>{["Electrical","Plumbing","Structural","Pest Control","Cleaning","Equipment","Other"].map(t=><option key={t}>{t}</option>)}</select></div>
-                </div>
-                <div style={{display:"flex",gap:8,marginBottom:10}}>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date logged</label><input type="date" style={ipt} value={maintForm.dateLogged} onChange={e=>setMaintForm(f=>({...f,dateLogged:e.target.value}))}/></div>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date submitted to Estates</label><input type="date" style={ipt} value={maintForm.dateSubmitted} onChange={e=>setMaintForm(f=>({...f,dateSubmitted:e.target.value}))}/></div>
-                </div>
-                {maintForm.emailDateTime&&(<div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Email timestamp (from parsed email)</label><input style={{...ipt,color:"#60a5fa",background:"#0a1e35"}} value={maintForm.emailDateTime} readOnly/></div>)}
-                <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>University reference no.</label><input style={ipt} value={maintForm.universityRef} onChange={e=>setMaintForm(f=>({...f,universityRef:e.target.value}))} placeholder="e.g. REQ-2026-1234"/></div>
-                <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={maintForm.notes} onChange={e=>setMaintForm(f=>({...f,notes:e.target.value}))} placeholder="Any additional details…"/></div>
-                <div style={{display:"flex",gap:8}}>
-                  <Btn outline color="#4b5563" onClick={()=>{setShowMaintForm(false);setEditMaint(null);setPasteMode(false);}} style={{flex:1}}>Cancel</Btn>
-                  <Btn color={TEAL} onClick={saveMaintReq} disabled={!maintForm.description.trim()} style={{flex:2}}>Save</Btn>
-                </div>
-                </>)}
-              </div>
-            )}
-
-            {(maintReqs===null)&&!hsLoading&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>Loading…</div>}
-            {maintReqs!==null&&openReqs.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14,border:"0.5px dashed #1e2130",borderRadius:10}}>No open requests</div>}
-
-            {openReqs.map(req=>{
-              const days=req.DateSubmitted?daysSince(req.DateSubmitted):null;
-              const col=escalationColor(days);
-              return(
-                <div key={req.id} style={{background:"#141720",border:`0.5px solid #1e2130`,borderRadius:12,padding:"14px 16px",marginBottom:10,borderLeft:`3px solid ${col}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4,alignItems:"center"}}>
-                        {req.ProblemType&&<span style={{fontSize:11,background:"#1a1d28",color:"#9ca3af",borderRadius:5,padding:"2px 7px"}}>{req.ProblemType}</span>}
-                        {req.Location&&<span style={{fontSize:11,color:"#6b7280"}}>📍 {req.Location}</span>}
-                      </div>
-                      <div style={{fontSize:14,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>{req.Description}</div>
-                      <div style={{display:"flex",gap:10,flexWrap:"wrap",fontSize:12,color:"#6b7280"}}>
-                        {req.DateLogged&&<span>Logged: {fmtDate(req.DateLogged)}</span>}
-                        {req.DateSubmitted&&<span style={{color:col}}>Submitted: {fmtDate(req.DateSubmitted)} · {days}d ago</span>}
-                        {req.UniversityRef&&<span style={{color:"#60a5fa"}}>Ref: {req.UniversityRef}</span>}
-                        {req.EmailDateTime&&<span style={{color:"#9ca3af"}}>📧 {req.EmailDateTime}</span>}
-                      </div>
-                      {req.Notes&&<div style={{fontSize:12,color:"#4b5563",marginTop:4,fontStyle:"italic"}}>"{req.Notes}"</div>}
-                    </div>
-                    <div style={{marginLeft:8,flexShrink:0}}>
-                      <span style={{...statusStyle[req.Status]||{bg:"#1a1d28",color:"#9ca3af"},background:(statusStyle[req.Status]||{bg:"#1a1d28"}).bg,color:(statusStyle[req.Status]||{color:"#9ca3af"}).color,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6,whiteSpace:"nowrap"}}>{req.Status}</span>
-                    </div>
-                  </div>
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
-                    {["Submitted to Estates","In Progress","Resolved","Closed"].filter(s=>s!==req.Status).map(s=>(
-                      <button key={s} onClick={()=>updateMaintStatus(req,s)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ {s}</button>
-                    ))}
-                    <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||""});setShowMaintForm(true);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {closedReqs.length>0&&(
-              <details style={{marginTop:8}}>
-                <summary style={{fontSize:13,color:"#4b5563",cursor:"pointer",padding:"10px 14px",background:"#0f1117",borderRadius:8,border:"0.5px solid #1e2130",listStyle:"none",display:"flex",alignItems:"center",gap:8,userSelect:"none"}}>
-                  <span style={{fontSize:11}}>▶</span> Archive — {closedReqs.length} resolved / closed
-                </summary>
-                <div style={{marginTop:8,opacity:0.65}}>
-                  {closedReqs.map(req=>(
-                    <div key={req.id} style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:6}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                        <div>
-                          <div style={{fontSize:13,color:"#9ca3af"}}>{req.Description}</div>
-                          <div style={{fontSize:11,color:"#374151",marginTop:2}}>{req.Location&&`📍 ${req.Location} · `}{req.DateResolved&&`Resolved ${fmtDate(req.DateResolved)}`}</div>
-                        </div>
-                        <span style={{fontSize:11,color:"#4b5563",background:"#1a1d28",borderRadius:5,padding:"2px 7px"}}>{req.Status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-          </>)}
-
-          {/* ── PM SCHEDULE ── */}
-          {!hsLoading&&hsTab==="pm"&&(<>
-            <Btn outline color={TEAL} onClick={()=>{setShowPmForm(true);setEditPm(null);setPmForm({taskName:"",machine:"",interval:"Monthly",lastDone:todayDate(),nextDue:"",notes:""});}} full style={{marginBottom:16}}>+ Add maintenance task</Btn>
-
-            {showPmForm&&(
-              <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,padding:"16px",marginBottom:16}}>
-                <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>{editPm?"Edit task":"New PM task"}</div>
-                <div style={{display:"flex",gap:8,marginBottom:10}}>
-                  <div style={{flex:2}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Task name *</label><input style={ipt} value={pmForm.taskName} onChange={e=>setPmForm(f=>({...f,taskName:e.target.value}))} placeholder="e.g. Clean laser lens"/></div>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Machine</label><input style={ipt} value={pmForm.machine} onChange={e=>setPmForm(f=>({...f,machine:e.target.value}))} placeholder="e.g. Laser"/></div>
-                </div>
-                <div style={{display:"flex",gap:8,marginBottom:10}}>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Interval</label><select style={ipt} value={pmForm.interval} onChange={e=>setPmForm(f=>({...f,interval:e.target.value}))}><option value="">Select…</option>{["Daily","Weekly","Monthly","Per Term","Annually"].map(t=><option key={t}>{t}</option>)}</select></div>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Last done</label><input type="date" style={ipt} value={pmForm.lastDone} onChange={e=>setPmForm(f=>({...f,lastDone:e.target.value}))}/></div>
-                  <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Next due (optional)</label><input type="date" style={ipt} value={pmForm.nextDue} onChange={e=>setPmForm(f=>({...f,nextDue:e.target.value}))}/></div>
-                </div>
-                <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={pmForm.notes} onChange={e=>setPmForm(f=>({...f,notes:e.target.value}))} placeholder="What to check, parts needed, etc."/></div>
-                <div style={{display:"flex",gap:8}}>
-                  <Btn outline color="#4b5563" onClick={()=>{setShowPmForm(false);setEditPm(null);}} style={{flex:1}}>Cancel</Btn>
-                  <Btn color={TEAL} onClick={savePmTask} disabled={!pmForm.taskName.trim()} style={{flex:2}}>Save</Btn>
-                </div>
-              </div>
-            )}
-
-            {pmTasks!==null&&pmTasks.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14,border:"0.5px dashed #1e2130",borderRadius:10}}>No tasks yet — add your first maintenance task</div>}
-
-            {(pmTasks||[]).map(task=>{
-              const du=daysUntil(task.NextDue);
-              const col=pmStatusColor(task.Status);
-              const bg=pmStatusBg(task.Status);
-              return(
-                <div key={task.id} style={{background:"#141720",border:`0.5px solid #1e2130`,borderRadius:12,padding:"14px 16px",marginBottom:10,borderLeft:`3px solid ${col}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4,alignItems:"center"}}>
-                        {task.Machine&&<span style={{fontSize:11,background:"#1a1d28",color:"#9ca3af",borderRadius:5,padding:"2px 7px"}}>⚙ {task.Machine}</span>}
-                        {task.Interval&&<span style={{fontSize:11,color:"#6b7280"}}>{task.Interval}</span>}
-                      </div>
-                      <div style={{fontSize:14,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>{task.TaskName}</div>
-                      <div style={{display:"flex",gap:10,flexWrap:"wrap",fontSize:12,color:"#6b7280"}}>
-                        {task.LastDone&&<span>Last done: {fmtDate(task.LastDone)}</span>}
-                        {task.NextDue&&<span style={{color:col}}>Next due: {fmtDate(task.NextDue)}{du!==null&&<span> · {du<0?`${Math.abs(du)}d overdue`:du===0?"today":`${du}d`}</span>}</span>}
-                      </div>
-                      {task.Notes&&<div style={{fontSize:12,color:"#4b5563",marginTop:4,fontStyle:"italic"}}>"{task.Notes}"</div>}
-                    </div>
-                    <span style={{background:bg,color:col,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6,marginLeft:8,whiteSpace:"nowrap"}}>{task.Status}</span>
-                  </div>
-                  <div style={{display:"flex",gap:6,marginTop:8}}>
-                    <Btn small color={TEAL} onClick={()=>markPmDone(task)}>✓ Mark done today</Btn>
-                    <button onClick={()=>{setEditPm(task);setPmForm({taskName:task.TaskName||"",machine:task.Machine||"",interval:task.Interval||"",lastDone:task.LastDone||todayDate(),nextDue:task.NextDue||"",notes:task.Notes||""});setShowPmForm(true);}} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:12,fontFamily:"inherit"}}>✏ Edit</button>
-                  </div>
-                </div>
-              );
-            })}
-          </>)}
-        </>);
-      })()}
-
+  
       {/* ── BLOCKS ── */}
       {dashTab==="blocks"&&(<>
         <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>Block dates</div>
