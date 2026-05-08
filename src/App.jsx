@@ -496,7 +496,20 @@ function HsPanel(){
     const status=statusMap[rawStatus.toLowerCase()]||"Submitted to Estates";
     const dtMatch=text.match(/(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)\s+\d{1,2}\s+\w+(?:\s+\d{4})?,\s*\d{1,2}:\d{2}/i);
     const emailDateTime=dtMatch?dtMatch[0]:"";
-    return{universityRef:id,problemType:probType,location,description:desc,dateLogged:todayDate(),dateSubmitted:todayDate(),notes:"",parsedStatus:status,emailDateTime};
+    // Convert "Mon 16 Mar, 11:36" or "Mon 16 Mar 2026, 11:36" → "2026-03-16"
+    function emailDateToISO(s){
+      if(!s)return"";
+      const months={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+      const m=s.match(/(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?/);
+      if(!m)return"";
+      const day=String(parseInt(m[1])).padStart(2,"0");
+      const mon=months[m[2].toLowerCase().slice(0,3)];
+      if(!mon)return"";
+      const year=m[3]||String(new Date().getFullYear());
+      return`${year}-${String(mon).padStart(2,"0")}-${day}`;
+    }
+    const dateSubmitted=emailDateToISO(emailDateTime)||todayDate();
+    return{universityRef:id,problemType:probType,location,description:desc,dateLogged:todayDate(),dateSubmitted,notes:"",parsedStatus:status,emailDateTime};
   }
   function daysSince(d){if(!d)return null;const diff=new Date()-new Date(d+"T00:00:00");return Math.floor(diff/86400000);}
   function daysUntil(d){if(!d)return null;const diff=new Date(d+"T00:00:00")-new Date();return Math.floor(diff/86400000);}
