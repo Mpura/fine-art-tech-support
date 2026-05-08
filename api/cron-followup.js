@@ -27,7 +27,7 @@ export default async function handler(req, res) {
   const gmailPass = process.env.GMAIL_PASS;
 
   const TO  = "estates@ru.ac.za";
-  const CCS = ["m.mpati@ru.ac.za", "h.smith@ru.ac.za", "j.nell@ru.ac.za"];
+  const CCS = ["m.mpati@ru.ac.za", "h.smith@ru.ac.za", "j.nell@ru.ac.za", "lois.anguria@ru.ac.za"];
 
   if (!PAT || !gmailUser || !gmailPass) {
     return res.status(500).json({ error: "Missing env vars: AIRTABLE_PAT, GMAIL_USER, GMAIL_PASS" });
@@ -79,14 +79,14 @@ export default async function handler(req, res) {
     from:    `"Fine Art Tech Support — Rhodes University" <${gmailUser}>`,
     to:      TO,
     cc:      CCS.join(", "),
-    subject: `Follow-up: ${stale.length} outstanding maintenance request${stale.length > 1 ? "s" : ""} — Fine Art Dept`,
+    subject: `Outstanding Maintenance Request Follow-up — Fine Art Department`,
     html: `
       <p style="font-family:sans-serif">Dear Facilities Team,</p>
       <p style="font-family:sans-serif">
-        This is an automated follow-up from the Fine Art Department at Rhodes University.
-        The requests below were submitted to Estates and have been outstanding for
-        <strong>${CHASE_AFTER_DAYS}+ days</strong> without resolution.
-        Please provide an update at your earliest convenience.
+        We are following up on the maintenance request${stale.length > 1 ? "s" : ""} listed below,
+        which ${stale.length > 1 ? "were" : "was"} submitted to Estates and remain${stale.length === 1 ? "s" : ""} unresolved.
+        We would appreciate an update on the progress of ${stale.length > 1 ? "these requests" : "this request"}
+        at your earliest convenience.
       </p>
       <table style="border-collapse:collapse;width:100%;font-family:sans-serif;font-size:13px">
         <thead>
@@ -101,9 +101,12 @@ export default async function handler(req, res) {
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <p style="font-family:sans-serif;margin-top:24px;color:#666;font-size:12px">
-        Fine Art Tech Support · Rhodes University Fine Art Department<br>
-        This message is sent automatically every 3 days while requests remain unresolved.
+      <p style="font-family:sans-serif;margin-top:24px;">
+        Please do not hesitate to contact us if you require any further information.
+      </p>
+      <p style="font-family:sans-serif;">
+        Kind regards,<br>
+        Fine Art Department — Rhodes University
       </p>`,
   });
 
