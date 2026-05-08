@@ -3,11 +3,10 @@
 // without being resolved, and sends a follow-up email.
 //
 // Required env vars (set in Vercel dashboard):
-//   AIRTABLE_PAT      — Airtable personal access token
-//   ESTATES_EMAIL     — Facilities/Estates email address to chase
-//   GMAIL_USER        — sender Gmail address
-//   GMAIL_PASS        — Gmail app password (16-char)
-//   CRON_SECRET       — any random string; set the same value in Vercel → Settings → Cron Job Secret
+//   AIRTABLE_PAT  — Airtable personal access token
+//   GMAIL_USER    — sender Gmail address
+//   GMAIL_PASS    — Gmail app password (16-char)
+//   CRON_SECRET   — any random string; set the same value in Vercel → Settings → Cron Job Secret
 
 import nodemailer from "nodemailer";
 
@@ -23,13 +22,15 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const PAT          = process.env.AIRTABLE_PAT;
-  const estatesEmail = process.env.ESTATES_EMAIL;
-  const gmailUser    = process.env.GMAIL_USER;
-  const gmailPass    = process.env.GMAIL_PASS;
+  const PAT       = process.env.AIRTABLE_PAT;
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPass = process.env.GMAIL_PASS;
 
-  if (!PAT || !estatesEmail || !gmailUser || !gmailPass) {
-    return res.status(500).json({ error: "Missing env vars: AIRTABLE_PAT, ESTATES_EMAIL, GMAIL_USER, GMAIL_PASS" });
+  const TO  = "estates@ru.ac.za";
+  const CCS = ["m.mpati@ru.ac.za", "h.smith@ru.ac.za", "j.nell@ru.ac.za"];
+
+  if (!PAT || !gmailUser || !gmailPass) {
+    return res.status(500).json({ error: "Missing env vars: AIRTABLE_PAT, GMAIL_USER, GMAIL_PASS" });
   }
 
   // 1. Fetch all non-resolved, non-closed requests
@@ -76,8 +77,8 @@ export default async function handler(req, res) {
 
   await transporter.sendMail({
     from:    `"Fine Art Tech Support — Rhodes University" <${gmailUser}>`,
-    to:      estatesEmail,
-    cc:      gmailUser,
+    to:      TO,
+    cc:      CCS.join(", "),
     subject: `Follow-up: ${stale.length} outstanding maintenance request${stale.length > 1 ? "s" : ""} — Fine Art Dept`,
     html: `
       <p style="font-family:sans-serif">Dear Facilities Team,</p>
