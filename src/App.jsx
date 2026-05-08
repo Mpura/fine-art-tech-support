@@ -767,6 +767,7 @@ function HsPanel(){
         const d=new Date();
         if(period==="month"){d.setDate(1);d.setHours(0,0,0,0);return d;}
         if(period==="lastmonth"){d.setDate(1);d.setHours(0,0,0,0);d.setMonth(d.getMonth()-1);return d;}
+        if(period==="3months"){d.setMonth(d.getMonth()-3);d.setHours(0,0,0,0);return d;}
         if(period==="term"){
           const m=d.getMonth();
           if(m>=1&&m<=4){d.setMonth(1,1);}else if(m>=5&&m<=7){d.setMonth(5,1);}else{d.setMonth(8,1);}
@@ -782,7 +783,7 @@ function HsPanel(){
       const from=startOf(reportPeriod);
       const to=endOf(reportPeriod);
       const inPeriod=all.filter(r=>{
-        const d=new Date((r.DateLogged||r.DateSubmitted||"2000-01-01")+"T00:00:00");
+        const d=new Date((r.DateSubmitted||r.DateLogged||"2000-01-01")+"T00:00:00");
         return d>=from&&d<=to;
       });
       const resolved=inPeriod.filter(r=>r.Status==="Resolved");
@@ -799,7 +800,7 @@ function HsPanel(){
       });
       const byType={};
       inPeriod.forEach(r=>{const t=r.ProblemType||"Other";byType[t]=(byType[t]||0)+1;});
-      const periods=[["month","This Month"],["lastmonth","Last Month"],["term","This Term"],["all","All Time"]];
+      const periods=[["month","This Month"],["lastmonth","Last Month"],["3months","Last 3 Months"],["term","This Term"],["all","All Time"]];
       return(<>
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
           {periods.map(([v,l])=>(
