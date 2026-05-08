@@ -802,6 +802,18 @@ function HsPanel(){
       inPeriod.forEach(r=>{const t=r.ProblemType||"Other";byType[t]=(byType[t]||0)+1;});
       const periods=[["month","This Month"],["lastmonth","Last Month"],["3months","Last 3 Months"],["term","This Term"],["all","All Time"]];
       return(<>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Maintenance Report</div>
+          <button onClick={async()=>{
+            if(!window.confirm("Send the full maintenance report to all Fine Art staff?"))return;
+            try{
+              const r=await fetch("/api/staff-report",{method:"POST"});
+              const d=await r.json();
+              if(d.ok)alert(`✅ Report sent to ${d.sent} staff members (${d.open} open, ${d.resolved} resolved).`);
+              else alert("❌ Failed to send report: "+(d.error||"Unknown error"));
+            }catch(e){alert("❌ Network error: "+e.message);}
+          }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#1a3a5c",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📧 Send staff report</button>
+        </div>
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
           {periods.map(([v,l])=>(
             <button key={v} onClick={()=>setReportPeriod(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:reportPeriod===v?TEAL:"#1a1d28",color:reportPeriod===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:reportPeriod===v?"none":"0.5px solid #1e2130"}}>{l}</button>
