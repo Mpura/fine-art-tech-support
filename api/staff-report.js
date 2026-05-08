@@ -96,12 +96,14 @@ export default async function handler(req, res) {
         <p>
           Please find below the current status of maintenance requests logged for our department.
           If you have submitted a request to Estates that does not appear on this list, please
-          forward the email confirmation to <a href="mailto:${gmailUser}">${gmailUser}</a>
+          forward the email confirmation to <a href="mailto:m.mpati@ru.ac.za">m.mpati@ru.ac.za</a>
           so it can be tracked and followed up accordingly.
         </p>
         <p>
           If you need to log a new request or report a fault, please send the details to
-          <a href="mailto:${gmailUser}">${gmailUser}</a> and we will submit it on your behalf.
+          <a href="mailto:m.mpati@ru.ac.za">m.mpati@ru.ac.za</a>,
+          <a href="mailto:j.nell@ru.ac.za">j.nell@ru.ac.za</a> or
+          <a href="mailto:h.smith@ru.ac.za">h.smith@ru.ac.za</a> and we will submit it on your behalf.
         </p>
 
         <h3 style="color:#c0392b;margin-top:32px">Open Requests (${open.length})</h3>
@@ -141,7 +143,7 @@ export default async function handler(req, res) {
 
         <p style="margin-top:32px;color:#666;font-size:12px;border-top:1px solid #eee;padding-top:16px">
           Fine Art Tech Support · Rhodes University Fine Art Department<br>
-          To update or query a request, contact <a href="mailto:${gmailUser}">${gmailUser}</a>
+          To update or query a request, contact <a href="mailto:m.mpati@ru.ac.za">m.mpati@ru.ac.za</a>
         </p>
       </div>`,
   });
