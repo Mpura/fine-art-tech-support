@@ -33,11 +33,22 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const u = new URL(`${AT_URL}/${table}`);
       if (params) {
-        Object.entries(params).forEach(([k, v]) =>
-          Array.isArray(v)
-            ? v.forEach(val => u.searchParams.append(k, val))
-            : u.searchParams.set(k, v)
-        );
+        Object.entries(params).forEach(([k, v]) => {
+          if (Array.isArray(v)) {
+            v.forEach((val, i) => {
+              if (val !== null && typeof val === "object") {
+                // nested object array e.g. sort[0][field]=X&sort[0][direction]=Y
+                Object.entries(val).forEach(([sk, sv]) =>
+                  u.searchParams.append(`${k}[${i}][${sk}]`, sv)
+                );
+              } else {
+                u.searchParams.append(k, val);
+              }
+            });
+          } else {
+            u.searchParams.set(k, v);
+          }
+        });
       }
       url = u.toString();
       options.method = "GET";

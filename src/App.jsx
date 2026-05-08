@@ -508,10 +508,10 @@ function HsPanel(){
     setHsLoading(true);
     Promise.all([
       atGet(MAINT_TABLE,{maxRecords:200,sort:[{field:"DateLogged",direction:"desc"}]}).then(d=>{
-        if(d.records) setMaintReqs(d.records.map(r=>({id:r.id,...r.fields})));
+        setMaintReqs(d.records?d.records.map(r=>({id:r.id,...r.fields})):[]);
       }).catch(()=>setMaintReqs([])),
       atGet(PM_TABLE,{maxRecords:200,sort:[{field:"NextDue",direction:"asc"}]}).then(d=>{
-        if(d.records) setPmTasks(d.records.map(r=>({id:r.id,...r.fields})));
+        setPmTasks(d.records?d.records.map(r=>({id:r.id,...r.fields})):[]);
       }).catch(()=>setPmTasks([]))
     ]).finally(()=>setHsLoading(false));
   },[]);
