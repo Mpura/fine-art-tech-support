@@ -26,8 +26,8 @@ export default async function handler(req, res) {
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_PASS;
 
-  const TO  = "estates@ru.ac.za";
-  const CCS = ["m.mpati@ru.ac.za", "h.smith@ru.ac.za", "j.nell@ru.ac.za", "lois.anguria@ru.ac.za"];
+  const TO  = "m.mpati@ru.ac.za"; // TEST — revert after preview
+  const CCS = [];
 
   if (!PAT || !gmailUser || !gmailPass) {
     return res.status(500).json({ error: "Missing env vars: AIRTABLE_PAT, GMAIL_USER, GMAIL_PASS" });
