@@ -479,6 +479,7 @@ function HsPanel(){
   const [pasteMode,setPasteMode]=useState(false);
   const [resolvingId,setResolvingId]=useState(null);
   const [resolveDate,setResolveDate]=useState("");
+  const [reportPeriod,setReportPeriod]=useState("month");
 
   function parseRUEmail(text){
     const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
@@ -578,7 +579,7 @@ function HsPanel(){
       ))}
     </div>
     <div style={{display:"flex",gap:6,marginBottom:16}}>
-      {[["reqs","🔧 Requisitions"],["pm","📋 PM Schedule"]].map(([v,l])=>(
+      {[["reqs","🔧 Requisitions"],["pm","📋 PM Schedule"],["report","📊 Report"]].map(([v,l])=>(
         <button key={v} onClick={()=>setHsTab(v)} style={{flex:1,padding:"8px 4px",borderRadius:8,background:hsTab===v?TEAL:"#141720",color:hsTab===v?"#fff":"#6b7280",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:hsTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
       ))}
     </div>
@@ -661,6 +662,13 @@ function HsPanel(){
               ):(
                 <button onClick={()=>{setResolvingId(req.id);setResolveDate(todayDate());}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ Resolved</button>
               ))}
+              {req.DateSubmitted&&daysSince(req.DateSubmitted)>=7&&(
+                <button onClick={async()=>{
+                  const r=await fetch("/api/cron-followup",{method:"POST"});
+                  const d=await r.json();
+                  alert(d.sent>0?`Follow-up sent to Estates for ${d.sent} outstanding request(s).`:"No stale requests found to chase.");
+                }} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #d4851a",background:"#2a1f0a",cursor:"pointer",color:"#d4851a",fontSize:11,fontFamily:"inherit"}}>📧 Chase Estates</button>
+              )}
               <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||"",emailDateTime:req.EmailDateTime||""});setShowMaintForm(true);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
             </div>
           </div>
@@ -738,6 +746,111 @@ function HsPanel(){
         );
       })}
     </>)}
+
+    {/* ── REPORT ── */}
+    {!hsLoading&&hsTab==="report"&&(()=>{
+      const now=new Date();
+      function startOf(period){
+        const d=new Date();
+        if(period==="month"){d.setDate(1);d.setHours(0,0,0,0);return d;}
+        if(period==="lastmonth"){d.setDate(1);d.setHours(0,0,0,0);d.setMonth(d.getMonth()-1);return d;}
+        if(period==="term"){
+          const m=d.getMonth();
+          if(m>=1&&m<=4){d.setMonth(1,1);}else if(m>=5&&m<=7){d.setMonth(5,1);}else{d.setMonth(8,1);}
+          d.setHours(0,0,0,0);return d;
+        }
+        return new Date(0);
+      }
+      function endOf(period){
+        if(period==="lastmonth"){const d=new Date();d.setDate(1);d.setHours(0,0,0,0);return d;}
+        return now;
+      }
+      const all=maintReqs||[];
+      const from=startOf(reportPeriod);
+      const to=endOf(reportPeriod);
+      const inPeriod=all.filter(r=>{
+        const d=new Date((r.DateLogged||r.DateSubmitted||"2000-01-01")+"T00:00:00");
+        return d>=from&&d<=to;
+      });
+      const resolved=inPeriod.filter(r=>r.Status==="Resolved");
+      const outstanding=inPeriod.filter(r=>!["Resolved","Closed"].includes(r.Status));
+      const closed=inPeriod.filter(r=>r.Status==="Closed");
+      const avgDays=resolved.length?Math.round(resolved.reduce((sum,r)=>{
+        if(!r.DateSubmitted||!r.DateResolved)return sum;
+        return sum+Math.floor((new Date(r.DateResolved+"T00:00:00")-new Date(r.DateSubmitted+"T00:00:00"))/86400000);
+      },0)/resolved.length):null;
+      const aging={under7:0,d7to14:0,d14to30:0,over30:0};
+      outstanding.forEach(r=>{
+        const d=r.DateSubmitted?Math.floor((now-new Date(r.DateSubmitted+"T00:00:00"))/86400000):0;
+        if(d<7)aging.under7++;else if(d<14)aging.d7to14++;else if(d<30)aging.d14to30++;else aging.over30++;
+      });
+      const byType={};
+      inPeriod.forEach(r=>{const t=r.ProblemType||"Other";byType[t]=(byType[t]||0)+1;});
+      const periods=[["month","This Month"],["lastmonth","Last Month"],["term","This Term"],["all","All Time"]];
+      return(<>
+        <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+          {periods.map(([v,l])=>(
+            <button key={v} onClick={()=>setReportPeriod(v)} style={{padding:"6px 14px",borderRadius:8,border:"none",background:reportPeriod===v?TEAL:"#1a1d28",color:reportPeriod===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:reportPeriod===v?"none":"0.5px solid #1e2130"}}>{l}</button>
+          ))}
+        </div>
+        {inPeriod.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14,border:"0.5px dashed #1e2130",borderRadius:10}}>No requests in this period</div>}
+        {inPeriod.length>0&&(<>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+            {[["Total opened",inPeriod.length,"#e0e3ea","#1a1d28"],["Resolved",resolved.length,"#20B07F","#0a2218"],["Outstanding",outstanding.length,"#d4851a","#2a1f0a"],["Closed",closed.length,"#6b7280","#141720"]].map(([l,n,col,bg])=>(
+              <div key={l} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`0.5px solid ${col}22`}}>
+                <div style={{fontSize:24,fontWeight:600,color:col,lineHeight:1}}>{n}</div>
+                <div style={{fontSize:11,color:col,marginTop:4,opacity:0.8}}>{l}</div>
+              </div>
+            ))}
+          </div>
+          {avgDays!==null&&<div style={{background:"#0a1e35",borderRadius:10,padding:"12px 14px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,color:"#9ca3af"}}>Avg. resolution time</span>
+            <span style={{fontSize:18,fontWeight:600,color:"#60a5fa"}}>{avgDays} days</span>
+          </div>}
+          {outstanding.length>0&&(<>
+            <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8}}>Outstanding — aging</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
+              {[["< 7 days",aging.under7,"#20B07F"],["7–14 days",aging.d7to14,"#60a5fa"],["14–30 days",aging.d14to30,"#d4851a"],["> 30 days",aging.over30,"#f87171"]].map(([l,n,col])=>(
+                <div key={l} style={{background:"#141720",borderRadius:8,padding:"10px",border:`0.5px solid ${col}44`,textAlign:"center"}}>
+                  <div style={{fontSize:20,fontWeight:600,color:col}}>{n}</div>
+                  <div style={{fontSize:10,color:"#6b7280",marginTop:2}}>{l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8}}>Outstanding requests</div>
+            {outstanding.sort((a,b)=>{
+              const da=a.DateSubmitted?Math.floor((now-new Date(a.DateSubmitted+"T00:00:00"))/86400000):0;
+              const db=b.DateSubmitted?Math.floor((now-new Date(b.DateSubmitted+"T00:00:00"))/86400000):0;
+              return db-da;
+            }).map(r=>{
+              const days=r.DateSubmitted?Math.floor((now-new Date(r.DateSubmitted+"T00:00:00"))/86400000):null;
+              const col=days===null?"#6b7280":days<7?"#20B07F":days<14?"#60a5fa":days<30?"#d4851a":"#f87171";
+              return(
+                <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"#141720",borderRadius:8,marginBottom:6,borderLeft:`3px solid ${col}`}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,color:"#e0e3ea",marginBottom:2}}>{r.Description}</div>
+                    <div style={{fontSize:11,color:"#6b7280"}}>{r.Location&&`📍 ${r.Location}`}{r.UniversityRef&&` · Ref: ${r.UniversityRef}`}</div>
+                  </div>
+                  <div style={{textAlign:"right",marginLeft:12,flexShrink:0}}>
+                    <div style={{fontSize:13,fontWeight:600,color:col}}>{days!==null?`${days}d`:"-"}</div>
+                    <div style={{fontSize:10,color:"#6b7280"}}>outstanding</div>
+                  </div>
+                </div>
+              );
+            })}
+          </>)}
+          {Object.keys(byType).length>0&&(<>
+            <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8,marginTop:8}}>By problem type</div>
+            {Object.entries(byType).sort(([,a],[,b])=>b-a).map(([t,n])=>(
+              <div key={t} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:"#141720",borderRadius:8,marginBottom:4}}>
+                <span style={{fontSize:13,color:"#9ca3af"}}>{t}</span>
+                <span style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>{n}</span>
+              </div>
+            ))}
+          </>)}
+        </>)}
+      </>);
+    })()}
   </>);
 }
 
