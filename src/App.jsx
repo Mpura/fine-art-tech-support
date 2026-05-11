@@ -126,6 +126,52 @@ function countBizDaysLate(dueDateStr,returnDateStr){let due=new Date(dueDateStr+
 // Keyword-based replacement cost for individual accessories
 function accessoryCost(text){const t=(text||"").toLowerCase();if(t.includes("lens cap"))return 80;if(t.includes("lens"))return 800;if(t.includes("battery"))return 350;if(t.includes("charger"))return 200;if(t.includes("micro sd")||t.includes("microsd"))return 150;if(t.includes("sd card")||t.includes("memory card"))return 150;if(t.includes("filter"))return 400;if(t.includes("cable"))return 100;if(t.includes("windscreen"))return 120;if(t.includes("calibration"))return 300;if(t.includes("pouch")||t.includes("case")||t.includes("bag"))return 80;if(t.includes("adapter"))return 80;if(t.includes("glasses")||t.includes("safety"))return 80;return 150;}
 
+// ── UNIVERSITY CALENDAR ──────────────────────────────────────────
+// Public holidays: confirmed for 2026. Update RECESS_RANGES each year from
+// the official RU academic calendar at www.ru.ac.za/calendar
+const PUBLIC_HOLIDAYS_2026 = [
+  {date:"2026-01-01",label:"New Year's Day"},
+  {date:"2026-03-21",label:"Human Rights Day"},
+  {date:"2026-04-03",label:"Good Friday"},
+  {date:"2026-04-06",label:"Family Day"},
+  {date:"2026-04-27",label:"Freedom Day"},
+  {date:"2026-05-01",label:"Workers' Day"},
+  {date:"2026-06-16",label:"Youth Day"},
+  {date:"2026-08-10",label:"National Women's Day (observed)"},
+  {date:"2026-09-24",label:"Heritage Day"},
+  {date:"2026-12-16",label:"Day of Reconciliation"},
+  {date:"2026-12-25",label:"Christmas Day"},
+  {date:"2026-12-26",label:"Day of Goodwill"},
+];
+// University recesses — equipment NOT available
+const RECESS_RANGES = [
+  {start:"2026-03-28",end:"2026-04-17",label:"Easter Recess"},
+  {start:"2026-06-27",end:"2026-07-26",label:"Winter Recess"},
+  {start:"2026-09-19",end:"2026-09-27",label:"Spring Recess"},
+  {start:"2026-11-28",end:"2026-12-31",label:"Year-end Closure"},
+];
+// SWOT weeks — equipment IS available (students studying for exams)
+const SWOT_RANGES = [
+  {start:"2026-03-23",end:"2026-03-27",label:"SWOT Week (Term 1)"},
+  {start:"2026-06-22",end:"2026-06-26",label:"SWOT Week (Term 2)"},
+  {start:"2026-09-14",end:"2026-09-18",label:"SWOT Week (Term 3)"},
+  {start:"2026-11-23",end:"2026-11-27",label:"SWOT Week (Term 4)"},
+];
+function inRange(dateStr,start,end){return dateStr>=start&&dateStr<=end;}
+function getDateStatus(dateStr){
+  if(!dateStr)return null;
+  // SWOT week — explicitly allowed, just flag it
+  const swot=SWOT_RANGES.find(r=>inRange(dateStr,r.start,r.end));
+  if(swot)return{type:"swot",label:swot.label};
+  // Public holiday
+  const ph=PUBLIC_HOLIDAYS_2026.find(h=>h.date===dateStr);
+  if(ph)return{type:"blocked",label:ph.label};
+  // Recess
+  const recess=RECESS_RANGES.find(r=>inRange(dateStr,r.start,r.end));
+  if(recess)return{type:"blocked",label:recess.label};
+  return null;
+}
+
 const ipt={width:"100%",padding:"11px 14px",borderRadius:10,border:"1.5px solid #1e2130",fontSize:14,boxSizing:"border-box",fontFamily:"inherit",background:"#141720",color:"#e0e3ea",outline:"none"};
 const pill=(status,map=statusStyle)=>{const s=(map)[status]||{};return <span style={{fontSize:11,padding:"4px 11px",borderRadius:20,fontWeight:500,whiteSpace:"nowrap",...s}}>{status}</span>;};
 const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false,full=false,style={}})=>(
@@ -1709,18 +1755,20 @@ export default function App() {
             </div>
           ))}
         </div>
+        {(()=>{const today=todayDate();const upcoming=[...PUBLIC_HOLIDAYS_2026.filter(h=>h.date>=today).slice(0,2),...RECESS_RANGES.filter(r=>r.end>=today).slice(0,2)];if(!upcoming.length)return null;return(<details style={{marginBottom:14}}><summary style={{fontSize:12,color:"#6b7280",cursor:"pointer",userSelect:"none"}}>📅 Upcoming closures & public holidays</summary><div style={{marginTop:8,background:"#141720",borderRadius:8,padding:"10px 12px"}}>{PUBLIC_HOLIDAYS_2026.filter(h=>h.date>=today).slice(0,4).map(h=><div key={h.date} style={{fontSize:12,color:"#9ca3af",marginBottom:3}}>🔴 {fmtDate(h.date)} — {h.label}</div>)}{RECESS_RANGES.filter(r=>r.end>=today).map(r=><div key={r.start} style={{fontSize:12,color:"#9ca3af",marginBottom:3}}>🔴 {fmtDate(r.start)} – {fmtDate(r.end)} — {r.label}</div>)}{SWOT_RANGES.filter(r=>r.end>=today).slice(0,2).map(r=><div key={r.start} style={{fontSize:12,color:"#60a5fa",marginBottom:3}}>📚 {fmtDate(r.start)} – {fmtDate(r.end)} — {r.label} (open)</div>)}</div></details>);})()}
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Collection date *</label>
           <input type="date" style={ipt} value={eqColDate} min={getEqMinDate()} max={addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)} onChange={e=>{setEqColDate(e.target.value);setEqSlot("");}}/>
           <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Collection days: <strong>Mon, Wed, Fri</strong> only (stockroom hours 11:00–12:30). Book up to {eqSettings.maxAdvanceDays} day{eqSettings.maxAdvanceDays!==1?"s":""} ahead. Bookings close at {eqSettings.collectionDeadlineHour}:00.</div>
           {eqColDate&&!isEqColDay(eqColDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ That date is not a stockroom day. Please pick a Monday, Wednesday or Friday.</div>}
+          {eqColDate&&isEqColDay(eqColDate)&&(()=>{const ds=getDateStatus(eqColDate);if(!ds)return null;if(ds.type==="blocked")return<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>🚫 {ds.label} — the stockroom is closed on this date. Please choose a different day.</div>;if(ds.type==="swot")return<div style={{fontSize:12,color:"#60a5fa",background:"#0a1e35",borderRadius:8,padding:"8px 10px",marginTop:6}}>📚 {ds.label} — stockroom is open. Good luck with your studies!</div>;return null;})()}
         </div>
-        {eqColDate&&isEqColDay(eqColDate)&&eqDueDate&&(
+        {eqColDate&&isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"&&eqDueDate&&(
           <div style={{background:"#0a2218",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#20B07F"}}>
             📅 Equipment due back: <strong>{fmtDate(eqDueDate)}</strong> <span style={{fontSize:12,opacity:0.8}}>({getLoanDays(eqStudent?.year)} business days for {YEAR_LABELS[eqStudent?.year]||`Year ${eqStudent?.year}`})</span>
           </div>
         )}
-        {eqColDate&&isEqColDay(eqColDate)&&(
+        {eqColDate&&isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"&&(
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -1740,7 +1788,7 @@ export default function App() {
         )}
         <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Notes (optional)</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={eqNotes} onChange={e=>setEqNotes(e.target.value)} placeholder="e.g. Need camera for location shoot Thursday"/></div>
         <div style={{background:"#2a1f0a",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#d4851a"}}>⚠️ Do not come to collect until Tech Support confirms. Bring your student card.</div>
-        <Btn onClick={submitEqRequest} disabled={!eqColDate||!isEqColDay(eqColDate)||!eqSlot||eqSubmitting} full style={{padding:"13px",fontSize:15}}>{eqSubmitting?"Submitting...":"Submit equipment request"}</Btn>
+        <Btn onClick={submitEqRequest} disabled={!eqColDate||!isEqColDay(eqColDate)||getDateStatus(eqColDate)?.type==="blocked"||!eqSlot||eqSubmitting} full style={{padding:"13px",fontSize:15}}>{eqSubmitting?"Submitting...":"Submit equipment request"}</Btn>
       </div>
     );
 
