@@ -127,8 +127,7 @@ function countBizDaysLate(dueDateStr,returnDateStr){let due=new Date(dueDateStr+
 function accessoryCost(text){const t=(text||"").toLowerCase();if(t.includes("lens cap"))return 80;if(t.includes("lens"))return 800;if(t.includes("battery"))return 350;if(t.includes("charger"))return 200;if(t.includes("micro sd")||t.includes("microsd"))return 150;if(t.includes("sd card")||t.includes("memory card"))return 150;if(t.includes("filter"))return 400;if(t.includes("cable"))return 100;if(t.includes("windscreen"))return 120;if(t.includes("calibration"))return 300;if(t.includes("pouch")||t.includes("case")||t.includes("bag"))return 80;if(t.includes("adapter"))return 80;if(t.includes("glasses")||t.includes("safety"))return 80;return 150;}
 
 // ── UNIVERSITY CALENDAR ──────────────────────────────────────────
-// Public holidays: confirmed for 2026. Update RECESS_RANGES each year from
-// the official RU academic calendar at www.ru.ac.za/calendar
+// Source: Rhodes University Diary 2026 (official). Update each year.
 const PUBLIC_HOLIDAYS_2026 = [
   {date:"2026-01-01",label:"New Year's Day"},
   {date:"2026-03-21",label:"Human Rights Day"},
@@ -143,19 +142,17 @@ const PUBLIC_HOLIDAYS_2026 = [
   {date:"2026-12-25",label:"Christmas Day"},
   {date:"2026-12-26",label:"Day of Goodwill"},
 ];
-// University recesses — equipment NOT available
+// University vacation/recess periods — stockroom CLOSED
 const RECESS_RANGES = [
-  {start:"2026-03-28",end:"2026-04-17",label:"Easter Recess"},
-  {start:"2026-06-27",end:"2026-07-26",label:"Winter Recess"},
-  {start:"2026-09-19",end:"2026-09-27",label:"Spring Recess"},
-  {start:"2026-11-28",end:"2026-12-31",label:"Year-end Closure"},
+  {start:"2026-03-21",end:"2026-03-29",label:"Mid-semester Vacation"},
+  {start:"2026-06-13",end:"2026-07-05",label:"Mid-year Vacation"},
+  {start:"2026-08-15",end:"2026-08-23",label:"Mid-semester Vacation"},
+  {start:"2026-12-15",end:"2026-12-31",label:"Year-end Closure"},
 ];
-// SWOT weeks — equipment IS available (students studying for exams)
+// SWOT periods — equipment IS available (students studying for exams)
 const SWOT_RANGES = [
-  {start:"2026-03-23",end:"2026-03-27",label:"SWOT Week (Term 1)"},
-  {start:"2026-06-22",end:"2026-06-26",label:"SWOT Week (Term 2)"},
-  {start:"2026-09-14",end:"2026-09-18",label:"SWOT Week (Term 3)"},
-  {start:"2026-11-23",end:"2026-11-27",label:"SWOT Week (Term 4)"},
+  {start:"2026-05-16",end:"2026-05-20",label:"SWOT Period"},
+  {start:"2026-10-02",end:"2026-10-07",label:"SWOT Period"},
 ];
 function inRange(dateStr,start,end){return dateStr>=start&&dateStr<=end;}
 function getDateStatus(dateStr){
