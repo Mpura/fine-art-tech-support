@@ -50,7 +50,6 @@ const DEFAULT_SCHEDULE = {
 const STATUSES = ["Pending","In Progress","Done","Declined"];
 const LASER_STATUSES = ["Pending","Material test required","Ready to cut","In Progress","Done","Declined"];
 const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"];
-const IT_STATUSES = ["Logged","Awaiting IT","In Progress","Resolved","Escalated"];
 
 const statusStyle = {
   // Maintenance statuses
@@ -73,30 +72,11 @@ const statusStyle = {
   "Uncollected":{bg:"#2a1500",color:"#fb923c"},
   "Cancelled":{bg:"#1a1a2a",color:"#9ca3af"},
 };
-const itStatusStyle = {
-  "Logged":{bg:"#2a1f0a",color:"#d4851a"},
-  "Awaiting IT":{bg:"#0a1e35",color:"#60a5fa"},
-  "In Progress":{bg:"#0a1e35",color:"#60a5fa"},
-  "Resolved":{bg:"#0a2218",color:"#20B07F"},
-  "Escalated":{bg:"#2a0f14",color:"#f87171"},
-};
-
 const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS_SHORT=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DAY_FULL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-const IT_ITEMS=[
-  {id:"seminar_computers",label:"Seminar room computers"},
-  {id:"seminar_projector",label:"Seminar room projector"},
-  {id:"seminar_network",label:"Seminar room network/wifi"},
-  {id:"maclab_software",label:"Mac lab — software/OS issue"},
-  {id:"maclab_network",label:"Mac lab — network/wifi"},
-  {id:"maclab_hardware",label:"Mac lab — hardware fault"},
-  {id:"general_network",label:"Department network/internet"},
-  {id:"other_it",label:"Other IT issue"},
-];
-
-const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",it:"fats_it_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1"};
+const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1"};
 const DEFAULT_PIN="1234";
 const DEFAULT_EQ_SETTINGS={yr12Days:3,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
 
@@ -1302,7 +1282,6 @@ export default function App() {
   const [blocks, setBlocks] = useState({});
   const [maintLogs, setMaintLogs] = useState([]);
   const [hsLogs, setHsLogs] = useState([]);
-  const [itReferrals, setItReferrals] = useState([]);
   const [leaveMode, setLeaveMode] = useState({active:false,returnDate:"",message:""});
   const [loaded, setLoaded] = useState(false);
 
@@ -1318,10 +1297,6 @@ export default function App() {
   const [calMonth, setCalMonth] = useState(new Date().getMonth());
   const [selDate, setSelDate] = useState(null);
 
-  // Staff calendar
-  const [staffCalYear, setStaffCalYear] = useState(new Date().getFullYear());
-  const [staffCalMonth, setStaffCalMonth] = useState(new Date().getMonth());
-  const [staffCalDay, setStaffCalDay] = useState(null);
   const [selSlot, setSelSlot] = useState(null);
 
   // Block dates
@@ -1330,12 +1305,6 @@ export default function App() {
 
   // Maintenance
   const [maintForm, setMaintForm] = useState({equipmentId:"",date:"",notes:"",status:"Done",duration:""});
-
-  // IT referrals
-  const [itForm, setItForm] = useState({itemId:"",description:"",priority:"Normal",dateLogged:todayDate(),loggedWith:"",reference:"",notes:""});
-  const [itFilter, setItFilter] = useState("All");
-  const [expandItId, setExpandItId] = useState(null);
-  const [itUpdateNote, setItUpdateNote] = useState({});
 
   // Student request form
   const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",sessionDuration:"",fileLink:"",firstTime:false});
@@ -1430,7 +1399,6 @@ export default function App() {
       const m=localStorage.getItem(KEYS.maint);if(m)setMaintLogs(JSON.parse(m));
       const h=localStorage.getItem(KEYS.hs);if(h)setHsLogs(JSON.parse(h));
       const l=localStorage.getItem(KEYS.leave);if(l)setLeaveMode(JSON.parse(l));
-      const i=localStorage.getItem(KEYS.it);if(i)setItReferrals(JSON.parse(i));
       const sn=localStorage.getItem(KEYS.savedStudNo);if(sn)setForm(f=>({...f,studNo:sn}));
     }catch(e){}
     // Requests come from Airtable so they're visible across all devices
@@ -1568,9 +1536,6 @@ export default function App() {
   function logMaintenance(){if(!maintForm.equipmentId||!maintForm.date)return;const log={id:genId(),...maintForm,createdAt:todayISO()};const u=[log,...maintLogs];setMaintLogs(u);persist(KEYS.maint,u);setMaintForm({equipmentId:"",date:"",notes:"",status:"Done",duration:""});}
   function toggleLeave(){const u=leaveMode.active?{active:false,returnDate:"",message:""}:{...leaveMode,active:true};setLeaveMode(u);persist(KEYS.leave,u);}
   function saveLeave(){persist(KEYS.leave,leaveMode);}
-  function updateItStatus(id,status){const u=itReferrals.map(r=>r.id===id?{...r,status,updatedAt:todayISO()}:r);setItReferrals(u);persist(KEYS.it,u);}
-  function addItUpdate(id){const note=itUpdateNote[id];if(!note?.trim())return;const u=itReferrals.map(r=>r.id===id?{...r,updates:[...r.updates,{note:note.trim(),date:todayISO()}],updatedAt:todayISO()}:r);setItReferrals(u);persist(KEYS.it,u);setItUpdateNote(n=>({...n,[id]:""}));}
-  function logItReferral(){if(!itForm.itemId||!itForm.description.trim())return;const item=IT_ITEMS.find(i=>i.id===itForm.itemId);const ref={id:genId(),itemId:itForm.itemId,itemLabel:item?.label||"",description:itForm.description.trim(),priority:itForm.priority,dateLogged:itForm.dateLogged,loggedWith:itForm.loggedWith.trim(),reference:itForm.reference.trim(),notes:itForm.notes.trim(),status:"Logged",updates:[],createdAt:todayISO(),updatedAt:todayISO()};const u=[ref,...itReferrals];setItReferrals(u);persist(KEYS.it,u);setItForm({itemId:"",description:"",priority:"Normal",dateLogged:todayDate(),loggedWith:"",reference:"",notes:""});}
 
   async function handleVerifyStudent(){
     if(!form.studNo.trim())return;
@@ -1584,7 +1549,6 @@ export default function App() {
   }
 
   function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"(Morning)":"(Afternoon)")&&r.status!=="Declined"&&r.status!=="Cancelled").length;}
-  function getReqsForDate(dateKey){return requests.filter(r=>r.schedDate&&r.schedDate.startsWith(dateKey));}
 
   // Equipment booking handlers
   async function handleEqLookup(){
@@ -1646,9 +1610,6 @@ export default function App() {
   const queueActive=filtered.filter(r=>!QUEUE_DONE.includes(r.status));
   const queueArchive=filtered.filter(r=>QUEUE_DONE.includes(r.status));
   const counts=STATUSES.reduce((a,s)=>({...a,[s]:requests.filter(r=>r.status===s).length}),{});
-  const openIt=itReferrals.filter(r=>r.status!=="Resolved").length;
-  const itFiltered=itFilter==="All"?itReferrals:itReferrals.filter(r=>r.status===itFilter);
-
   // ── TODAY FILTERS ────────────────────────────────────────────────
   const _today=todayDate();
   const morningToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Morning")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done");
@@ -2418,7 +2379,7 @@ export default function App() {
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:desktopTwoCol?"#e0e3ea":"#6b7280",background:desktopTwoCol?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
-          {[["it","💻 IT"+(openIt>0?" ("+openIt+")":"")],["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["cal","📆 Calendar"],["charges","💳 Charges"]].map(([v,l])=>(
+          {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"]].map(([v,l])=>(
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
@@ -2465,7 +2426,7 @@ export default function App() {
 
       {/* Dash tabs */}
       {!isDesktop&&<div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
-        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["it",`IT${openIt>0?` (${openIt})`:""}` ],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["cal","Calendar"],["charges","Charges"]].map(([v,l])=>(
+        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["charges","Charges"]].map(([v,l])=>(
           <button key={v} onClick={()=>setDashTab(v)} style={{flex:1,minWidth:55,padding:"8px 4px",borderRadius:8,border:"none",background:dashTab===v?TEAL:"#141720",color:dashTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:dashTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
       </div>}
@@ -2682,49 +2643,6 @@ export default function App() {
       </>)}
 
       </div></div>
-      {/* ── IT REFERRALS ── */}
-      {dashTab==="it"&&(<>
-        <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>IT referrals</div>
-        <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Log issues for IT — seminar room, Mac lab, network</div>
-        <div style={{display:"flex",gap:8,marginBottom:16}}>
-          {[["Open",itReferrals.filter(r=>r.status!=="Resolved").length,"#2a1f0a","#d4851a"],["Resolved",itReferrals.filter(r=>r.status==="Resolved").length,"#E1F5EE","#0F6E56"],["Escalated",itReferrals.filter(r=>r.status==="Escalated").length,"#2a0f14","#f87171"]].map(([l,n,bg,col])=>(
-            <div key={l} style={{flex:1,background:bg,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
-              <div style={{fontSize:20,fontWeight:500,color:col}}>{n}</div>
-              <div style={{fontSize:11,color:col}}>{l}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-          <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>Log new IT referral</div>
-          <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>What needs IT? *</label><select style={ipt} value={itForm.itemId} onChange={e=>setItForm(f=>({...f,itemId:e.target.value}))}><option value="">Select item</option>{IT_ITEMS.map(i=><option key={i.id} value={i.id}>{i.label}</option>)}</select></div>
-          <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Description *</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={itForm.description} onChange={e=>setItForm(f=>({...f,description:e.target.value}))} placeholder="e.g. Projector bulb blown, no display output"/></div>
-          <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Priority</label><div style={{display:"flex",gap:6}}>{[["Low","#1a1d28","#9ca3af"],["Normal",TEAL,"#fff"],["Urgent","#e24b4a","#fff"]].map(([p,bg,col])=><button key={p} onClick={()=>setItForm(f=>({...f,priority:p}))} style={{flex:1,padding:"7px",borderRadius:8,border:"none",background:itForm.priority===p?bg:"#1a1d28",color:itForm.priority===p?col:"#9ca3af",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{p}</button>)}</div></div>
-          <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Date logged</label><input type="date" style={ipt} value={itForm.dateLogged} onChange={e=>setItForm(f=>({...f,dateLogged:e.target.value}))}/></div>
-          <div style={{marginBottom:10}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Logged with (IT contact)</label><input style={ipt} value={itForm.loggedWith} onChange={e=>setItForm(f=>({...f,loggedWith:e.target.value}))} placeholder="e.g. Thabo from IT helpdesk"/></div>
-          <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>IT reference / ticket number</label><input style={ipt} value={itForm.reference} onChange={e=>setItForm(f=>({...f,reference:e.target.value}))} placeholder="e.g. INC-20261234"/></div>
-          <Btn onClick={logItReferral} disabled={!itForm.itemId||!itForm.description.trim()} full>Log IT referral</Btn>
-        </div>
-        <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>{["All",...IT_STATUSES].map(s=><button key={s} onClick={()=>setItFilter(s)} style={{padding:"5px 12px",borderRadius:20,border:"none",background:itFilter===s?BLUE:"#1a1d28",color:itFilter===s?"#fff":"#9ca3af",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{s}</button>)}</div>
-        {itFiltered.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>No IT referrals yet</div>}
-        {itFiltered.map(ref=>(
-          <div key={ref.id} style={{background:"#141720",border:`0.5px solid ${ref.priority==="Urgent"?"#c05050":"#1e2130"}`,borderRadius:14,padding:"16px 18px",marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-              <div style={{flex:1,paddingRight:8}}>
-                <div style={{fontWeight:500,fontSize:14,display:"flex",alignItems:"center",gap:6}}>{ref.itemLabel}{ref.priority==="Urgent"&&<span style={{fontSize:10,background:"#2a0f14",color:"#f87171",borderRadius:4,padding:"2px 6px"}}>URGENT</span>}</div>
-                <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Logged: {fmtDate(ref.dateLogged)}{ref.loggedWith?" · "+ref.loggedWith:""}</div>
-                {ref.reference&&<div style={{fontSize:12,color:BLUE,marginTop:1}}>Ref: {ref.reference}</div>}
-              </div>
-              {pill(ref.status,itStatusStyle)}
-            </div>
-            <div style={{fontSize:13,color:"#9ca3af",background:"#1a1d28",borderRadius:8,padding:"8px 10px",marginBottom:8}}>{ref.description}</div>
-            {ref.updates?.length>0&&ref.updates.map((u,i)=><div key={i} style={{fontSize:12,color:"#9ca3af",borderLeft:`2px solid ${BLUE}`,paddingLeft:8,marginBottom:4}}><span style={{color:"#6b7280",marginRight:6}}>{fmt(u.date)}</span>{u.note}</div>)}
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>{IT_STATUSES.filter(s=>s!==ref.status).map(s=><button key={s} onClick={()=>updateItStatus(ref.id,s)} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"transparent",cursor:"pointer",color:"#e0e3ea",fontSize:12,fontFamily:"inherit"}}>→ {s}</button>)}</div>
-            <button onClick={()=>setExpandItId(expandItId===ref.id?null:ref.id)} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer",padding:0}}>{expandItId===ref.id?"Hide update ▲":"Add update ▼"}</button>
-            {expandItId===ref.id&&<div style={{marginTop:8,display:"flex",gap:8}}><input style={{...ipt,flex:1,fontSize:13}} value={itUpdateNote[ref.id]||""} onChange={e=>setItUpdateNote(n=>({...n,[ref.id]:e.target.value}))} placeholder="e.g. IT confirmed Thursday"/><Btn small onClick={()=>addItUpdate(ref.id)} color={BLUE}>Add</Btn></div>}
-          </div>
-        ))}
-      </>)}
-
       {/* ── SCHEDULE ── */}
       {dashTab==="schedule"&&(<>
         <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>Equipment schedule</div>
@@ -2765,71 +2683,6 @@ export default function App() {
           </div>
         );})}
       </>)}
-
-      {/* ── CALENDAR ── */}
-      {dashTab==="cal"&&(()=>{
-        const firstDay=new Date(staffCalYear,staffCalMonth,1).getDay();
-        const daysInMonth=new Date(staffCalYear,staffCalMonth+1,0).getDate();
-        const cells=[];for(let i=0;i<firstDay;i++)cells.push(null);for(let d=1;d<=daysInMonth;d++)cells.push(d);
-        return(<>
-          <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>Calendar</div>
-          <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Scheduled bookings by date</div>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-            <button onClick={()=>{setStaffCalDay(null);if(staffCalMonth===0){setStaffCalMonth(11);setStaffCalYear(y=>y-1);}else setStaffCalMonth(m=>m-1);}} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#9ca3af"}}>‹</button>
-            <div style={{fontWeight:500,fontSize:15}}>{MONTHS[staffCalMonth]} {staffCalYear}</div>
-            <button onClick={()=>{setStaffCalDay(null);if(staffCalMonth===11){setStaffCalMonth(0);setStaffCalYear(y=>y+1);}else setStaffCalMonth(m=>m+1);}} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#9ca3af"}}>›</button>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:4}}>
-            {DAYS_SHORT.map(d=><div key={d} style={{textAlign:"center",fontSize:11,color:"#6b7280",fontWeight:500}}>{d}</div>)}
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:16}}>
-            {cells.map((d,i)=>{
-              if(!d)return<div key={i}/>;
-              const k=toKey(staffCalYear,staffCalMonth,d);
-              const dayReqs=getReqsForDate(k);
-              const sel=staffCalDay===k;
-              const today=todayDate()===k;
-              return(
-                <div key={i} onClick={()=>{setStaffCalDay(sel?null:k);if(!sel)setTimeout(()=>document.getElementById("cal-day-detail")?.scrollIntoView({behavior:"smooth",block:"nearest"}),80);}} style={{aspectRatio:"1",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderRadius:8,fontSize:12,cursor:"pointer",background:sel?TEAL:today?"#0a2218":"#141720",border:`0.5px solid ${sel?TEAL:today?TEAL:"#1e2130"}`,color:sel?"#fff":today?TEAL:"#e0e3ea",fontWeight:sel||today?500:400}}>
-                  <span>{d}</span>
-                  {dayReqs.length>0&&<span style={{width:6,height:6,borderRadius:"50%",background:sel?"rgba(255,255,255,0.8)":TEAL,marginTop:2,flexShrink:0}}/>}
-                </div>
-              );
-            })}
-          </div>
-          {staffCalDay&&(()=>{
-            const dayReqs=getReqsForDate(staffCalDay);
-            return(
-              <div id="cal-day-detail" style={{background:"#141720",border:`0.5px solid ${TEAL}`,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:dayReqs.length>0?12:4}}>
-                  <div style={{fontWeight:500,fontSize:14,color:TEAL}}>{fmtDate(staffCalDay)}</div>
-                  <div style={{fontSize:11,color:"#4b5563"}}>{dayReqs.length} booking{dayReqs.length!==1?"s":""}</div>
-                </div>
-                {dayReqs.length===0&&<div style={{fontSize:13,color:"#6b7280"}}>No bookings on this date.</div>}
-                {dayReqs.map((r,idx)=>{
-                  const typeColor=TYPE_COLOR[r.typeId]||"#6B7280";
-                  const slotMatch=r.schedDate?.match(/\((.+)\)/);
-                  const slotLabel=slotMatch?slotMatch[1]:(r.schedDate?.includes("Morning")?"Morning":"Afternoon");
-                  return(
-                    <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",borderBottom:idx<dayReqs.length-1?"0.5px solid #1e2130":"none",paddingBottom:idx<dayReqs.length-1?10:0,marginBottom:idx<dayReqs.length-1?10:0}}>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:600,color:typeColor,marginBottom:2}}>{REQUEST_TYPES.find(t=>t.id===r.typeId)?.icon} {r.type}</div>
-                        <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{r.name}{r.studNo&&<span style={{fontWeight:400,color:"#6b7280",fontSize:12,marginLeft:6}}>#{r.studNo}</span>}</div>
-                        <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>🕐 {slotLabel}</div>
-                        {r.notes&&<div style={{fontSize:12,color:"#4b5563",marginTop:2,fontStyle:"italic"}}>"{r.notes}"</div>}
-                        {r.details?.material&&<div style={{fontSize:12,color:"#6b7280",marginTop:1}}>🪵 {r.details.material}{r.details.materialThickness?` · ${r.details.materialThickness}mm`:""}</div>}
-                        {r.details?.paperSize&&<div style={{fontSize:12,color:"#6b7280",marginTop:1}}>📐 {r.details.paperSize}{r.details.copies?` · ×${r.details.copies}`:""}</div>}
-                        {r.details?.firstTime&&<div style={{fontSize:11,background:"#2a1f0a",color:"#d4851a",borderRadius:5,padding:"1px 6px",marginTop:3,display:"inline-block"}}>⭐ First time</div>}
-                      </div>
-                      <div style={{marginLeft:8,flexShrink:0}}>{pill(r.status)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </>);
-      })()}
 
       {/* ── CHARGES ── */}
       {dashTab==="charges"&&(<>
