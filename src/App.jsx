@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const TEAL = "#20B07F";
 const BLUE = "#3b82f6";
@@ -1091,9 +1091,13 @@ export default function App() {
     }).finally(()=>setLoaded(true));
   },[]);
 
-  // Refresh requests from Airtable every time staff switches to the dashboard
+  // Refresh requests when staff switches to dashboard — throttled to once per 10 minutes
+  const lastDashFetch = useRef(0);
   useEffect(()=>{
     if(view!=="dashboard")return;
+    const now=Date.now();
+    if(now-lastDashFetch.current < 10*60*1000)return;
+    lastDashFetch.current=now;
     atGet(REQUESTS_TABLE,{maxRecords:500}).then(data=>{
       if(data.records){
         const reqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
@@ -2517,7 +2521,7 @@ export default function App() {
       </>)}
 
       {/* ── H&S / MAINTENANCE ── */}
-      {dashTab==="hs"&&<HsPanel/>}
+      <div style={{display:dashTab==="hs"?"block":"none"}}><HsPanel/></div>
   
       {/* ── BLOCKS ── */}
       {dashTab==="blocks"&&(<>
