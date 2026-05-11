@@ -523,6 +523,214 @@ async function fetchFinesForMonth(month) {
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 
+// ── PM SCHEDULE PANEL ────────────────────────────────────────────
+function PmPanel(){
+  const [pmTasks,setPmTasks]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [filterStatus,setFilterStatus]=useState("all");
+  const [filterInterval,setFilterInterval]=useState("all");
+  const [expandedSections,setExpandedSections]=useState({});
+  const [expandedNotes,setExpandedNotes]=useState({});
+  const [showForm,setShowForm]=useState(false);
+  const [editTask,setEditTask]=useState(null);
+  const [pmForm,setPmForm]=useState({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});
+
+  const PM_SECTIONS=[
+    {id:"printmaking",label:"Printmaking",icon:"🖨",match:m=>/etching|relief press|aquatint|acid bath|hot plate|extractor/i.test(m)},
+    {id:"photo",label:"Photography",icon:"📷",match:m=>/epson|elinchrom/i.test(m)},
+    {id:"maclab",label:"Mac Lab",icon:"💻",match:m=>/mac lab/i.test(m)},
+    {id:"laser",label:"Laser Cutter",icon:"⚡",match:m=>/laser|argus/i.test(m)},
+    {id:"seminar",label:"Seminar Room",icon:"🎤",match:m=>/seminar room/i.test(m)&&!/2nd year/i.test(m)},
+    {id:"studio2",label:"2nd Year Studio",icon:"🎨",match:m=>/2nd year studio/i.test(m)},
+    {id:"gallery",label:"Gallery",icon:"🖼",match:m=>/gallery/i.test(m)},
+    {id:"seminar2",label:"2nd Year Seminar Room",icon:"📐",match:m=>/2nd year seminar/i.test(m)},
+    {id:"other",label:"Other",icon:"⚙",match:()=>true},
+  ];
+
+  function getSection(machine){for(const s of PM_SECTIONS){if(s.match(machine||""))return s;}return PM_SECTIONS[PM_SECTIONS.length-1];}
+  function daysUntilPm(d){if(!d)return null;return Math.floor((new Date(d+"T00:00:00")-new Date())/86400000);}
+  function intervalDaysPm(iv){return iv==="Daily"?1:iv==="Weekly"?7:iv==="Monthly"?30:iv==="Per Term"?90:365;}
+  function addDaysFn(dateStr,n){const d=new Date(dateStr+"T00:00:00");d.setDate(d.getDate()+n);return localDateStr(d);}
+  function getTaskStatus(task){if(!task.NextDue)return"not-done";const du=daysUntilPm(task.NextDue);if(du<0)return"overdue";if(du<=7)return"due-soon";return"scheduled";}
+  function statusMeta(s){
+    if(s==="overdue")return{label:"Overdue",color:"#f87171",bg:"#2a0f14"};
+    if(s==="due-soon")return{label:"Due soon",color:"#d4851a",bg:"#2a1f0a"};
+    if(s==="scheduled")return{label:"Scheduled",color:"#20B07F",bg:"#0a2218"};
+    return{label:"Not yet done",color:"#6b7280",bg:"#1a1d28"};
+  }
+
+  useEffect(()=>{
+    setLoading(true);
+    atGet(PM_TABLE,{maxRecords:200,sort:[{field:"Machine",direction:"asc"}]})
+      .then(d=>{
+        const tasks=d.records?d.records.map(r=>({id:r.id,...r.fields})):[];
+        setPmTasks(tasks);
+        const init={};
+        PM_SECTIONS.forEach(s=>{
+          const st=tasks.filter(t=>getSection(t.Machine||"").id===s.id);
+          init[s.id]=st.some(t=>["overdue","due-soon"].includes(getTaskStatus(t)));
+        });
+        setExpandedSections(init);
+      })
+      .catch(()=>setPmTasks([]))
+      .finally(()=>setLoading(false));
+  },[]);
+
+  async function markDone(task){
+    const today=todayDate();
+    const nextDue=addDaysFn(today,intervalDaysPm(task.Interval||"Monthly"));
+    const updates={LastDone:today,NextDue:nextDue};
+    await atPatch(PM_TABLE,task.id,updates);
+    setPmTasks(prev=>prev.map(t=>t.id===task.id?{...t,...updates}:t));
+  }
+
+  async function savePm(){
+    const fields={TaskName:pmForm.taskName,Machine:pmForm.machine,Interval:pmForm.interval,...(pmForm.lastDone&&{LastDone:pmForm.lastDone}),...(pmForm.nextDue&&{NextDue:pmForm.nextDue}),Notes:pmForm.notes};
+    if(editTask){
+      await atPatch(PM_TABLE,editTask.id,fields);
+      setPmTasks(prev=>prev.map(t=>t.id===editTask.id?{...t,...fields}:t));
+    }else{
+      const result=await atPost(PM_TABLE,{Name:genId(),...fields});
+      if(result.id)setPmTasks(prev=>[...prev,{id:result.id,...fields}]);
+    }
+    setShowForm(false);setEditTask(null);
+    setPmForm({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});
+  }
+
+  async function deletePm(task){
+    if(!window.confirm(`Delete "${task.TaskName}"?`))return;
+    await atDelete(PM_TABLE,task.id);
+    setPmTasks(prev=>prev.filter(t=>t.id!==task.id));
+  }
+
+  const tasks=pmTasks||[];
+  const counts={overdue:0,"due-soon":0,scheduled:0,"not-done":0};
+  tasks.forEach(t=>counts[getTaskStatus(t)]++);
+  let filtered=tasks;
+  if(filterStatus!=="all")filtered=filtered.filter(t=>getTaskStatus(t)===filterStatus);
+  if(filterInterval!=="all")filtered=filtered.filter(t=>t.Interval===filterInterval);
+  const activeSectionCount=PM_SECTIONS.filter(s=>tasks.some(t=>getSection(t.Machine||"").id===s.id)).length;
+  const grouped=PM_SECTIONS.map(s=>({...s,tasks:filtered.filter(t=>getSection(t.Machine||"").id===s.id)})).filter(s=>s.tasks.length>0);
+
+  if(loading)return<div style={{padding:"2rem",textAlign:"center",color:"#6b7280",fontSize:13}}>Loading PM tasks…</div>;
+
+  return(
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:15,fontWeight:500,color:"#e0e3ea"}}>PM Schedule</div>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:1}}>{tasks.length} tasks across {activeSectionCount} sections</div>
+        </div>
+        <Btn small outline color={TEAL} onClick={()=>{setShowForm(true);setEditTask(null);setPmForm({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});}}>+ Add task</Btn>
+      </div>
+
+      {/* Summary chips */}
+      <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+        {[
+          ["all","All",tasks.length,"#6b7280","#1a1d28"],
+          ["overdue","Overdue",counts.overdue,"#f87171","#2a0f14"],
+          ["due-soon","Due soon",counts["due-soon"],"#d4851a","#2a1f0a"],
+          ["not-done","Not yet done",counts["not-done"],"#6b7280","#1a1d28"],
+          ["scheduled","Scheduled",counts.scheduled,"#20B07F","#0a2218"],
+        ].map(([v,l,n,col,bg])=>(
+          <button key={v} onClick={()=>setFilterStatus(v)} style={{flex:1,minWidth:60,padding:"10px 4px",borderRadius:10,border:filterStatus===v?`1.5px solid ${col}`:"0.5px solid #1e2130",background:filterStatus===v?bg:"#141720",cursor:"pointer",fontFamily:"inherit",textAlign:"center"}}>
+            <div style={{fontSize:17,fontWeight:600,color:filterStatus===v?col:"#e0e3ea"}}>{n}</div>
+            <div style={{fontSize:10,color:filterStatus===v?col:"#4b5563",marginTop:1}}>{l}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Interval filter */}
+      <div style={{display:"flex",gap:5,marginBottom:16,flexWrap:"wrap"}}>
+        {["all","Daily","Weekly","Monthly","Per Term","Annually"].map(v=>(
+          <button key={v} onClick={()=>setFilterInterval(v)} style={{padding:"5px 11px",borderRadius:20,border:"none",background:filterInterval===v?TEAL:"#1a1d28",color:filterInterval===v?"#fff":"#9ca3af",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>{v==="all"?"All":v}</button>
+        ))}
+      </div>
+
+      {/* Add / Edit form */}
+      {showForm&&(
+        <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,padding:"16px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:500,marginBottom:12}}>{editTask?"Edit task":"New PM task"}</div>
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            <div style={{flex:2}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Task name *</label><input style={ipt} value={pmForm.taskName} onChange={e=>setPmForm(f=>({...f,taskName:e.target.value}))} placeholder="e.g. Clean lens"/></div>
+            <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Machine</label><input style={ipt} value={pmForm.machine} onChange={e=>setPmForm(f=>({...f,machine:e.target.value}))} placeholder="e.g. Laser Cutter"/></div>
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Interval</label><select style={ipt} value={pmForm.interval} onChange={e=>setPmForm(f=>({...f,interval:e.target.value}))}>{["Daily","Weekly","Monthly","Per Term","Annually"].map(t=><option key={t}>{t}</option>)}</select></div>
+            <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Last done</label><input type="date" style={ipt} value={pmForm.lastDone} onChange={e=>setPmForm(f=>({...f,lastDone:e.target.value}))}/></div>
+            <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Next due</label><input type="date" style={ipt} value={pmForm.nextDue} onChange={e=>setPmForm(f=>({...f,nextDue:e.target.value}))}/></div>
+          </div>
+          <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={pmForm.notes} onChange={e=>setPmForm(f=>({...f,notes:e.target.value}))} placeholder="What to check, products needed, steps…"/></div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn outline color="#4b5563" onClick={()=>{setShowForm(false);setEditTask(null);}} style={{flex:1}}>Cancel</Btn>
+            <Btn color={TEAL} onClick={savePm} disabled={!pmForm.taskName.trim()} style={{flex:2}}>Save</Btn>
+          </div>
+        </div>
+      )}
+
+      {pmTasks!==null&&filtered.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14,border:"0.5px dashed #1e2130",borderRadius:10}}>No tasks match this filter</div>}
+
+      {/* Grouped sections */}
+      {grouped.map(section=>{
+        const isExpanded=!!expandedSections[section.id];
+        const secOverdue=section.tasks.filter(t=>getTaskStatus(t)==="overdue").length;
+        const secDueSoon=section.tasks.filter(t=>getTaskStatus(t)==="due-soon").length;
+        return(
+          <div key={section.id} style={{marginBottom:8}}>
+            <button onClick={()=>setExpandedSections(p=>({...p,[section.id]:!p[section.id]}))} style={{width:"100%",background:"#1a1d28",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"inherit",marginBottom:isExpanded?4:0}}>
+              <span style={{fontSize:14}}>{section.icon}</span>
+              <span style={{fontSize:13,fontWeight:500,color:"#e0e3ea",flex:1,textAlign:"left"}}>{section.label}</span>
+              {secOverdue>0&&<span style={{fontSize:10,background:"#2a0f14",color:"#f87171",borderRadius:5,padding:"2px 7px"}}>{secOverdue} overdue</span>}
+              {secDueSoon>0&&<span style={{fontSize:10,background:"#2a1f0a",color:"#d4851a",borderRadius:5,padding:"2px 7px"}}>{secDueSoon} due soon</span>}
+              <span style={{fontSize:11,color:"#4b5563"}}>{section.tasks.length} task{section.tasks.length!==1?"s":""}</span>
+              <span style={{fontSize:11,color:"#374151",marginLeft:2}}>{isExpanded?"▲":"▼"}</span>
+            </button>
+
+            {isExpanded&&section.tasks.map(task=>{
+              const status=getTaskStatus(task);
+              const meta=statusMeta(status);
+              const du=task.NextDue?daysUntilPm(task.NextDue):null;
+              const notesOpen=!!expandedNotes[task.id];
+              return(
+                <div key={task.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px",marginBottom:5,borderLeft:`3px solid ${meta.color}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:4}}>
+                        {task.Machine&&<span style={{fontSize:11,background:"#1a1d28",color:"#9ca3af",borderRadius:5,padding:"2px 7px"}}>⚙ {task.Machine}</span>}
+                        {task.Interval&&<span style={{fontSize:11,color:"#4b5563"}}>{task.Interval}</span>}
+                      </div>
+                      <div style={{fontSize:14,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>{task.TaskName}</div>
+                      <div style={{display:"flex",gap:12,flexWrap:"wrap",fontSize:12,color:"#6b7280"}}>
+                        {task.LastDone?<span>Last done: {fmtDate(task.LastDone)}</span>:<span style={{color:"#374151"}}>Never done</span>}
+                        {task.NextDue&&<span style={{color:meta.color}}>Next due: {fmtDate(task.NextDue)}{du!==null&&<span> · {du<0?`${Math.abs(du)}d overdue`:du===0?"today":`in ${du}d`}</span>}</span>}
+                      </div>
+                    </div>
+                    <span style={{background:meta.bg,color:meta.color,fontSize:10,fontWeight:600,padding:"3px 9px",borderRadius:6,marginLeft:8,whiteSpace:"nowrap",flexShrink:0}}>{meta.label}</span>
+                  </div>
+
+                  {task.Notes&&(
+                    <div style={{marginBottom:8}}>
+                      <button onClick={()=>setExpandedNotes(p=>({...p,[task.id]:!p[task.id]}))} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>{notesOpen?"▲ Hide notes":"▼ View notes"}</button>
+                      {notesOpen&&<div style={{marginTop:8,background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#9ca3af",whiteSpace:"pre-line",lineHeight:1.7}}>{task.Notes}</div>}
+                    </div>
+                  )}
+
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <Btn small color={TEAL} onClick={()=>markDone(task)}>✓ Mark done today</Btn>
+                    <button onClick={()=>{setEditTask(task);setPmForm({taskName:task.TaskName||"",machine:task.Machine||"",interval:task.Interval||"Monthly",lastDone:task.LastDone||"",nextDue:task.NextDue||"",notes:task.Notes||""});setShowForm(true);window.scrollTo({top:0,behavior:"smooth"});}} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:12,fontFamily:"inherit"}}>✏ Edit</button>
+                    <button onClick={()=>deletePm(task)} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:12,fontFamily:"inherit"}}>🗑</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── H&S PANEL COMPONENT ──────────────────────────────────────────
 function HsPanel(){
   const [hsTab,setHsTab]=useState("reqs");
@@ -2109,7 +2317,7 @@ export default function App() {
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:desktopTwoCol?"#e0e3ea":"#6b7280",background:desktopTwoCol?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
-          {[["it","💻 IT"+(openIt>0?" ("+openIt+")":"")],["hs","🦺 H&S / Maintenance"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["cal","📆 Calendar"],["charges","💳 Charges"]].map(([v,l])=>(
+          {[["it","💻 IT"+(openIt>0?" ("+openIt+")":"")],["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["cal","📆 Calendar"],["charges","💳 Charges"]].map(([v,l])=>(
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
@@ -2150,13 +2358,13 @@ export default function App() {
       {/* H&S shortcut */}
       <div onClick={()=>setDashTab("hs")} style={{display:"flex",alignItems:"center",gap:10,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:16,cursor:"pointer"}}>
         <span style={{fontSize:18}}>🦺</span>
-        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>H&S / Maintenance</div><div style={{fontSize:12,color:"#4b5563"}}>Requisitions · Preventive maintenance</div></div>
+        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>H&S / Maintenance</div><div style={{fontSize:12,color:"#4b5563"}}>Maintenance requisitions · Reports</div></div>
         <span style={{color:"#374151",fontSize:16}}>›</span>
       </div>
 
       {/* Dash tabs */}
       {!isDesktop&&<div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
-        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["it",`IT${openIt>0?` (${openIt})`:""}` ],["hs","H&S"],["schedule","Schedule"],["blocks","Blocks"],["cal","Calendar"],["charges","Charges"]].map(([v,l])=>(
+        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["it",`IT${openIt>0?` (${openIt})`:""}` ],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["cal","Calendar"],["charges","Charges"]].map(([v,l])=>(
           <button key={v} onClick={()=>setDashTab(v)} style={{flex:1,minWidth:55,padding:"8px 4px",borderRadius:8,border:"none",background:dashTab===v?TEAL:"#141720",color:dashTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:dashTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
       </div>}
@@ -2569,7 +2777,10 @@ export default function App() {
 
       {/* ── H&S / MAINTENANCE ── */}
       <div style={{display:dashTab==="hs"?"block":"none"}}><HsPanel/></div>
-  
+
+      {/* ── PM SCHEDULE ── */}
+      <div style={{display:dashTab==="pm"?"block":"none"}}><PmPanel/></div>
+
       {/* ── BLOCKS ── */}
       {dashTab==="blocks"&&(<>
         <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>Block dates</div>
