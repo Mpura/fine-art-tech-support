@@ -531,6 +531,9 @@ function PmPanel(){
   const [filterInterval,setFilterInterval]=useState("all");
   const [expandedSections,setExpandedSections]=useState({});
   const [expandedNotes,setExpandedNotes]=useState({});
+  const [expandedLog,setExpandedLog]=useState({});
+  const [logOpen,setLogOpen]=useState({});
+  const [logForms,setLogForms]=useState({});
   const [showForm,setShowForm]=useState(false);
   const [editTask,setEditTask]=useState(null);
   const [pmForm,setPmForm]=useState({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});
@@ -558,6 +561,17 @@ function PmPanel(){
     if(s==="scheduled")return{label:"Scheduled",color:"#20B07F",bg:"#0a2218"};
     return{label:"Not yet done",color:"#6b7280",bg:"#1a1d28"};
   }
+  function openLogForm(task){
+    setLogOpen(p=>({...p,[task.id]:true}));
+    setLogForms(p=>({...p,[task.id]:{outcome:"Done",notes:"",date:todayDate()}}));
+  }
+  function parseLogEntries(raw){
+    if(!raw)return[];
+    return raw.split("\n").filter(Boolean).map(line=>{
+      const parts=line.split(" | ");
+      return{date:parts[0]||"",outcome:parts[1]||"",note:parts[2]||""};
+    });
+  }
 
   useEffect(()=>{
     setLoading(true);
@@ -576,12 +590,25 @@ function PmPanel(){
       .finally(()=>setLoading(false));
   },[]);
 
-  async function markDone(task){
-    const today=todayDate();
-    const nextDue=addDaysFn(today,intervalDaysPm(task.Interval||"Monthly"));
-    const updates={LastDone:today,NextDue:nextDue};
+  async function saveLog(task){
+    const lf=logForms[task.id]||{outcome:"Done",notes:"",date:todayDate()};
+    const outcome=lf.outcome||"Done";
+    const icon=outcome==="Done"?"✓":outcome==="Partial"?"⚠":"✗";
+    const entry=`${lf.date} | ${icon} ${outcome}${lf.notes?` | ${lf.notes}`:""}`;
+    const newLog=task.TaskLog?`${entry}\n${task.TaskLog}`:entry;
+    const updates={TaskLog:newLog};
+    if(outcome==="Done"){
+      updates.LastDone=lf.date;
+      updates.NextDue=addDaysFn(lf.date,intervalDaysPm(task.Interval||"Monthly"));
+    } else if(outcome==="Partial"){
+      updates.LastDone=lf.date;
+      updates.NextDue=addDaysFn(lf.date,7);
+    }
+    // Not done: no date changes — task stays overdue/due
     await atPatch(PM_TABLE,task.id,updates);
     setPmTasks(prev=>prev.map(t=>t.id===task.id?{...t,...updates}:t));
+    setLogOpen(p=>({...p,[task.id]:false}));
+    setExpandedLog(p=>({...p,[task.id]:true}));
   }
 
   async function savePm(){
@@ -661,7 +688,7 @@ function PmPanel(){
             <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Last done</label><input type="date" style={ipt} value={pmForm.lastDone} onChange={e=>setPmForm(f=>({...f,lastDone:e.target.value}))}/></div>
             <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Next due</label><input type="date" style={ipt} value={pmForm.nextDue} onChange={e=>setPmForm(f=>({...f,nextDue:e.target.value}))}/></div>
           </div>
-          <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={pmForm.notes} onChange={e=>setPmForm(f=>({...f,notes:e.target.value}))} placeholder="What to check, products needed, steps…"/></div>
+          <div style={{marginBottom:12}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Step-by-step notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={pmForm.notes} onChange={e=>setPmForm(f=>({...f,notes:e.target.value}))} placeholder="What to check, products needed, steps…"/></div>
           <div style={{display:"flex",gap:8}}>
             <Btn outline color="#4b5563" onClick={()=>{setShowForm(false);setEditTask(null);}} style={{flex:1}}>Cancel</Btn>
             <Btn color={TEAL} onClick={savePm} disabled={!pmForm.taskName.trim()} style={{flex:2}}>Save</Btn>
@@ -692,8 +719,13 @@ function PmPanel(){
               const meta=statusMeta(status);
               const du=task.NextDue?daysUntilPm(task.NextDue):null;
               const notesOpen=!!expandedNotes[task.id];
+              const logOpen_=!!logOpen[task.id];
+              const logEntries=parseLogEntries(task.TaskLog);
+              const logHistoryOpen=!!expandedLog[task.id];
+              const lf=logForms[task.id]||{outcome:"Done",notes:"",date:todayDate()};
               return(
                 <div key={task.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px",marginBottom:5,borderLeft:`3px solid ${meta.color}`}}>
+                  {/* Task header */}
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:4}}>
@@ -709,18 +741,87 @@ function PmPanel(){
                     <span style={{background:meta.bg,color:meta.color,fontSize:10,fontWeight:600,padding:"3px 9px",borderRadius:6,marginLeft:8,whiteSpace:"nowrap",flexShrink:0}}>{meta.label}</span>
                   </div>
 
+                  {/* Step-by-step notes */}
                   {task.Notes&&(
                     <div style={{marginBottom:8}}>
-                      <button onClick={()=>setExpandedNotes(p=>({...p,[task.id]:!p[task.id]}))} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>{notesOpen?"▲ Hide notes":"▼ View notes"}</button>
+                      <button onClick={()=>setExpandedNotes(p=>({...p,[task.id]:!p[task.id]}))} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>{notesOpen?"▲ Hide notes":"▼ How to do it"}</button>
                       {notesOpen&&<div style={{marginTop:8,background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#9ca3af",whiteSpace:"pre-line",lineHeight:1.7}}>{task.Notes}</div>}
                     </div>
                   )}
 
-                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                    <Btn small color={TEAL} onClick={()=>markDone(task)}>✓ Mark done today</Btn>
-                    <button onClick={()=>{setEditTask(task);setPmForm({taskName:task.TaskName||"",machine:task.Machine||"",interval:task.Interval||"Monthly",lastDone:task.LastDone||"",nextDue:task.NextDue||"",notes:task.Notes||""});setShowForm(true);window.scrollTo({top:0,behavior:"smooth"});}} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:12,fontFamily:"inherit"}}>✏ Edit</button>
-                    <button onClick={()=>deletePm(task)} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:12,fontFamily:"inherit"}}>🗑</button>
-                  </div>
+                  {/* Log history */}
+                  {logEntries.length>0&&(
+                    <div style={{marginBottom:8}}>
+                      <button onClick={()=>setExpandedLog(p=>({...p,[task.id]:!p[task.id]}))} style={{fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",padding:0,fontFamily:"inherit"}}>
+                        {logHistoryOpen?"▲ Hide log":"▼ Log history"} <span style={{color:"#374151"}}>({logEntries.length})</span>
+                      </button>
+                      {logHistoryOpen&&(
+                        <div style={{marginTop:8,display:"flex",flexDirection:"column",gap:5}}>
+                          {logEntries.map((entry,i)=>{
+                            const col=entry.outcome.includes("✓")?"#20B07F":entry.outcome.includes("⚠")?"#d4851a":"#f87171";
+                            const bg=entry.outcome.includes("✓")?"#0a2218":entry.outcome.includes("⚠")?"#2a1f0a":"#2a0f14";
+                            return(
+                              <div key={i} style={{background:bg,borderRadius:8,padding:"8px 10px",borderLeft:`2px solid ${col}`}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:entry.note?3:0}}>
+                                  <span style={{fontSize:12,fontWeight:600,color:col}}>{entry.outcome}</span>
+                                  <span style={{fontSize:11,color:"#4b5563"}}>— {entry.date}</span>
+                                </div>
+                                {entry.note&&<div style={{fontSize:12,color:"#9ca3af"}}>{entry.note}</div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Log entry form */}
+                  {logOpen_&&(
+                    <div style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px",marginBottom:8}}>
+                      <div style={{fontSize:12,color:"#9ca3af",marginBottom:8,fontWeight:500}}>Log entry for: <span style={{color:"#e0e3ea"}}>{task.TaskName}</span></div>
+                      {/* Outcome selector */}
+                      <div style={{display:"flex",gap:6,marginBottom:10}}>
+                        {[["Done","✓","#20B07F","#0a2218"],["Partial","⚠","#d4851a","#2a1f0a"],["Not done","✗","#f87171","#2a0f14"]].map(([v,icon,col,bg])=>{
+                          const sel=(lf.outcome||"Done")===v;
+                          return(
+                            <button key={v} onClick={()=>setLogForms(p=>({...p,[task.id]:{...lf,outcome:v}}))} style={{flex:1,padding:"8px 4px",borderRadius:8,border:sel?`1.5px solid ${col}`:"0.5px solid #1e2130",background:sel?bg:"#141720",color:sel?col:"#6b7280",fontSize:12,fontWeight:sel?600:400,cursor:"pointer",fontFamily:"inherit",textAlign:"center"}}>
+                              <div style={{fontSize:16}}>{icon}</div>
+                              <div style={{fontSize:11,marginTop:2}}>{v}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Outcome hint */}
+                      <div style={{fontSize:11,color:"#4b5563",marginBottom:10,padding:"5px 8px",background:"#141720",borderRadius:6}}>
+                        {lf.outcome==="Done"&&"✓ Done — updates Last done and schedules next due date automatically"}
+                        {lf.outcome==="Partial"&&"⚠ Partial — logs the date but sets next check to 7 days (follow up soon)"}
+                        {lf.outcome==="Not done"&&"✗ Not done — no dates changed, task stays due. Reason is recorded in the log"}
+                      </div>
+                      {/* Date */}
+                      <div style={{marginBottom:8}}>
+                        <label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:4}}>Date</label>
+                        <input type="date" style={{...ipt,fontSize:12}} value={lf.date||todayDate()} onChange={e=>setLogForms(p=>({...p,[task.id]:{...lf,date:e.target.value}}))}/>
+                      </div>
+                      {/* Notes */}
+                      <div style={{marginBottom:10}}>
+                        <label style={{fontSize:11,color:"#6b7280",display:"block",marginBottom:4}}>Notes{lf.outcome==="Not done"?" (reason) *":""}</label>
+                        <textarea style={{...ipt,resize:"vertical",fontSize:12}} rows={2} value={lf.notes||""} onChange={e=>setLogForms(p=>({...p,[task.id]:{...lf,notes:e.target.value}}))} placeholder={lf.outcome==="Done"?"e.g. Lubricated all rollers, rotated felts. Used Q20 on gears.":lf.outcome==="Partial"?"e.g. Cleaned lens but mirrors still need doing — waiting for cotton buds":"e.g. Press booked for Year 3 project — couldn't access. Will reschedule."}/>
+                      </div>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>setLogOpen(p=>({...p,[task.id]:false}))} style={{flex:1,padding:"8px",borderRadius:8,border:"0.5px solid #1e2130",background:"#141720",color:"#6b7280",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+                        <button onClick={()=>saveLog(task)} disabled={lf.outcome==="Not done"&&!lf.notes?.trim()} style={{flex:2,padding:"8px",borderRadius:8,border:"none",background:(lf.outcome==="Not done"&&!lf.notes?.trim())?"#1e2130":TEAL,color:(lf.outcome==="Not done"&&!lf.notes?.trim())?"#4b5563":"#fff",fontSize:12,fontWeight:500,cursor:(lf.outcome==="Not done"&&!lf.notes?.trim())?"not-allowed":"pointer",fontFamily:"inherit"}}>Save log entry</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  {!logOpen_&&(
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <Btn small color={TEAL} onClick={()=>openLogForm(task)}>📋 Log</Btn>
+                      <button onClick={()=>{setEditTask(task);setPmForm({taskName:task.TaskName||"",machine:task.Machine||"",interval:task.Interval||"Monthly",lastDone:task.LastDone||"",nextDue:task.NextDue||"",notes:task.Notes||""});setShowForm(true);window.scrollTo({top:0,behavior:"smooth"});}} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:12,fontFamily:"inherit"}}>✏ Edit</button>
+                      <button onClick={()=>deletePm(task)} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:12,fontFamily:"inherit"}}>🗑</button>
+                    </div>
+                  )}
                 </div>
               );
             })}
