@@ -237,6 +237,7 @@ function reqToAirtable(req) {
     LateDays:      req.lateDays || 0,
     LateFine:      req.lateFine || 0,
     CheckInNotes:  req.checkInNotes || "",
+    StudentEmail:  req.studentEmail || "",
   };
 }
 function airtableToReq(rec) {
@@ -272,6 +273,7 @@ function airtableToReq(rec) {
     lateDays:     f.LateDays || 0,
     lateFine:     f.LateFine || 0,
     checkInNotes: f.CheckInNotes || "",
+    studentEmail: f.StudentEmail || "",
   };
 }
 
