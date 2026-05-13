@@ -1061,12 +1061,23 @@ function HsPanel(){
               ):(
                 <button onClick={()=>{setResolvingId(req.id);setResolveDate(todayDate());}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ Resolved</button>
               ))}
-              {req.DateSubmitted&&daysSince(req.DateSubmitted)>=7&&(
-                <button title="Sends a single follow-up email to Estates listing all requests outstanding 7+ days" onClick={async()=>{
-                  const r=await fetch("/api/cron-followup",{method:"POST"});
-                  const d=await r.json();
-                  alert(d.sent>0?`Follow-up sent to Estates covering ${d.sent} outstanding request(s).`:"No requests over 7 days found.");
-                }} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #d4851a",background:"#2a1f0a",cursor:"pointer",color:"#d4851a",fontSize:11,fontFamily:"inherit"}}>📧 Chase Estates (all stale)</button>
+              {daysSince(req.DateLogged)>=14&&!["Resolved","Closed","Open"].includes(req.Status)&&(
+                <>
+                  <button title="Preview the Estates follow-up email" onClick={async()=>{
+                    try{
+                      const r=await fetch("/api/cron-followup?preview=true",{method:"POST"});
+                      const d=await r.json();
+                      if(d.html){const w=window.open("","_blank");w.document.write(d.html);w.document.close();}
+                      else alert("No stale requests to preview.");
+                    }catch(e){alert("❌ "+e.message);}
+                  }} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>👁 Preview Estates</button>
+                  <button title="Sends a follow-up email to Estates listing all requests outstanding 14+ days" onClick={async()=>{
+                    if(!window.confirm("Send follow-up email to Estates?"))return;
+                    const r=await fetch("/api/cron-followup",{method:"POST"});
+                    const d=await r.json();
+                    alert(d.sent>0?`Follow-up sent to Estates covering ${d.sent} outstanding request(s).`:"No requests over 14 days found.");
+                  }} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #d4851a",background:"#2a1f0a",cursor:"pointer",color:"#d4851a",fontSize:11,fontFamily:"inherit"}}>📧 Chase Estates</button>
+                </>
               )}
               <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||"",emailDateTime:req.EmailDateTime||""});setShowMaintForm(true);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
               <button onClick={()=>deleteMaintReq(req)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:11,fontFamily:"inherit"}}>🗑 Delete</button>
