@@ -76,7 +76,10 @@ const MONTHS=["January","February","March","April","May","June","July","August",
 const DAYS_SHORT=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DAY_FULL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1"};
+const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1",lic:"fats_lic_v1"};
+
+// Default Corel licence pre-loaded
+const DEFAULT_LICENCES=[{id:"corel_2026_01",software:"CorelDRAW Graphics Suite Education",vendor:"Learning Curve",vendorContact:"Phillip Mokgethi",vendorPhone:"+27 84 424 0772",poNumber:"RP0000122595",licenceNo:"1158587",importCode:"10690273",partNo:"LCCDGSSUBA11",seats:2,effectiveDate:"2026-05-12",expiryDate:"2027-05-11",notes:"365-Day Subscription (Single User). Activate at coreldraw.com/licensemanagement. Keep this certificate for renewal reference.",createdAt:"2026-05-12T09:11:00.000Z"}];
 const DEFAULT_PIN="1234";
 const DEFAULT_EQ_SETTINGS={yr12Days:3,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
 
@@ -1282,6 +1285,10 @@ export default function App() {
   const [blocks, setBlocks] = useState({});
   const [maintLogs, setMaintLogs] = useState([]);
   const [hsLogs, setHsLogs] = useState([]);
+  const [licences, setLicences] = useState(DEFAULT_LICENCES);
+  const [licForm, setLicForm] = useState({software:"",vendor:"",vendorContact:"",vendorPhone:"",poNumber:"",licenceNo:"",importCode:"",partNo:"",seats:"1",effectiveDate:todayDate(),expiryDate:"",notes:""});
+  const [showLicForm, setShowLicForm] = useState(false);
+  const [expandLicId, setExpandLicId] = useState(null);
   const [leaveMode, setLeaveMode] = useState({active:false,returnDate:"",message:""});
   const [loaded, setLoaded] = useState(false);
 
@@ -1399,6 +1406,7 @@ export default function App() {
       const m=localStorage.getItem(KEYS.maint);if(m)setMaintLogs(JSON.parse(m));
       const h=localStorage.getItem(KEYS.hs);if(h)setHsLogs(JSON.parse(h));
       const l=localStorage.getItem(KEYS.leave);if(l)setLeaveMode(JSON.parse(l));
+      const li=localStorage.getItem(KEYS.lic);if(li)setLicences(JSON.parse(li));
       const sn=localStorage.getItem(KEYS.savedStudNo);if(sn)setForm(f=>({...f,studNo:sn}));
     }catch(e){}
     // Requests come from Airtable so they're visible across all devices
@@ -1536,6 +1544,9 @@ export default function App() {
   function logMaintenance(){if(!maintForm.equipmentId||!maintForm.date)return;const log={id:genId(),...maintForm,createdAt:todayISO()};const u=[log,...maintLogs];setMaintLogs(u);persist(KEYS.maint,u);setMaintForm({equipmentId:"",date:"",notes:"",status:"Done",duration:""});}
   function toggleLeave(){const u=leaveMode.active?{active:false,returnDate:"",message:""}:{...leaveMode,active:true};setLeaveMode(u);persist(KEYS.leave,u);}
   function saveLeave(){persist(KEYS.leave,leaveMode);}
+  function addLicence(){if(!licForm.software.trim())return;const lic={id:genId(),...licForm,seats:Number(licForm.seats)||1,createdAt:todayISO()};const u=[lic,...licences];setLicences(u);persist(KEYS.lic,u);setLicForm({software:"",vendor:"",vendorContact:"",vendorPhone:"",poNumber:"",licenceNo:"",importCode:"",partNo:"",seats:"1",effectiveDate:todayDate(),expiryDate:"",notes:""});setShowLicForm(false);}
+  function deleteLicence(id){if(!window.confirm("Delete this licence record?"))return;const u=licences.filter(l=>l.id!==id);setLicences(u);persist(KEYS.lic,u);}
+  function licStatus(l){if(!l.expiryDate)return{label:"Perpetual",bg:"#0a2218",color:"#20B07F"};const days=Math.floor((new Date(l.expiryDate+"T00:00:00")-new Date())/86400000);if(days<0)return{label:"Expired",bg:"#2a0f14",color:"#f87171"};if(days<=60)return{label:`Expires in ${days}d`,bg:"#2a1f0a",color:"#d4851a"};return{label:`Active · exp ${fmtDate(l.expiryDate)}`,bg:"#0a2218",color:"#20B07F"};}
 
   async function handleVerifyStudent(){
     if(!form.studNo.trim())return;
@@ -2379,7 +2390,7 @@ export default function App() {
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:desktopTwoCol?"#e0e3ea":"#6b7280",background:desktopTwoCol?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
-          {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"]].map(([v,l])=>(
+          {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"],["lic","🔑 Licences"]].map(([v,l])=>(
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
@@ -2426,7 +2437,7 @@ export default function App() {
 
       {/* Dash tabs */}
       {!isDesktop&&<div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
-        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["charges","Charges"]].map(([v,l])=>(
+        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["charges","Charges"],["lic","🔑 Lic"]].map(([v,l])=>(
           <button key={v} onClick={()=>setDashTab(v)} style={{flex:1,minWidth:55,padding:"8px 4px",borderRadius:8,border:"none",background:dashTab===v?TEAL:"#141720",color:dashTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:dashTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
       </div>}
@@ -2727,6 +2738,89 @@ export default function App() {
             </>)}
           </>);
         })()}
+      </>)}
+
+      {/* ── LICENCES ── */}
+      {dashTab==="lic"&&(<>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+          <div style={{fontSize:15,fontWeight:500}}>Software licences</div>
+          <button onClick={()=>setShowLicForm(f=>!f)} style={{fontSize:12,padding:"6px 14px",borderRadius:8,border:"none",background:showLicForm?"#1a1d28":TEAL,color:showLicForm?"#9ca3af":"#fff",cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>{showLicForm?"Cancel":"+ Add licence"}</button>
+        </div>
+        <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Purchase orders, licence keys, seats and expiry dates</div>
+
+        {/* Stat chips */}
+        <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+          {[["Total",licences.length,"#1a1d28","#9ca3af"],
+            ["Active",licences.filter(l=>{if(!l.expiryDate)return true;return Math.floor((new Date(l.expiryDate+"T00:00:00")-new Date())/86400000)>60;}).length,"#0a2218","#20B07F"],
+            ["Expiring soon",licences.filter(l=>{if(!l.expiryDate)return false;const d=Math.floor((new Date(l.expiryDate+"T00:00:00")-new Date())/86400000);return d>=0&&d<=60;}).length,"#2a1f0a","#d4851a"],
+            ["Expired",licences.filter(l=>l.expiryDate&&Math.floor((new Date(l.expiryDate+"T00:00:00")-new Date())/86400000)<0).length,"#2a0f14","#f87171"],
+          ].map(([label,n,bg,col])=>(
+            <div key={label} style={{flex:1,minWidth:80,background:bg,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+              <div style={{fontSize:20,fontWeight:600,color:col}}>{n}</div>
+              <div style={{fontSize:11,color:col}}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Add form */}
+        {showLicForm&&(
+          <div style={{background:"#141720",border:`0.5px solid ${TEAL}`,borderRadius:14,padding:"16px 18px",marginBottom:20}}>
+            <div style={{fontSize:13,fontWeight:500,marginBottom:14,color:TEAL}}>New licence record</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div style={{gridColumn:"1/-1"}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Software name *</label><input style={ipt} value={licForm.software} onChange={e=>setLicForm(f=>({...f,software:e.target.value}))} placeholder="e.g. CorelDRAW Graphics Suite Education"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Vendor / Supplier</label><input style={ipt} value={licForm.vendor} onChange={e=>setLicForm(f=>({...f,vendor:e.target.value}))} placeholder="e.g. Learning Curve"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>PO Number</label><input style={ipt} value={licForm.poNumber} onChange={e=>setLicForm(f=>({...f,poNumber:e.target.value}))} placeholder="e.g. RP0000122595"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Licence / Certificate No.</label><input style={ipt} value={licForm.licenceNo} onChange={e=>setLicForm(f=>({...f,licenceNo:e.target.value}))} placeholder="e.g. 1158587"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Import / Activation Code</label><input style={ipt} value={licForm.importCode} onChange={e=>setLicForm(f=>({...f,importCode:e.target.value}))} placeholder="e.g. 10690273"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Part Number</label><input style={ipt} value={licForm.partNo} onChange={e=>setLicForm(f=>({...f,partNo:e.target.value}))} placeholder="e.g. LCCDGSSUBA11"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>No. of seats / copies</label><input type="number" min="1" style={ipt} value={licForm.seats} onChange={e=>setLicForm(f=>({...f,seats:e.target.value}))}/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Effective date</label><input type="date" style={ipt} value={licForm.effectiveDate} onChange={e=>setLicForm(f=>({...f,effectiveDate:e.target.value}))}/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Expiry date <span style={{color:"#4b5563"}}>(leave blank if perpetual)</span></label><input type="date" style={ipt} value={licForm.expiryDate} onChange={e=>setLicForm(f=>({...f,expiryDate:e.target.value}))}/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Vendor contact</label><input style={ipt} value={licForm.vendorContact} onChange={e=>setLicForm(f=>({...f,vendorContact:e.target.value}))} placeholder="Contact person name"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Vendor phone</label><input style={ipt} value={licForm.vendorPhone} onChange={e=>setLicForm(f=>({...f,vendorPhone:e.target.value}))} placeholder="+27 ..."/></div>
+              <div style={{gridColumn:"1/-1"}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Notes</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={licForm.notes} onChange={e=>setLicForm(f=>({...f,notes:e.target.value}))} placeholder="Activation steps, renewal notes, URLs..."/></div>
+            </div>
+            <Btn onClick={addLicence} disabled={!licForm.software.trim()} full>Save licence record</Btn>
+          </div>
+        )}
+
+        {/* Licence cards */}
+        {licences.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>No licences recorded yet</div>}
+        {licences.map(lic=>{
+          const st=licStatus(lic);
+          const expanded=expandLicId===lic.id;
+          return(
+            <div key={lic.id} style={{background:"#141720",border:`0.5px solid ${st.label.startsWith("Expir")&&!st.label.startsWith("Expiring in")?"#c05050":st.label==="Expired"?"#c05050":"#1e2130"}`,borderRadius:14,padding:"16px 18px",marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div style={{flex:1,minWidth:0,paddingRight:8}}>
+                  <div style={{fontWeight:600,fontSize:15,marginBottom:2}}>{lic.software}</div>
+                  <div style={{fontSize:12,color:"#6b7280"}}>{lic.vendor}{lic.poNumber&&<span style={{marginLeft:8,color:"#4b5563"}}>PO: {lic.poNumber}</span>}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                  <span style={{fontSize:11,padding:"3px 8px",borderRadius:12,background:st.bg,color:st.color,fontWeight:500,whiteSpace:"nowrap"}}>{st.label}</span>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:8}}>
+                <div style={{fontSize:12}}><span style={{color:"#6b7280"}}>Seats: </span><span style={{fontWeight:600,color:"#e0e3ea"}}>{lic.seats}</span></div>
+                {lic.effectiveDate&&<div style={{fontSize:12}}><span style={{color:"#6b7280"}}>Effective: </span><span style={{color:"#e0e3ea"}}>{fmtDate(lic.effectiveDate)}</span></div>}
+                {lic.expiryDate&&<div style={{fontSize:12}}><span style={{color:"#6b7280"}}>Expires: </span><span style={{color:st.color,fontWeight:500}}>{fmtDate(lic.expiryDate)}</span></div>}
+              </div>
+              <button onClick={()=>setExpandLicId(expanded?null:lic.id)} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:expanded?12:0}}>{expanded?"▲ Hide details":"▼ Show details"}</button>
+              {expanded&&(
+                <div style={{borderTop:"0.5px solid #1e2130",paddingTop:12,display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  {lic.licenceNo&&<div style={{fontSize:12}}><div style={{color:"#6b7280",marginBottom:2}}>Licence No.</div><div style={{fontFamily:"monospace",fontSize:13,color:"#e0e3ea",letterSpacing:"0.05em"}}>{lic.licenceNo}</div></div>}
+                  {lic.importCode&&<div style={{fontSize:12}}><div style={{color:"#6b7280",marginBottom:2}}>Import / Activation Code</div><div style={{fontFamily:"monospace",fontSize:13,color:"#e0e3ea",letterSpacing:"0.05em"}}>{lic.importCode}</div></div>}
+                  {lic.partNo&&<div style={{fontSize:12}}><div style={{color:"#6b7280",marginBottom:2}}>Part Number</div><div style={{color:"#e0e3ea"}}>{lic.partNo}</div></div>}
+                  {lic.vendorContact&&<div style={{fontSize:12}}><div style={{color:"#6b7280",marginBottom:2}}>Vendor contact</div><div style={{color:"#e0e3ea"}}>{lic.vendorContact}{lic.vendorPhone&&<span style={{color:"#6b7280"}}> · {lic.vendorPhone}</span>}</div></div>}
+                  {lic.notes&&<div style={{gridColumn:"1/-1",fontSize:12}}><div style={{color:"#6b7280",marginBottom:2}}>Notes</div><div style={{color:"#9ca3af",lineHeight:1.5}}>{lic.notes}</div></div>}
+                  <div style={{gridColumn:"1/-1",marginTop:4}}>
+                    <button onClick={()=>deleteLicence(lic.id)} style={{fontSize:11,color:"#f87171",background:"none",border:"0.5px solid #f87171",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontFamily:"inherit"}}>Delete record</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </>)}
 
       {/* ── H&S / MAINTENANCE ── */}
