@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     .filter(r => {
       const status = r.fields.Status;
       if (!status || SKIP_STATUSES.includes(status)) return false;
-      const days = daysOld(r.fields.DateLogged);
+      const days = daysOld(r.fields.DateSubmitted || r.fields.DateLogged);
       return days !== null && days >= CHASE_AFTER_DAYS;
     })
     .sort((a, b) => (daysOld(b.fields.DateLogged) || 0) - (daysOld(a.fields.DateLogged) || 0));
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
 
   const tableRows = stale.map(r => {
     const f    = r.fields;
-    const days = daysOld(f.DateLogged);
+    const days = daysOld(f.DateSubmitted || f.DateLogged);
     const daysColor = days >= 60 ? "#b91c1c" : days >= 30 ? "#d97706" : "#555";
     return `
       <tr>

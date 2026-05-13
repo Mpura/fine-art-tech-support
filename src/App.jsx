@@ -1061,7 +1061,7 @@ function HsPanel(){
               ):(
                 <button onClick={()=>{setResolvingId(req.id);setResolveDate(todayDate());}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ Resolved</button>
               ))}
-              {daysSince(req.DateLogged)>=14&&!["Resolved","Closed","Open"].includes(req.Status)&&(
+              {daysSince(req.DateSubmitted||req.DateLogged)>=14&&!["Resolved","Closed","Open"].includes(req.Status)&&(
                 <>
                   <button title="Preview the Estates follow-up email" onClick={async()=>{
                     try{
