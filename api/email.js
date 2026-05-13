@@ -30,7 +30,8 @@ export default async function handler(req, res) {
     });
 
     await transporter.sendMail({
-      from: `"Mpumzi Mpati | Fine Art Dept" <${user}>`,
+      from:    `"Mpumzi Mpati | Fine Art Dept" <${user}>`,
+      replyTo: "Mpumzi Mpati <m.mpati@ru.ac.za>",
       to,
       subject,
       html,

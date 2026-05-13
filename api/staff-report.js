@@ -253,10 +253,11 @@ export default async function handler(req, res) {
   });
 
   await transporter.sendMail({
-    from:    `"Mpumzi Mpati | Fine Art Dept" <${gmailUser}>`,
-    to:      STAFF.join(", "),
-    subject: `Fine Art Department — Maintenance Update | ${dateStr}`,
-    html:    emailHtml,
+    from:     `"Mpumzi Mpati | Fine Art Dept" <${gmailUser}>`,
+    replyTo:  "Mpumzi Mpati <m.mpati@ru.ac.za>",
+    to:       STAFF.join(", "),
+    subject:  `Fine Art Department — Maintenance Update | ${dateStr}`,
+    html:     emailHtml,
   });
 
   return res.status(200).json({ ok: true, sent: STAFF.length, open: open.length, resolved: recentResolved.length });
