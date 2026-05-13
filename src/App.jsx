@@ -1193,9 +1193,29 @@ function HsPanel(){
       const byType={};
       inPeriod.forEach(r=>{const t=r.ProblemType||"Other";byType[t]=(byType[t]||0)+1;});
       const periods=[["month","This Month"],["lastmonth","Last Month"],["3months","Last 3 Months"],["term","This Term"],["all","All Time"]];
+      const nextSendDate=(()=>{
+        const now=new Date();
+        const y=now.getFullYear(),m=now.getMonth();
+        const candidates=[new Date(y,m,1,7,0,0),new Date(y,m,15,7,0,0),new Date(y,m+1,1,7,0,0),new Date(y,m+1,15,7,0,0)];
+        const next=candidates.find(d=>d>now);
+        const daysLeft=Math.ceil((next-now)/86400000);
+        const label=next.toLocaleDateString("en-ZA",{day:"2-digit",month:"short"});
+        const isWarningDay=daysLeft===1;
+        const isSendDay=daysLeft===0;
+        return{daysLeft,label,isWarningDay,isSendDay};
+      })();
       return(<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-          <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Maintenance Report</div>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Maintenance Report</div>
+            <div style={{fontSize:11,marginTop:3,color:nextSendDate.isSendDay?"#20B07F":nextSendDate.isWarningDay?"#d97706":"#6b7280"}}>
+              {nextSendDate.isSendDay
+                ? "📧 Report sends today at 07:00"
+                : nextSendDate.isWarningDay
+                  ? `⏰ Report sends tomorrow (${nextSendDate.label}) — check everything is up to date`
+                  : `Next report: ${nextSendDate.label} · ${nextSendDate.daysLeft} day${nextSendDate.daysLeft!==1?"s":""} away`}
+            </div>
+          </div>
           <div style={{display:"flex",gap:6}}>
             <button onClick={async()=>{
               try{
