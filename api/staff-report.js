@@ -51,7 +51,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Missing env vars" });
   }
 
-  const isWarn = req.query?.warn === "true";
+  const isWarn    = req.query?.warn === "true";
+  const isPreview = req.query?.preview === "true";
+
+  // Don't send the recurring report before the first scheduled date
+  const EARLIEST_SEND = new Date("2026-06-01T00:00:00");
+  if (!isWarn && !isPreview && req.method === "GET" && new Date() < EARLIEST_SEND) {
+    return res.status(200).json({ skipped: true, reason: "Before first scheduled send date (2026-06-01)" });
+  }
 
   // ── WARNING EMAIL ──────────────────────────────────────────────────────────
   if (isWarn) {
@@ -169,8 +176,6 @@ export default async function handler(req, res) {
   }
 
   const dateStr = now.toLocaleDateString("en-ZA", { day: "2-digit", month: "long", year: "numeric" });
-
-  const isPreview = req.query?.preview === "true";
 
   const emailHtml = `
 <!DOCTYPE html>

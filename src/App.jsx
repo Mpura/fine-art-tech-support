@@ -1195,9 +1195,10 @@ function HsPanel(){
       const periods=[["month","This Month"],["lastmonth","Last Month"],["3months","Last 3 Months"],["term","This Term"],["all","All Time"]];
       const nextSendDate=(()=>{
         const now=new Date();
+        const earliest=new Date("2026-06-01T07:00:00");
         const y=now.getFullYear(),m=now.getMonth();
-        const candidates=[new Date(y,m,1,7,0,0),new Date(y,m,15,7,0,0),new Date(y,m+1,1,7,0,0),new Date(y,m+1,15,7,0,0)];
-        const next=candidates.find(d=>d>now);
+        const candidates=[new Date(y,m,1,7,0,0),new Date(y,m,15,7,0,0),new Date(y,m+1,1,7,0,0),new Date(y,m+1,15,7,0,0),new Date(y,m+2,1,7,0,0)];
+        const next=candidates.find(d=>d>now&&d>=earliest);
         const daysLeft=Math.ceil((next-now)/86400000);
         const label=next.toLocaleDateString("en-ZA",{day:"2-digit",month:"short"});
         const isWarningDay=daysLeft===1;
