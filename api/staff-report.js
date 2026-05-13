@@ -109,8 +109,9 @@ export default async function handler(req, res) {
 
   function cleanDesc(desc) {
     if (!desc) return "";
-    // Strip the status change suffix Airtable appends
-    return desc.replace(/,?\s*Status been changed to:.*$/si, "").trim();
+    // Strip the status change suffix Airtable appends, then truncate
+    const clean = desc.replace(/,?\s*Status been changed to:.*$/si, "").replace(/\n+/g, " ").trim();
+    return clean.length > 100 ? clean.slice(0, 97) + "…" : clean;
   }
 
   function cleanLoc(loc) {
