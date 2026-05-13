@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     });
 
     await transporter.sendMail({
-      from: `"Fine Art Tech Support" <${user}>`,
+      from: `"Mpumzi Mpati | Fine Art Dept" <${user}>`,
       to,
       subject,
       html,
