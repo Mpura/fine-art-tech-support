@@ -1196,15 +1196,28 @@ function HsPanel(){
       return(<>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
           <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Maintenance Report</div>
-          <button onClick={async()=>{
-            if(!window.confirm("Send the full maintenance report to all Fine Art staff?"))return;
-            try{
-              const r=await fetch("/api/staff-report",{method:"POST"});
-              const d=await r.json();
-              if(d.ok)alert(`✅ Report sent to ${d.sent} staff members (${d.open} open, ${d.resolved} resolved).`);
-              else alert("❌ Failed to send report: "+(d.error||"Unknown error"));
-            }catch(e){alert("❌ Network error: "+e.message);}
-          }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#1a3a5c",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📧 Send staff report</button>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={async()=>{
+              try{
+                const r=await fetch("/api/staff-report?preview=true",{method:"POST"});
+                const d=await r.json();
+                if(d.html){
+                  const w=window.open("","_blank");
+                  w.document.write(d.html);
+                  w.document.close();
+                }else alert("❌ Could not load preview: "+(d.error||"Unknown error"));
+              }catch(e){alert("❌ Network error: "+e.message);}
+            }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
+            <button onClick={async()=>{
+              if(!window.confirm("Send the full maintenance report to all Fine Art staff?"))return;
+              try{
+                const r=await fetch("/api/staff-report",{method:"POST"});
+                const d=await r.json();
+                if(d.ok)alert(`✅ Report sent to ${d.sent} staff members (${d.open} open, ${d.resolved} resolved).`);
+                else alert("❌ Failed to send report: "+(d.error||"Unknown error"));
+              }catch(e){alert("❌ Network error: "+e.message);}
+            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#1a3a5c",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📧 Send staff report</button>
+          </div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
           {periods.map(([v,l])=>(

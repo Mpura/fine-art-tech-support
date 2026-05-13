@@ -169,28 +169,19 @@ export default async function handler(req, res) {
 
   const dateStr = now.toLocaleDateString("en-ZA", { day: "2-digit", month: "long", year: "numeric" });
 
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: { user: gmailUser, pass: gmailPass },
-  });
+  const isPreview = req.query?.preview === "true";
 
-  await transporter.sendMail({
-    from:    `"Mpumzi Mpati | Fine Art Dept" <${gmailUser}>`,
-    to:      STAFF.join(", "),
-    subject: `Fine Art Department — Maintenance Update | ${dateStr}`,
-    html: `
+  const emailHtml = `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"/></head>
 <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
 <div style="max-width:780px;margin:32px auto;background:#ffffff;border-radius:6px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-
   <div style="background:#1a1a1a;padding:28px 32px">
     <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px">Rhodes University · Fine Art Department</div>
     <div style="font-size:22px;font-weight:700;color:#ffffff">Maintenance Update</div>
     <div style="font-size:13px;color:#aaaaaa;margin-top:4px">${dateStr}</div>
   </div>
-
   <div style="padding:32px">
     <p style="margin:0 0 24px;color:#333;font-size:14px;line-height:1.7">
       Hi everyone, here is the latest maintenance update for the department.
@@ -198,7 +189,6 @@ export default async function handler(req, res) {
         ? `<strong>${newCount} new request${newCount > 1 ? "s have" : " has"} been added</strong> since the last update.`
         : "No new requests have been added since the last update."}
     </p>
-
     <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:6px">
       Open Requests <span style="font-size:13px;font-weight:400;color:#888">(${open.length} outstanding)</span>
     </div>
@@ -223,7 +213,6 @@ export default async function handler(req, res) {
     <p style="margin:0 0 28px;color:#555;font-size:12px;line-height:1.6">
       💬 If you have a request that is not on this list, please reply to this email or forward me the Estates confirmation and I will add it.
     </p>
-
     <div style="font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:6px">
       Recently Resolved <span style="font-size:13px;font-weight:400;color:#888">(last 30 days — ${recentResolved.length} item${recentResolved.length !== 1 ? "s" : ""})</span>
     </div>
@@ -241,18 +230,32 @@ export default async function handler(req, res) {
       </thead>
       <tbody>${resolvedRows()}</tbody>
     </table>
-
     <div style="border-top:1px solid #e8e8e8;padding-top:20px;color:#555;font-size:13px;line-height:1.7">
       Reply to this email if anything has changed, is missing, or needs updating.
     </div>
-
     <p style="margin:20px 0 6px;color:#333;font-size:14px">Regards,</p>
     <p style="margin:0;color:#1a1a1a;font-size:14px;font-weight:700">Mpumzi</p>
     <p style="margin:2px 0 0;color:#888;font-size:12px">Fine Art Department — Rhodes University</p>
   </div>
 </div>
 </body>
-</html>`,
+</html>`;
+
+  // Preview mode — return HTML without sending
+  if (isPreview) {
+    return res.status(200).json({ ok: true, html: emailHtml, open: open.length, resolved: recentResolved.length });
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user: gmailUser, pass: gmailPass },
+  });
+
+  await transporter.sendMail({
+    from:    `"Mpumzi Mpati | Fine Art Dept" <${gmailUser}>`,
+    to:      STAFF.join(", "),
+    subject: `Fine Art Department — Maintenance Update | ${dateStr}`,
+    html:    emailHtml,
   });
 
   return res.status(200).json({ ok: true, sent: STAFF.length, open: open.length, resolved: recentResolved.length });
