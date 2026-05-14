@@ -56,7 +56,7 @@ export default async function handler(req, res) {
 
   // Don't send the recurring report before the first scheduled date
   const EARLIEST_SEND = new Date("2026-06-01T00:00:00");
-  if (!isWarn && !isPreview && req.method === "GET" && new Date() < EARLIEST_SEND) {
+  if (!isPreview && req.method === "GET" && new Date() < EARLIEST_SEND) {
     return res.status(200).json({ skipped: true, reason: "Before first scheduled send date (2026-06-01)" });
   }
 
