@@ -520,6 +520,35 @@ const ACE_2026=[
   {no:10,item:"Epson soft carry case",use:"Optional carry bag for safe transport of the Epson 4100lm projector between classrooms, studios, and exhibition spaces.",type:"Addition",assetNo:null,qty:3,unitPrice:1084,total:3252,criticality:"Not critical; serves only for safe transport.",risk:"Without it, the projector is more vulnerable to damage during movement between spaces.",growth:"Improves mobility and flexibility of projector use.",rating:2},
 ];
 
+const IT_2026={
+  current:[
+    {pc:"Master PC",assetNo:"RU02NFSS",use:"Adobe video editing, photography, 3D works, laser engraving, assisting students with troubleshooting"},
+    {pc:"Photo Printing PC",assetNo:"RU023C7B",use:"Photo printing workflow"},
+    {pc:"Laser PC",assetNo:"RU023C7B",use:"Laser engraving previews and student support"},
+  ],
+  monitors:[
+    {pc:"Master PC",assetNo:"RU02TGX7",spec:"27-inch, AdobeRGB, 1440p+, calibration capable",notes:"Supports video editing, 3D works, photography, laser engraving"},
+    {pc:"Photo Printing PC",assetNo:"RU01A5QD",spec:"22-inch, AdobeRGB, Full HD, factory-calibrated preferred",notes:"Ensures accurate photo previews and prints; cost-effective"},
+    {pc:"Laser PC",assetNo:"RU01GM4E",spec:"Reuse current Master monitor",notes:"Sufficient quality for laser engraving previews; resource optimisation"},
+  ],
+  towers:[
+    {pc:"Master PC",spec:"Intel i7 / AMD Ryzen 7, 32GB+ RAM, dedicated GPU, ≥1TB SSD, Windows 11 Pro",notes:"Current tower (i5, 16GB, integrated GPU, 500GB SSD) struggles with urgent tasks. Example: Master's student video corrupted hours before exam; required re-edit, render, and export.",action:"New tower"},
+    {pc:"Laser PC",spec:"Intel i5 / AMD Ryzen 5, 16GB RAM, integrated GPU, 512GB SSD, Windows 11 Pro",notes:"Provides stable performance for laser engraving workflows.",action:"New tower"},
+    {pc:"Photo Printing PC",spec:"Current Master PC tower (RU02NFSS) repurposed",notes:"Existing tower sufficient; main requirement is high-quality monitor.",action:"Repurpose Master PC tower"},
+  ],
+  software:[
+    {pc:"Master PC & Dedicated PC",software:"CorelDRAW Graphics Suite",purpose:"Vector graphics for design, photo editing, laser engraving prep",license:"Renewal, 2 seats",detail:"Part No: LCCDGSSUBA11 · Education 365-Day Subscription · Expiry: 14-04-2026"},
+    {pc:"Master PC & Laser PC",software:"LightBurn",purpose:"Laser engraving file preparation and production",license:"One-off purchase, 3 seats (Master PC + Laser PC + 1 spare)",detail:"New purchase"},
+  ],
+  summary:[
+    "Master PC receives high-performance tower and 27-inch AdobeRGB monitor for urgent, high-demand tasks.",
+    "Current Master PC tower and monitor repurposed for Photo Printing PC and Laser PC — avoiding unnecessary expenditure.",
+    "Laser PC receives cost-effective tower for reliable engraving workflows.",
+    "CorelDRAW renewal and LightBurn one-off purchase ensure all PCs are fully capable.",
+    "Optimises resources while improving workflow efficiency, print accuracy, and student support.",
+  ],
+};
+
 const FE_2026=[
   {section:"First Year Studio",items:[
     {no:"FY-1",item:"Projector Ceiling Mount",use:"For presentations and crits; used by multiple sections.",type:"Addition",assetNo:null,qty:1,criticality:1,risk:1,urgency:3,rating:3},
@@ -574,6 +603,9 @@ function BudgetPanel(){
   const [feApprovals,setFeApprovals]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("fe2026_approvals")||"{}");}catch{return {};}
   });
+  const [itApprovals,setItApprovals]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("it2026_approvals")||"{}");}catch{return {};}
+  });
 
   function setApproval(no,status){
     const next={...approvals,[no]:status};
@@ -589,6 +621,11 @@ function BudgetPanel(){
     const next={...feApprovals,[no]:status};
     setFeApprovals(next);
     localStorage.setItem("fe2026_approvals",JSON.stringify(next));
+  }
+  function setItApproval(key,status){
+    const next={...itApprovals,[key]:status};
+    setItApprovals(next);
+    localStorage.setItem("it2026_approvals",JSON.stringify(next));
   }
 
   const totalRequested=ACE_2026.reduce((s,i)=>s+i.total,0);
@@ -617,7 +654,7 @@ function BudgetPanel(){
 
       {/* Sub-tabs */}
       <div style={{display:"flex",gap:6,marginBottom:20}}>
-        {[["ace","📷 ACE — Capital Equipment"],["fe","🪑 F&E — Furniture & Equipment"]].map(([v,l])=>(
+        {[["ace","📷 ACE — Capital Equipment"],["fe","🪑 F&E — Furniture & Equipment"],["it","💻 IT / Computer Equipment"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setBudTab(v);setExpanded(null);}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:budTab===v?TEAL:"#141720",color:budTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:budTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
       </div>
@@ -796,6 +833,120 @@ function BudgetPanel(){
           ))}
           <div style={{fontSize:11,color:"#374151",marginTop:8,textAlign:"center"}}>
             F&amp;E Submission · 16 Oct 2025 · Finance Division · Rhodes University · Department of Fine Art
+          </div>
+        </>);
+      })()}
+
+      {/* ── IT TAB ── */}
+      {budTab==="it"&&(()=>{
+        const allItKeys=[...IT_2026.monitors.map(m=>"mon-"+m.pc),...IT_2026.towers.map(t=>"tow-"+t.pc),...IT_2026.software.map(s=>"sw-"+s.software)];
+        const itApproved=allItKeys.filter(k=>itApprovals[k]==="approved").length;
+        const itRejected=allItKeys.filter(k=>itApprovals[k]==="rejected").length;
+        const itPending=allItKeys.filter(k=>!itApprovals[k]).length;
+        const sectionHdr=(icon,title)=>(
+          <div style={{fontSize:12,fontWeight:600,color:"#60a5fa",letterSpacing:"0.04em",textTransform:"uppercase",marginBottom:8,marginTop:20,paddingBottom:6,borderBottom:"0.5px solid #1e3a5f"}}>{icon} {title}</div>
+        );
+        const ApprovalBtns=({k})=>(
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
+            {["approved","rejected","pending"].map(s=>(
+              <button key={s} onClick={e=>{e.stopPropagation();setItApproval(k,s==="pending"?undefined:s);}} style={{padding:"4px 10px",borderRadius:8,border:"none",background:itApprovals[k]===(s==="pending"?undefined:s)?(s==="approved"?TEAL:s==="rejected"?"#dc2626":"#374151"):"#141720",color:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{s}</button>
+            ))}
+            {itApprovals[k]&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:itApprovals[k]==="approved"?"#0a2218":"#2a0f14",color:itApprovals[k]==="approved"?"#20B07F":"#f87171",fontWeight:500,textTransform:"capitalize"}}>{itApprovals[k]}</span>}
+          </div>
+        );
+        return(<>
+          {/* Summary chips */}
+          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+            {[["Requests",allItKeys.length,"#1a1d28","#9ca3af"],["Approved",itApproved,"#0a2218","#20B07F"],["Rejected",itRejected,"#2a0f14","#f87171"],["Pending",itPending,"#1a1d28","#d4851a"]].map(([label,n,bg,col])=>(
+              <div key={label} style={{flex:1,minWidth:80,background:bg,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:600,color:col}}>{n}</div>
+                <div style={{fontSize:11,color:col,marginTop:2}}>{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Current inventory */}
+          {sectionHdr("🖥","Current Equipment")}
+          <div style={{display:"grid",gap:6,marginBottom:4}}>
+            {IT_2026.current.map(c=>(
+              <div key={c.pc} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",display:"flex",gap:12,alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{c.pc}</div>
+                  <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{c.use}</div>
+                </div>
+                <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"#0a2218",color:"#20B07F",fontWeight:500,flexShrink:0}}>{c.assetNo}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Monitors */}
+          {sectionHdr("🖥","Monitor Requests")}
+          {IT_2026.monitors.map(m=>{
+            const k="mon-"+m.pc;
+            return(
+              <div key={k} style={{background:itApprovals[k]==="approved"?"#0a2218":itApprovals[k]==="rejected"?"#2a0f14":"#141720",border:`0.5px solid ${itApprovals[k]==="approved"?"#134029":itApprovals[k]==="rejected"?"#3a1a1a":"#1e2130"}`,borderRadius:10,padding:"11px 14px",marginBottom:6}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{m.pc}</div>
+                    <div style={{fontSize:12,color:"#60a5fa",marginTop:3,fontWeight:500}}>{m.spec}</div>
+                    <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{m.notes}</div>
+                    {m.assetNo&&<div style={{fontSize:10,color:"#374151",marginTop:2}}>Current asset: {m.assetNo}</div>}
+                  </div>
+                </div>
+                <ApprovalBtns k={k}/>
+              </div>
+            );
+          })}
+
+          {/* Towers */}
+          {sectionHdr("🗜","Tower (PC) Requests")}
+          {IT_2026.towers.map(t=>{
+            const k="tow-"+t.pc;
+            return(
+              <div key={k} style={{background:itApprovals[k]==="approved"?"#0a2218":itApprovals[k]==="rejected"?"#2a0f14":"#141720",border:`0.5px solid ${itApprovals[k]==="approved"?"#134029":itApprovals[k]==="rejected"?"#3a1a1a":"#1e2130"}`,borderRadius:10,padding:"11px 14px",marginBottom:6}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,flexWrap:"wrap"}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{t.pc}</span>
+                      <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"#1a1d28",color:"#d4851a"}}>{t.action}</span>
+                    </div>
+                    <div style={{fontSize:12,color:"#60a5fa",marginTop:3,fontWeight:500}}>{t.spec}</div>
+                    <div style={{fontSize:11,color:"#6b7280",marginTop:2,lineHeight:1.5}}>{t.notes}</div>
+                  </div>
+                </div>
+                <ApprovalBtns k={k}/>
+              </div>
+            );
+          })}
+
+          {/* Software */}
+          {sectionHdr("📦","Software Requests")}
+          {IT_2026.software.map(s=>{
+            const k="sw-"+s.software;
+            return(
+              <div key={k} style={{background:itApprovals[k]==="approved"?"#0a2218":itApprovals[k]==="rejected"?"#2a0f14":"#141720",border:`0.5px solid ${itApprovals[k]==="approved"?"#134029":itApprovals[k]==="rejected"?"#3a1a1a":"#1e2130"}`,borderRadius:10,padding:"11px 14px",marginBottom:6}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{s.software}</div>
+                <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>{s.purpose}</div>
+                <div style={{display:"flex",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                  <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"#0d1520",color:"#60a5fa"}}>{s.license}</span>
+                </div>
+                <div style={{fontSize:10,color:"#374151",marginTop:4,fontFamily:"monospace"}}>{s.detail}</div>
+                <div style={{fontSize:11,color:"#9ca3af",marginTop:4}}>For: {s.pc}</div>
+                <ApprovalBtns k={k}/>
+              </div>
+            );
+          })}
+
+          {/* Summary */}
+          {sectionHdr("📋","Summary / Motivation")}
+          <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px",marginBottom:20}}>
+            {IT_2026.summary.map((line,i)=>(
+              <div key={i} style={{fontSize:12,color:"#9ca3af",marginBottom:6,paddingLeft:12,borderLeft:"2px solid #1e3a5f",lineHeight:1.5}}>{line}</div>
+            ))}
+          </div>
+
+          <div style={{fontSize:11,color:"#374151",marginTop:8,textAlign:"center"}}>
+            IT / Computer Equipment Request · Rhodes University · Department of Fine Art
           </div>
         </>);
       })()}
