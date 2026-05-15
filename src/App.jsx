@@ -520,14 +520,59 @@ const ACE_2026=[
   {no:10,item:"Epson soft carry case",use:"Optional carry bag for safe transport of the Epson 4100lm projector between classrooms, studios, and exhibition spaces.",type:"Addition",assetNo:null,qty:3,unitPrice:1084,total:3252,criticality:"Not critical; serves only for safe transport.",risk:"Without it, the projector is more vulnerable to damage during movement between spaces.",growth:"Improves mobility and flexibility of projector use.",rating:2},
 ];
 
+const FE_2026=[
+  {section:"First Year Studio",items:[
+    {no:"FY-1",item:"Projector Ceiling Mount",use:"For presentations and crits; used by multiple sections.",type:"Addition",assetNo:null,qty:1,criticality:1,risk:1,urgency:3,rating:3},
+    {no:"FY-2",item:"Remote Projector Screen",use:"Improves presentation quality during teaching and student critiques.",type:"Addition",assetNo:null,qty:1,criticality:3,risk:1,urgency:3,rating:9},
+    {no:"FY-3",item:"Blinds",use:"Light control for better visual display.",type:"Addition",assetNo:null,qty:2,criticality:5,risk:1,urgency:5,rating:25},
+    {no:"FY-4",item:"Desk Rectangular 1600×800 (3 drawers)",use:"Replace old and unsightly office desk.",type:"Replacement",assetNo:null,qty:1,criticality:1,risk:1,urgency:3,rating:3,office:true},
+    {no:"FY-5",item:"Curtains",use:"Office curtains very old and faded; need replacement.",type:"Replacement",assetNo:null,qty:1,criticality:1,risk:1,urgency:3,rating:3,office:true},
+    {no:"FY-6",item:"Chair Highback helm contract with arms",use:"Replace office chair.",type:"Replacement",assetNo:null,qty:1,criticality:1,risk:1,urgency:3,rating:3,office:true},
+  ]},
+  {section:"Painting Studio",items:[
+    {no:"PA-1",item:"Dividers / Movable Walls",use:"Provide flexible studio layouts. Improves safety by creating clear working areas and separating materials and tools.",type:"Addition",assetNo:null,qty:4,criticality:5,risk:1,urgency:5,rating:25},
+    {no:"PA-2",item:"Extractor Fan (Spray Booth)",use:"Ensures safe ventilation when using solvents and spray materials. Critical for health and safety compliance and air quality.",type:"Addition",assetNo:null,qty:1,criticality:3,risk:3,urgency:3,rating:27},
+    {no:"PA-3",item:"Flammable Waste Cans",use:"Safe disposal for solvents and thinners. Essential to prevent fire hazards and meet safety regulations.",type:"Addition",assetNo:null,qty:6,criticality:5,risk:5,urgency:5,rating:125},
+    {no:"PA-4",item:"Blinds",use:"No blinds in office windows; impossible to control light.",type:"Replacement",assetNo:null,qty:1,criticality:5,risk:1,urgency:3,rating:15,office:true},
+  ]},
+  {section:"Sculpture Studio",items:[
+    {no:"SC-1",item:"L-Shaped Desk",use:"Returning to Sculpture office after 9 years; old desk unsuitable for office work.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:1,urgency:5,rating:25,office:true},
+    {no:"SC-2",item:"High-Back Chair",use:"Current chair broken; needs ergonomic replacement for daily use.",type:"Replacement",assetNo:null,qty:1,criticality:5,risk:3,urgency:5,rating:75,office:true},
+    {no:"SC-3",item:"Filing Cabinet",use:"Organised storage of departmental and teaching materials.",type:"Replacement",assetNo:null,qty:1,criticality:5,risk:1,urgency:5,rating:25,office:true},
+    {no:"SC-4",item:"Blinds",use:"Existing blinds are paint-splattered, torn, and in disrepair.",type:"Replacement",assetNo:null,qty:1,criticality:5,risk:1,urgency:3,rating:15,office:true},
+  ]},
+  {section:"Photography Studio",items:[
+    {no:"PH-1",item:"Parrat RT3030 A2 Rotary Trimmer",use:"Precision cutting tool for photographic and digital prints. Supports both Digital Arts and Photography. Important for accuracy and safety.",type:"Addition",assetNo:null,qty:2,criticality:5,risk:3,urgency:5,rating:75},
+  ]},
+  {section:"Digital Arts Studio",items:[
+    {no:"DA-1",item:"Remote Projector Screen",use:"Enhances presentation and teaching quality during critiques and lectures. Shared by Photography and Digital Arts.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:1,urgency:3,rating:15},
+    {no:"DA-2",item:"Projector Ceiling Mount",use:"Supports studio presentations and crits; improves efficiency.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:1,urgency:5,rating:25},
+  ]},
+  {section:"Print Studio",items:[
+    {no:"PR-1",item:"Mat Cutter",use:"Precise cutting of prints and paper in the shared departmental workshop. Essential for framing and safe handling of sharp tools.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:3,urgency:5,rating:75},
+  ]},
+  {section:"Departmental Workshop / Lab",items:[
+    {no:"DW-1",item:"3D Scanner",use:"Used across all sections for scanning sculptures, installations, and artworks for digital documentation. Supports research and exhibition preparation.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:3,urgency:5,rating:75},
+    {no:"DW-2",item:"3D Printer",use:"Enables model-making and prototype creation. Shared tool supporting design development across sections and interdisciplinary collaboration.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:3,urgency:5,rating:75},
+    {no:"DW-3",item:"CO₂ Laser Engraver",use:"Replaces the outdated 2014 model. Shared fabrication tool used by multiple sections for engraving and prototyping. Essential for modern digital fabrication and safety compliance.",type:"Replacement",assetNo:"RU021Y7V",qty:1,criticality:5,risk:5,urgency:5,rating:125},
+    {no:"DW-4",item:"Heat Press / Sublimation Press",use:"Transfer digital designs onto paper/fabric. Promotes cross-media learning between Digital Arts and Printmaking.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:3,urgency:5,rating:75},
+    {no:"DW-5",item:"Matterport 3D Camera Pro3",use:"Captures 3D scans for documentation of exhibitions and installations. Used across all sections to digitally archive work and improve departmental visibility.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:5,urgency:5,rating:125},
+    {no:"DW-6",item:"Material Handling Trolley",use:"Used by the Technical Assistant, workshop staff, and students across all studios to safely transport heavy materials, sculptures, and equipment. Prevents injuries and damage to artworks.",type:"Addition",assetNo:null,qty:1,criticality:5,risk:3,urgency:5,rating:75},
+  ]},
+];
+
 function BudgetPanel(){
   const TEAL="#20B07F";
+  const [budTab,setBudTab]=useState("ace"); // ace | fe
   const [expanded,setExpanded]=useState(null);
   const [approvals,setApprovals]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("ace2026_approvals")||"{}");}catch{return {};}
   });
   const [approvedAmounts,setApprovedAmounts]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("ace2026_amounts")||"{}");}catch{return {};}
+  });
+  const [feApprovals,setFeApprovals]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("fe2026_approvals")||"{}");}catch{return {};}
   });
 
   function setApproval(no,status){
@@ -539,6 +584,11 @@ function BudgetPanel(){
     const next={...approvedAmounts,[no]:val};
     setApprovedAmounts(next);
     localStorage.setItem("ace2026_amounts",JSON.stringify(next));
+  }
+  function setFeApproval(no,status){
+    const next={...feApprovals,[no]:status};
+    setFeApprovals(next);
+    localStorage.setItem("fe2026_approvals",JSON.stringify(next));
   }
 
   const totalRequested=ACE_2026.reduce((s,i)=>s+i.total,0);
@@ -561,10 +611,19 @@ function BudgetPanel(){
 
   return(
     <div>
-      <div style={{fontSize:15,fontWeight:500,marginBottom:2}}>Academic Capital Equipment Budget</div>
-      <div style={{fontSize:13,color:"#6b7280",marginBottom:4}}>2025–2026 ACE Submission · Prepared by Mpumzi Mpati · Reviewed by Prof Maureen de Jager</div>
-      <div style={{fontSize:11,color:"#4b5563",marginBottom:16}}>Track approval status as decisions are communicated. Status is saved locally on this device.</div>
+      <div style={{fontSize:15,fontWeight:500,marginBottom:2}}>Budget Submissions 2025–2026</div>
+      <div style={{fontSize:13,color:"#6b7280",marginBottom:4}}>Prepared by Mpumzi Mpati · Reviewed by Prof Maureen de Jager · Department of Fine Art</div>
+      <div style={{fontSize:11,color:"#4b5563",marginBottom:12}}>Track approval status as decisions are communicated. Saved locally on this device.</div>
 
+      {/* Sub-tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:20}}>
+        {[["ace","📷 ACE — Capital Equipment"],["fe","🪑 F&E — Furniture & Equipment"]].map(([v,l])=>(
+          <button key={v} onClick={()=>{setBudTab(v);setExpanded(null);}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:budTab===v?TEAL:"#141720",color:budTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:budTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
+        ))}
+      </div>
+
+      {/* ── ACE TAB ── */}
+      {budTab==="ace"&&<>
       {/* Totals */}
       <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         {[
@@ -655,6 +714,92 @@ function BudgetPanel(){
       <div style={{fontSize:11,color:"#374151",marginTop:16,textAlign:"center"}}>
         Submitted 2025 · Finance Division · Rhodes University · Department of Fine Art
       </div>
+      </>}
+
+      {/* ── F&E TAB ── */}
+      {budTab==="fe"&&(()=>{
+        const allFeItems=FE_2026.flatMap(s=>s.items);
+        const feCountApproved=allFeItems.filter(i=>feApprovals[i.no]==="approved").length;
+        const feCountRejected=allFeItems.filter(i=>feApprovals[i.no]==="rejected").length;
+        const feCountPending=allFeItems.filter(i=>!feApprovals[i.no]).length;
+        const ratingBg=r=>r>=100?"#2a0f14":r>=50?"#2a1f0a":r>=20?"#0a1a0f":"#1a1d28";
+        const ratingCol=r=>r>=100?"#f87171":r>=50?"#d4851a":r>=20?"#20B07F":"#6b7280";
+        return(<>
+          <div style={{background:"#0d1520",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#9ca3af"}}>
+            <span style={{color:"#60a5fa",fontWeight:500}}>No prices submitted</span> — F&amp;E form uses a rating system only (Criticality × Risk × Urgency). Prices are sourced separately by Finance.
+            <span style={{color:"#374151",marginLeft:8}}>Submitted: 16 Oct 2025</span>
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
+            {[
+              ["Total items",allFeItems.length,"#1a1d28","#9ca3af"],
+              ["Approved",feCountApproved+"/"+allFeItems.length,"#0a2218","#20B07F"],
+              ["Rejected",feCountRejected,"#2a0f14","#f87171"],
+              ["Pending",feCountPending,"#1a1d28","#d4851a"],
+            ].map(([label,n,bg,col])=>(
+              <div key={label} style={{flex:1,minWidth:80,background:bg,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:600,color:col}}>{n}</div>
+                <div style={{fontSize:11,color:col,marginTop:2}}>{label}</div>
+              </div>
+            ))}
+          </div>
+          {FE_2026.map(section=>(
+            <div key={section.section} style={{marginBottom:20}}>
+              <div style={{fontSize:12,fontWeight:600,color:"#60a5fa",letterSpacing:"0.04em",textTransform:"uppercase",marginBottom:8,paddingBottom:6,borderBottom:"0.5px solid #1e3a5f"}}>{section.section}</div>
+              {section.items.map(item=>{
+                const status=feApprovals[item.no];
+                const isOpen=expanded===item.no;
+                const statusBg={approved:"#0a2218",rejected:"#2a0f14"};
+                const statusCol={approved:"#20B07F",rejected:"#f87171"};
+                return(
+                  <div key={item.no} style={{background:statusBg[status]||"#141720",border:`0.5px solid ${isOpen?"#60a5fa":status==="approved"?"#134029":status==="rejected"?"#3a1a1a":"#1e2130"}`,borderRadius:12,padding:"11px 14px",marginBottom:6}}>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}} onClick={()=>setExpanded(isOpen?null:item.no)}>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                          <span style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{item.item}</span>
+                          {item.office&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:20,background:"#1a1d28",color:"#6b7280"}}>Office</span>}
+                        </div>
+                        <div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap",alignItems:"center"}}>
+                          <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:ratingBg(item.rating),color:ratingCol(item.rating),fontWeight:600}}>Rating {item.rating}</span>
+                          <span style={{fontSize:11,color:"#4b5563"}}>C:{item.criticality} × R:{item.risk} × U:{item.urgency}</span>
+                          <span style={{fontSize:11,color:"#6b7280"}}>Qty {item.qty||1}</span>
+                          {item.assetNo&&<span style={{fontSize:11,padding:"2px 6px",borderRadius:20,background:"#1a2a1a",color:"#d4851a"}}>Replaces {item.assetNo}</span>}
+                          {status&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:statusBg[status],color:statusCol[status],fontWeight:500,textTransform:"capitalize"}}>{status}</span>}
+                        </div>
+                      </div>
+                      <span style={{color:"#374151",fontSize:13,marginTop:2,flexShrink:0}}>{isOpen?"▲":"▼"}</span>
+                    </div>
+                    {isOpen&&(
+                      <div style={{marginTop:10,borderTop:"0.5px solid #1e2130",paddingTop:10}}>
+                        <div style={{fontSize:12,color:"#9ca3af",lineHeight:1.6,marginBottom:10}}>{item.use}</div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:10}}>
+                          {[["Criticality",item.criticality,"#20B07F","#0a1a0f"],["Risk",item.risk,"#d4851a","#1a1208"],["Urgency",item.urgency,"#60a5fa","#0d1520"]].map(([label,score,col,bg])=>(
+                            <div key={label} style={{background:bg,borderRadius:8,padding:"6px 10px",textAlign:"center"}}>
+                              <div style={{fontSize:10,color:col,fontWeight:500,marginBottom:2}}>{label}</div>
+                              <div style={{fontSize:18,fontWeight:700,color:col}}>{score}/5</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{background:"#1a1d28",borderRadius:8,padding:"8px 12px"}}>
+                          <div style={{fontSize:11,color:"#9ca3af",marginBottom:6,fontWeight:500}}>Approval status</div>
+                          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                            {["approved","rejected","pending"].map(s=>(
+                              <button key={s} onClick={e=>{e.stopPropagation();setFeApproval(item.no,s==="pending"?undefined:s);}} style={{padding:"5px 12px",borderRadius:8,border:"none",background:status===(s==="pending"?undefined:s)?(s==="approved"?TEAL:s==="rejected"?"#dc2626":"#374151"):"#141720",color:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{s}</button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <div style={{fontSize:11,color:"#374151",marginTop:8,textAlign:"center"}}>
+            F&amp;E Submission · 16 Oct 2025 · Finance Division · Rhodes University · Department of Fine Art
+          </div>
+        </>);
+      })()}
+
     </div>
   );
 }
