@@ -506,6 +506,159 @@ async function fetchFinesForMonth(month) {
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 
+// ── BUDGET / ACE PANEL ───────────────────────────────────────────
+const ACE_2026=[
+  {no:1,item:"Sony A7IV + 28-70mm lens",use:"Digital cameras for photography teaching, artwork documentation, and student assessment across all Fine Art disciplines. Supersedes Canon 5D Mk II / III.",type:"Addition",assetNo:null,qty:2,unitPrice:39995,total:79990,criticality:"Fundamental to the delivery of photography and documentation-based teaching: Without reliable cameras, students cannot create, present, or evaluate photographic and video work.",risk:"Outdated DSLRs are unreliable and incompatible with current software, creating workflow disruptions and data-loss risks.",growth:"Supports growing student numbers and the department's shift towards digital and hybrid art-making.",rating:5},
+  {no:2,item:"Sony A6700 + 16-50mm lens",use:"Compact mirrorless camera for video documentation of demonstrations and workshops requiring portability. Supports video and sound combined with traditional media.",type:"Addition",assetNo:null,qty:1,unitPrice:24995,total:24995,criticality:"Important for video and digital media instruction, workshops, and student research.",risk:"Lack of compact modern cameras limits moving image teaching and encourages unsafe improvisation with ageing DSLRs.",growth:"Expands learning opportunities for experimental video and hybrid media.",rating:5},
+  {no:3,item:"DJI RS 4 Pro combo",use:"Professional gimbal stabiliser for smooth, high-quality camera movement in documentation and student video projects including installations, performances, and exhibitions.",type:"Addition",assetNo:null,qty:1,unitPrice:23295,total:23295,criticality:"Essential for stable camera operation in documentation of installations, performances, and student films.",risk:"Without stabilisation tools, students risk equipment damage and poor-quality documentation.",growth:"Expands the department's ability to support video-based coursework and interdisciplinary projects.",rating:5},
+  {no:4,item:"DJI OSMO Pocket 3 creator combo",use:"Compact camera for quick documentation of installations, performances, and student projects both in and outside the studio. Useful across all Fine Art disciplines.",type:"Addition",assetNo:null,qty:1,unitPrice:16695,total:16695,criticality:"A flexible and accessible camera for rapid documentation and student-led projects.",risk:"Lacking compact portable cameras restricts capture of smaller installations and events.",growth:"Encourages student engagement with mobile and site-based practices.",rating:5},
+  {no:5,item:"Lowepro Tahoe BP150 bag",use:"Protective backpack to transport cameras and accessories safely between studios, classrooms, and off-site venues. Shared departmental use.",type:"Addition",assetNo:null,qty:2,unitPrice:2195,total:4390,criticality:"Essential for protecting and extending the life of valuable cameras used in teaching.",risk:"Without protective transport, equipment is exposed to impact, dust, and moisture damage.",growth:"Improves logistics and equipment management across teaching spaces.",rating:4},
+  {no:6,item:"Jenova modern shoulder bag",use:"Lightweight shoulder bag for compact camera kits used in classes and fieldwork. Supports easy handling and accessibility across all sections.",type:"Addition",assetNo:null,qty:1,unitPrice:2195,total:2195,criticality:"Supports safe handling and easy transport of smaller camera kits.",risk:"Unprotected transport increases likelihood of accidental damage.",growth:"Encourages student engagement with mobile and site-based practices.",rating:4},
+  {no:7,item:"Smallrig 3824 battery charger kit",use:"Additional power supply for mirrorless cameras for extended teaching or documentation sessions. Ensures uninterrupted operation during exhibitions and student assessments.",type:"Addition",assetNo:null,qty:2,unitPrice:1590,total:3180,criticality:"Ensures cameras remain on continuously without disrupting class activities.",risk:"Limited battery capacity can lead to workflow interruptions, data loss, and project delays.",growth:"Supports simultaneous use of cameras and longer shooting sessions.",rating:4},
+  {no:8,item:"Smallrig 4336 cage for A6700",use:"Protective camera cage providing mounting points for lights, microphones, and accessories. Improves functionality and safety of the A6700 in multiple Fine Art teaching contexts.",type:"Addition",assetNo:null,qty:1,unitPrice:1495,total:1495,criticality:"Improves safety, functionality, and versatility of the A6700 camera setup.",risk:"Cameras are more prone to wear and damage without a protective cage during student use.",growth:"Expands adaptability of cameras for advanced student projects.",rating:3},
+  {no:9,item:"Epson 4100lm FullHD projector (1920×1080)",use:"First Full HD projector in the Fine Art department. Used to display student artwork, portfolios, and multimedia projects in high resolution for critiques, demonstrations, and workshops.",type:"Addition",assetNo:null,qty:3,unitPrice:13121,total:39363,criticality:"Essential for teaching and presenting student artwork and multimedia projects.",risk:"Current projectors are outdated or low resolution, making it difficult to display artwork clearly.",growth:"Being the first Full HD projector, supports shift to high-quality digital presentations and expanding student numbers.",rating:4},
+  {no:10,item:"Epson soft carry case",use:"Optional carry bag for safe transport of the Epson 4100lm projector between classrooms, studios, and exhibition spaces.",type:"Addition",assetNo:null,qty:3,unitPrice:1084,total:3252,criticality:"Not critical; serves only for safe transport.",risk:"Without it, the projector is more vulnerable to damage during movement between spaces.",growth:"Improves mobility and flexibility of projector use.",rating:2},
+];
+
+function BudgetPanel(){
+  const TEAL="#20B07F";
+  const [expanded,setExpanded]=useState(null);
+  const [approvals,setApprovals]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("ace2026_approvals")||"{}");}catch{return {};}
+  });
+  const [approvedAmounts,setApprovedAmounts]=useState(()=>{
+    try{return JSON.parse(localStorage.getItem("ace2026_amounts")||"{}");}catch{return {};}
+  });
+
+  function setApproval(no,status){
+    const next={...approvals,[no]:status};
+    setApprovals(next);
+    localStorage.setItem("ace2026_approvals",JSON.stringify(next));
+  }
+  function setApprovedAmt(no,val){
+    const next={...approvedAmounts,[no]:val};
+    setApprovedAmounts(next);
+    localStorage.setItem("ace2026_amounts",JSON.stringify(next));
+  }
+
+  const totalRequested=ACE_2026.reduce((s,i)=>s+i.total,0);
+  const totalApproved=ACE_2026.reduce((s,i)=>{
+    if(approvals[i.no]==="approved"){
+      const a=parseFloat(approvedAmounts[i.no]);
+      return s+(isNaN(a)?i.total:a);
+    }
+    return s;
+  },0);
+  const countApproved=ACE_2026.filter(i=>approvals[i.no]==="approved").length;
+  const countRejected=ACE_2026.filter(i=>approvals[i.no]==="rejected").length;
+  const countPending=ACE_2026.filter(i=>!approvals[i.no]).length;
+
+  const ratingColor=r=>r>=5?"#20B07F":r>=4?"#60a5fa":r>=3?"#d4851a":"#6b7280";
+  const statusBg={approved:"#0a2218",rejected:"#2a0f14",undefined:"#1a1d28"};
+  const statusCol={approved:"#20B07F",rejected:"#f87171",undefined:"#6b7280"};
+
+  const ipt={background:"#1a1d28",border:"0.5px solid #1e2130",borderRadius:6,padding:"4px 8px",fontSize:12,color:"#e0e3ea",fontFamily:"inherit",width:"100%",boxSizing:"border-box"};
+
+  return(
+    <div>
+      <div style={{fontSize:15,fontWeight:500,marginBottom:2}}>Academic Capital Equipment Budget</div>
+      <div style={{fontSize:13,color:"#6b7280",marginBottom:4}}>2025–2026 ACE Submission · Prepared by Mpumzi Mpati · Reviewed by Prof Maureen de Jager</div>
+      <div style={{fontSize:11,color:"#4b5563",marginBottom:16}}>Track approval status as decisions are communicated. Status is saved locally on this device.</div>
+
+      {/* Totals */}
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        {[
+          ["Total requested","R "+totalRequested.toLocaleString("en-ZA"),"#1a1d28","#9ca3af"],
+          ["Total approved","R "+totalApproved.toLocaleString("en-ZA"),"#0a2218","#20B07F"],
+          ["Approved",countApproved+"/"+ACE_2026.length,"#0a2218","#20B07F"],
+          ["Rejected",countRejected,"#2a0f14","#f87171"],
+          ["Pending",countPending,"#1a1d28","#d4851a"],
+        ].map(([label,n,bg,col])=>(
+          <div key={label} style={{flex:1,minWidth:80,background:bg,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+            <div style={{fontSize:label.startsWith("Total")?14:20,fontWeight:600,color:col,lineHeight:1.2}}>{n}</div>
+            <div style={{fontSize:11,color:col,marginTop:2}}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{background:"#1a1d28",borderRadius:6,height:6,marginBottom:20,overflow:"hidden"}}>
+        <div style={{width:(totalApproved/totalRequested*100)+"%",height:"100%",background:TEAL,borderRadius:6,transition:"width 0.3s"}}/>
+      </div>
+
+      {/* Items */}
+      {ACE_2026.map(item=>{
+        const status=approvals[item.no];
+        const isOpen=expanded===item.no;
+        return(
+          <div key={item.no} style={{background:statusBg[status]||"#141720",border:`0.5px solid ${isOpen?"#60a5fa":status==="approved"?"#134029":status==="rejected"?"#3a1a1a":"#1e2130"}`,borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+            <div style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer"}} onClick={()=>setExpanded(isOpen?null:item.no)}>
+              <div style={{minWidth:22,height:22,borderRadius:"50%",background:"#1a1d28",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#6b7280",fontWeight:600,flexShrink:0,marginTop:1}}>{item.no}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{item.item}</div>
+                <div style={{display:"flex",gap:6,marginTop:5,flexWrap:"wrap",alignItems:"center"}}>
+                  <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"#1a1d28",color:"#60a5fa",fontWeight:500}}>
+                    R {item.total.toLocaleString("en-ZA")}
+                  </span>
+                  <span style={{fontSize:11,color:"#4b5563"}}>Qty {item.qty} × R {item.unitPrice.toLocaleString("en-ZA")}</span>
+                  <span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"#1a1d28",color:ratingColor(item.rating),fontWeight:500}}>
+                    {"★".repeat(item.rating)}{"☆".repeat(5-item.rating)} {item.rating}/5
+                  </span>
+                  {status&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:statusBg[status],color:statusCol[status],fontWeight:500,textTransform:"capitalize"}}>{status}</span>}
+                </div>
+              </div>
+              <span style={{color:"#374151",fontSize:13,marginTop:2,flexShrink:0}}>{isOpen?"▲":"▼"}</span>
+            </div>
+
+            {isOpen&&(
+              <div style={{marginTop:12,borderTop:"0.5px solid #1e2130",paddingTop:12}}>
+                {/* Justification */}
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:11,color:"#60a5fa",fontWeight:500,marginBottom:4}}>Use</div>
+                  <div style={{fontSize:12,color:"#9ca3af",lineHeight:1.6}}>{item.use}</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                  <div style={{background:"#0a1a0f",borderRadius:8,padding:"8px 10px"}}>
+                    <div style={{fontSize:10,color:"#20B07F",fontWeight:500,marginBottom:4}}>CRITICALITY</div>
+                    <div style={{fontSize:11,color:"#9ca3af",lineHeight:1.5}}>{item.criticality}</div>
+                  </div>
+                  <div style={{background:"#1a1208",borderRadius:8,padding:"8px 10px"}}>
+                    <div style={{fontSize:10,color:"#d4851a",fontWeight:500,marginBottom:4}}>RISK</div>
+                    <div style={{fontSize:11,color:"#9ca3af",lineHeight:1.5}}>{item.risk}</div>
+                  </div>
+                  <div style={{background:"#0d1520",borderRadius:8,padding:"8px 10px"}}>
+                    <div style={{fontSize:10,color:"#60a5fa",fontWeight:500,marginBottom:4}}>GROWTH</div>
+                    <div style={{fontSize:11,color:"#9ca3af",lineHeight:1.5}}>{item.growth}</div>
+                  </div>
+                </div>
+                {/* Approval controls */}
+                <div style={{background:"#1a1d28",borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:11,color:"#9ca3af",marginBottom:8,fontWeight:500}}>Approval status</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:status==="approved"?10:0}}>
+                    {["approved","rejected","pending"].map(s=>(
+                      <button key={s} onClick={e=>{e.stopPropagation();setApproval(item.no,s==="pending"?undefined:s);}} style={{padding:"5px 12px",borderRadius:8,border:"none",background:status===(s==="pending"?undefined:s)?(s==="approved"?TEAL:s==="rejected"?"#dc2626":"#374151"):"#141720",color:"#fff",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textTransform:"capitalize"}}>{s}</button>
+                    ))}
+                  </div>
+                  {status==="approved"&&(
+                    <div style={{marginTop:8}}>
+                      <label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:4}}>Approved amount (R) — leave blank if full amount</label>
+                      <input type="number" style={{...ipt,maxWidth:180}} value={approvedAmounts[item.no]||""} onChange={e=>{e.stopPropagation();setApprovedAmt(item.no,e.target.value);}} placeholder={item.total}/>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div style={{fontSize:11,color:"#374151",marginTop:16,textAlign:"center"}}>
+        Submitted 2025 · Finance Division · Rhodes University · Department of Fine Art
+      </div>
+    </div>
+  );
+}
+
 // ── INSURANCE / ASSET PANEL ──────────────────────────────────────
 function InsurancePanel({equipment,requests}){
   const [insTab,setInsTab]=useState("assets"); // assets | incidents | policy
@@ -2736,7 +2889,7 @@ export default function App() {
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:desktopTwoCol?"#e0e3ea":"#6b7280",background:desktopTwoCol?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
-          {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"],["lic","🔑 Licences"],["insurance","🛡 Insurance"]].map(([v,l])=>(
+          {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"],["lic","🔑 Licences"],["insurance","🛡 Insurance"],["budget","📊 Budget / ACE"]].map(([v,l])=>(
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
@@ -2783,7 +2936,7 @@ export default function App() {
 
       {/* Dash tabs */}
       {!isDesktop&&<div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
-        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["charges","Charges"],["lic","🔑 Lic"],["insurance","🛡 Insure"]].map(([v,l])=>(
+        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["charges","Charges"],["lic","🔑 Lic"],["insurance","🛡 Insure"],["budget","📊 Budget"]].map(([v,l])=>(
           <button key={v} onClick={()=>setDashTab(v)} style={{flex:1,minWidth:55,padding:"8px 4px",borderRadius:8,border:"none",background:dashTab===v?TEAL:"#141720",color:dashTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:dashTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
       </div>}
@@ -3195,6 +3348,9 @@ export default function App() {
 
       {/* ── INSURANCE ── */}
       {dashTab==="insurance"&&<InsurancePanel equipment={equipment} requests={requests}/>}
+
+      {/* ── BUDGET / ACE ── */}
+      {dashTab==="budget"&&<BudgetPanel/>}
 
       {/* ── CHECK-IN MODAL ── */}
       {checkInModal&&(()=>{
