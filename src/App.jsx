@@ -592,7 +592,8 @@ const FE_2026=[
 
 function BudgetPanel(){
   const TEAL="#20B07F";
-  const [budTab,setBudTab]=useState("ace"); // ace | fe
+  const [budTab,setBudTab]=useState("ace"); // ace | fe | it
+  const [showProcess,setShowProcess]=useState(false);
   const [expanded,setExpanded]=useState(null);
   const [approvals,setApprovals]=useState(()=>{
     try{return JSON.parse(localStorage.getItem("ace2026_approvals")||"{}");}catch{return {};}
@@ -657,6 +658,72 @@ function BudgetPanel(){
         {[["ace","📷 ACE — Capital Equipment"],["fe","🪑 F&E — Furniture & Equipment"],["it","💻 IT / Computer Equipment"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setBudTab(v);setExpanded(null);}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:budTab===v?TEAL:"#141720",color:budTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:budTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
+      </div>
+
+      {/* ── PROCESS & CONTACTS ── */}
+      <div style={{marginBottom:16}}>
+        <button onClick={()=>setShowProcess(p=>!p)} style={{width:"100%",background:"#0d1520",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"9px 14px",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>ℹ️ Budget Process & Contacts — Finance Division 2026</span>
+          <span style={{color:"#374151"}}>{showProcess?"▲":"▼"}</span>
+        </button>
+        {showProcess&&(
+          <div style={{background:"#0d1520",border:"0.5px solid #1e3a5f",borderTop:"none",borderRadius:"0 0 10px 10px",padding:"14px 16px"}}>
+            <div style={{fontSize:11,color:"#374151",marginBottom:12}}>Issued by Finance Division · 25 August 2025 · Council Funded Budget 2026</div>
+
+            {/* Category rules */}
+            <div style={{display:"grid",gap:8,marginBottom:16}}>
+              {[
+                {cat:"📷 ACE",email:"finbudget+capex@ru.ac.za",deadline:"31 Oct 2025",contact:"Rodney Bridger (r.bridger@ru.ac.za · ext 8137)",rule:"Quotes must be sourced and included with submission. HOD must sign off.",submitted:true},
+                {cat:"🪑 F&E",email:"finbudget+fe@ru.ac.za",deadline:"17 Oct 2025",contact:"Merril Prinsloo (m.prinsloo@ru.ac.za · ext 8136)",rule:"No prices needed — Buying Office sources quotes, except for specialised items. HOD sign-off required.",submitted:true},
+                {cat:"💻 IT / Computer",email:"support@ru.ac.za",deadline:"24 Oct 2025",contact:"Tracey Chambers (t.chambers@ru.ac.za · ext 8290)",rule:"Submitted to I&TS division, not Finance. Include asset numbers for replacements.",submitted:true},
+                {cat:"📊 Operational",email:"finbudget+ops@ru.ac.za",deadline:"25 Sep 2025",contact:"Linda Booi (l.booi@ru.ac.za · ext 8723)",rule:"Day-to-day running costs. Small capital items under R5,000. Monthly spread required.",submitted:false},
+              ].map(c=>(
+                <div key={c.cat} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:6}}>
+                    <span style={{fontSize:12,fontWeight:600,color:"#e0e3ea"}}>{c.cat}</span>
+                    <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                      <span style={{fontSize:10,padding:"1px 7px",borderRadius:20,background:c.submitted?"#0a2218":"#2a1f0a",color:c.submitted?"#20B07F":"#d4851a"}}>{c.submitted?"Submitted":"Check"}</span>
+                      <span style={{fontSize:10,color:"#374151"}}>Due {c.deadline}</span>
+                    </div>
+                  </div>
+                  <div style={{fontSize:11,color:"#6b7280",marginTop:4,lineHeight:1.5}}>{c.rule}</div>
+                  <div style={{display:"flex",gap:8,marginTop:6,flexWrap:"wrap"}}>
+                    <span style={{fontSize:10,fontFamily:"monospace",color:"#60a5fa"}}>{c.email}</span>
+                    <span style={{fontSize:10,color:"#374151"}}>· {c.contact}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Key rule */}
+            <div style={{background:"#1a1d28",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
+              <strong style={{color:"#d4851a"}}>How approval decisions are made:</strong> When total requests exceed the approved budget pool, items are prioritised by <strong style={{color:"#e0e3ea"}}>criticality and urgency</strong> scores. Higher ratings get funded first. Finance prepares a consolidated summary for Deans and Executive Managers to review.
+            </div>
+
+            {/* Finance contacts */}
+            <div style={{fontSize:11,fontWeight:500,color:"#9ca3af",marginBottom:6}}>Finance Division contacts</div>
+            <div style={{display:"grid",gap:4}}>
+              {[
+                ["Prof Dave Sewry","Interim CFO · Budget Owner","d.sewry@ru.ac.za",""],
+                ["Mr Geoff Erasmus","Director: Finance · Budget Process Owner","g.erasmus@ru.ac.za","7541"],
+                ["Ms Linda Booi","Senior Manager: Management Accountant · Budget Co-ordination","l.booi@ru.ac.za","8723"],
+                ["Mr Rodney Bridger","Senior Buyer · Academic Equipment","r.bridger@ru.ac.za","8137"],
+                ["Ms Merril Prinsloo","Buyer · Furniture & Equipment","m.prinsloo@ru.ac.za","8136"],
+                ["Ms Tracey Chambers","Service Manager I&TS · Computer Equipment","t.chambers@ru.ac.za","8290"],
+                ["Mr Dominic Mohlala","Financial Cost Controller","dominic.mohlala@ru.ac.za","8531"],
+              ].map(([name,role,email,ext])=>(
+                <div key={name} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 8px",background:"#1a1d28",borderRadius:6,flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:120}}>
+                    <span style={{fontSize:11,color:"#e0e3ea",fontWeight:500}}>{name}</span>
+                    {ext&&<span style={{fontSize:10,color:"#374151",marginLeft:6}}>ext {ext}</span>}
+                    <div style={{fontSize:10,color:"#4b5563"}}>{role}</div>
+                  </div>
+                  <span style={{fontSize:10,fontFamily:"monospace",color:"#60a5fa"}}>{email}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── ACE TAB ── */}
