@@ -1826,6 +1826,7 @@ function HsPanel(){
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4,alignItems:"center"}}>
                   {req.ProblemType&&<span style={{fontSize:11,background:"#1a1d28",color:"#9ca3af",borderRadius:5,padding:"2px 7px"}}>{req.ProblemType}</span>}
                   {req.Location&&<span style={{fontSize:11,color:"#6b7280"}}>📍 {req.Location}</span>}
+                  {req.LastFollowUpDate&&<span style={{fontSize:11,background:"#0d1a2e",color:"#60a5fa",borderRadius:5,padding:"2px 7px",border:"0.5px solid #3b82f633"}}>📧 Chased {fmtDate(req.LastFollowUpDate)}</span>}
                 </div>
                 <div style={{fontSize:14,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>{req.Description}</div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap",fontSize:12,color:"#6b7280"}}>
@@ -1834,7 +1835,10 @@ function HsPanel(){
                   {req.UniversityRef&&<span style={{color:"#60a5fa"}}>Ref: {req.UniversityRef}</span>}
                   {req.EmailDateTime&&<span style={{color:"#9ca3af"}}>📧 {req.EmailDateTime}</span>}
                 </div>
-                {req.Notes&&<div style={{fontSize:12,color:"#4b5563",marginTop:4,fontStyle:"italic"}}>"{req.Notes}"</div>}
+                {req.Notes&&<div style={{fontSize:12,color:"#c9d1d9",marginTop:8,background:"#0d1525",borderRadius:7,padding:"8px 10px",borderLeft:"2px solid #3b82f6"}}>
+                  <span style={{fontSize:10,color:"#60a5fa",fontWeight:600,display:"block",marginBottom:3,letterSpacing:"0.5px"}}>NOTES</span>
+                  {req.Notes}
+                </div>}
               </div>
               <div style={{marginLeft:8,flexShrink:0}}>
                 <span style={{...statusStyle[req.Status]||{bg:"#1a1d28",color:"#9ca3af"},background:(statusStyle[req.Status]||{bg:"#1a1d28"}).bg,color:(statusStyle[req.Status]||{color:"#9ca3af"}).color,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6,whiteSpace:"nowrap"}}>{req.Status}</span>
