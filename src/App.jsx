@@ -4,7 +4,7 @@ const TEAL = "#20B07F";
 const BLUE = "#3b82f6";
 const AMBER = "#d4851a";
 const RED = "#e05a5a";
-const TYPE_COLOR = {equipment:"#20B07F",print:"#3b82f6",laser:"#E65C00","3d":"#8b5cf6",studio:"#f59e0b",gallery:"#ef4444",software:"#06b6d4",query:"#6B7280"};
+const TYPE_COLOR = {equipment:"#20B07F",print:"#3b82f6",laser:"#E65C00","3d":"#8b5cf6",studio:"#f59e0b",gallery:"#ef4444",software:"#06b6d4",avsetup:"#a855f7",query:"#6B7280"};
 
 // ── DARK THEME ───────────────────────────────────────────────────
 const T = {
@@ -35,7 +35,8 @@ const REQUEST_TYPES = [
   {id:"studio",label:"Lighting studio",icon:"💡",booking:"advance booking only",bookable:false,needsFiles:false,prep:["Studio orientation required before first use — speak to Tech Support","Keys must be returned same day by 17:00","Bring your student card when collecting","⚠️ Studio is for photography students only"]},
   {id:"equipment",label:"Equipment booking",icon:"📷",booking:"advance booking only",bookable:false,needsFiles:false,prep:[]},
   {id:"gallery",label:"Gallery / space booking",icon:"🖼️",booking:"advance booking only",bookable:false,needsFiles:false,prep:["Have a clear concept or proposal for the event","Know your proposed dates and how many days you need","Estimate expected attendance","List any setup requirements (tables, chairs, PA, lighting)","⚠️ Bookings are subject to availability and departmental approval"]},
-  {id:"query",label:"General query / other",icon:"💬",booking:"walk-in or advance",bookable:false,needsFiles:false,prep:[]},
+  {id:"avsetup",label:"Tech setup / AV support",icon:"📽️",booking:"advance booking — 5 days min",bookable:false,needsFiles:false,prep:["Know your event date and time","Know the venue or space you'll be using","Have an idea of what device you're connecting (MacBook, Windows, iPad, phone — or none)","Think about how many screens or projection surfaces you need","⚠️ Only 2 projectors are available for booking — request early","⚠️ Minimum 5 business days notice required — this allows time for equipment checks and cable runs"]},
+  {id:"query",label:"General query / other",icon:"💬",booking:"questions, issues & everything else",bookable:false,needsFiles:false,prep:[]},
 ];
 
 const BOOKABLE = REQUEST_TYPES.filter(t=>t.bookable);
@@ -91,6 +92,9 @@ const EQ_COL_SLOTS=[
   {id:"s3",label:"12:00–12:30"},
 ];
 function isEqColDay(dateStr){if(!dateStr)return false;const d=new Date(dateStr+"T00:00:00");return EQ_COL_DAYS.includes(d.getDay());}
+
+// Rush-mode: staff append ?rush=1 to the URL to bypass the 5-day minimum for last-minute requests
+const RUSH_MODE = new URLSearchParams(window.location.search).get("rush")==="1";
 
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
 function toKey(y,m,d){return`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;}
@@ -2162,6 +2166,35 @@ export default function App() {
   // Student request form
   const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",sessionDuration:"",fileLink:"",firstTime:false});
 
+  // AV setup wizard state
+  const [avStep, setAvStep] = useState(0);
+  const [avWiz, setAvWiz] = useState({purpose:"",venue:"",venueOther:"",eventDate:"",eventTime:"",setupDate:"",setupTime:"",duration:"",device:"",screenCount:"1",contentType:"",audio:""});
+  const setAv = (key,val) => setAvWiz(w=>({...w,[key]:val}));
+  function avWizStepOk(step){
+    if(step===0)return !!avWiz.purpose;
+    if(step===1)return !!avWiz.venue&&(avWiz.venue!=="other"||!!avWiz.venueOther.trim());
+    if(step===2)return !!avWiz.eventDate&&!!avWiz.setupDate;
+    if(step===3)return !!avWiz.device;
+    if(step===4)return !!avWiz.contentType;
+    if(step===5)return !!avWiz.screenCount&&parseInt(avWiz.screenCount)>0;
+    if(step===6)return !!avWiz.audio;
+    return true;
+  }
+  function deriveAVRequirements(w){
+    const reqs=[];
+    const n=parseInt(w.screenCount)||1;
+    if(n>2)reqs.push({icon:"⚠️",label:`${n} × projectors / screens — complex setup, Tech Support will advise`,warn:true});
+    else reqs.push({icon:"📽️",label:`${n} × projector${n>1?"s":""}`});
+    if(w.device==="mediaplayer")reqs.push({icon:"📺",label:"Media player (USB) — bring content on USB stick"});
+    else if(w.device==="laptop")reqs.push({icon:"🔌",label:"Adapter may be needed — bring your laptop to confirm"});
+    else if(w.device==="phone")reqs.push({icon:"🔌",label:"Phone / tablet adapter — check availability"});
+    else if(w.device==="unknown")reqs.push({icon:"🔌",label:"Adapter TBC — Tech Support will advise"});
+    reqs.push({icon:"🔗",label:"HDMI cable(s)"});
+    if(w.audio==="music"||w.audio==="video")reqs.push({icon:"🔊",label:"Audio output — check availability"});
+    else if(w.audio==="performance")reqs.push({icon:"🎤",label:"PA + microphone — check availability"});
+    return reqs;
+  }
+
   // Equipment booking state
   const [eqScreen, setEqScreen] = useState("lookup"); // lookup | browse | confirm | success
   const [eqStudNo, setEqStudNo] = useState("");
@@ -2283,6 +2316,8 @@ export default function App() {
     }).catch(()=>{});
   },[view]);
   useEffect(()=>{const handle=()=>setIsDesktop(window.innerWidth>=900);window.addEventListener("resize",handle);return()=>window.removeEventListener("resize",handle);},[]);
+  // Reset AV wizard whenever user selects a different request type
+  useEffect(()=>{setAvStep(0);setAvWiz({purpose:"",venue:"",venueOther:"",eventDate:"",eventTime:"",setupDate:"",setupTime:"",duration:"",device:"",screenCount:"1",contentType:"",audio:""});},[selType]);
 
 
   useEffect(()=>{
@@ -2302,6 +2337,11 @@ export default function App() {
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
     if(selType==="studio") return{shootType:form.shootType};
     if(selType==="gallery") return{eventType:form.eventType,eventStart:form.eventStart,eventEnd:form.eventEnd,attendance:form.attendance,setupNeeds:form.setupNeeds,venue:form.venue,techSupport:form.techSupport};
+    if(selType==="avsetup"){
+      const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
+      const DEV_LABELS={"mediaplayer":"Dept media player (USB)","laptop":"Own laptop","phone":"Phone / tablet","unknown":"TBC"};
+      return{purpose:avWiz.purpose,venue:VENUE_LABELS[avWiz.venue]||avWiz.venue,eventDate:avWiz.eventDate,eventTime:avWiz.eventTime,setupDate:avWiz.setupDate,setupTime:avWiz.setupTime,duration:avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"",device:DEV_LABELS[avWiz.device]||avWiz.device,screenCount:avWiz.screenCount,contentType:avWiz.contentType,audio:avWiz.audio,requirements:deriveAVRequirements(avWiz).map(r=>r.label)};
+    }
     return{};
   }
   async function submitRequest(isWalkIn=false){
@@ -2487,6 +2527,7 @@ export default function App() {
     else if(req.typeId==="laser"){summary=[d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material,d.dimensions,d.jobType,d.sessionDuration,d.firstTime?"⭐ First time":null].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
     else if(req.typeId==="studio"){const sm=req.schedDate?.match(/\((.+?)\)/);summary=(d.shootType&&!d.shootType.startsWith("Select")?d.shootType+" · ":"")+(sm?sm[1]:"");}
     else if(req.typeId==="equipment"){summary=d.items||(d.itemsData||[]).map(i=>i.name).join(", ")||"Equipment";}
+    else if(req.typeId==="avsetup"){summary=[d.purpose,d.venue,d.screenCount&&`${d.screenCount} screen${d.screenCount>1?"s":""}`,d.device].filter(v=>v&&v!=="TBC").join(" · ");}
     const isOverdue=req.dueDate&&req.dueDate<_today;
     return(
       <div style={{display:"flex",alignItems:"stretch",background:"#141720",borderRadius:10,marginBottom:8,overflow:"hidden",border:isOverdue?"1px solid #7f1d1d":"0.5px solid #1e2130"}}>
@@ -3143,7 +3184,172 @@ export default function App() {
         </div>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Setup requirements</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.setupNeeds} onChange={e=>setF("setupNeeds",e.target.value)} placeholder="e.g. 6 tables, chairs for 30, projector, background lighting"/></div>
       </>)}
-      {!type.bookable&&!["gallery","studio","3d"].includes(type.id)&&!(selType==="software"&&form.softwareType!=="mac")&&<div style={{marginBottom:14}}>
+      {type.id==="avsetup"&&(()=>{
+        const STEP_LABELS=["Purpose","Venue","Date & time","Content source","Content","Screens","Audio","Review"];
+        const PURPOSE_OPTS=[["exam","🎓","Assessment or degree show","Mid-year, end-of-year, or degree show"],["gallery","🖼️","Gallery or exhibition install","Looping video, immersive projection"],["class","📚","In-class or lecture presentation","Slides, demo or tutorial"],["performance","🎭","Performance or screening","Film screening, live performance"],["workshop","🔧","Workshop or demonstration","Practical session, live demo"],["other","💬","Other / not sure","Describe in notes at the end"]];
+        const VENUE_OPTS=[["sculpture","🗿","Sculpture studio",""],["painting","🎨","Painting studio",""],["da","💻","DA studio","Digital Arts"],["print","🖨️","Print studio",""],["year1","1️⃣","1st year studio","Main Fine Art building"],["year2","2️⃣","2nd year studio","Main Fine Art building"],["gallery","🖼️","Main gallery","Main Fine Art building"],["seminar","📐","Seminar room","Main Fine Art building"],["outdoor","🌳","Outdoor space","Cables and power may be limited"],["other","📍","Other — describe below",""]];
+        const DEVICE_OPTS=[["mediaplayer","📺","Department media player","Content played from USB stick via dept player","Bring content on USB"],["laptop","💻","My own laptop","MacBook, Windows, or other — bring your laptop","Adapter may be needed"],["phone","📱","Phone or tablet","iPhone, Android, iPad","Adapter likely needed"],["unknown","🤔","Not sure yet","Tech Support will advise when reviewing your request","To confirm at collection"]];
+        const CONTENT_OPTS=[["slides","🖥️","Slideshow or presentation","PowerPoint, Keynote, Google Slides"],["video","🎬","Video or film","MP4, MOV, looping video work"],["images","🖼️","Still images or artwork","JPEG, PNG, digital portfolio"],["website","🌐","Website or live demo","Browser, live stream, interactive content"],["mixed","🔀","Multiple / mixed content","Combination of slides, video, images"]];
+        const AUDIO_OPTS=[["none","🔇","No sound needed","Silent presentation","No audio equipment"],["music","🔊","Background music or ambient sound","Low-level audio from the setup","Audio output required"],["video","🎬","Sound for video or film","Audio from video content","Audio output required"],["performance","🎤","PA for a live talk or performance","Speaker needs to be heard by an audience","PA + microphone required"]];
+        const stepOk=avWizStepOk(avStep);
+        const SelBtn=({val,cur,onSel,icon,label,sub,badge,warn})=>(
+          <div onClick={()=>onSel(val)} style={{padding:"11px 14px",borderRadius:10,border:cur===val?"1px solid #3b82f6":"0.5px solid #1e2130",background:cur===val?"#0a1e35":"#141720",marginBottom:7,cursor:"pointer"}}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:10,minWidth:0}}>
+                <span style={{fontSize:18,flexShrink:0,lineHeight:1.2}}>{icon}</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:cur===val?600:400,color:cur===val?"#60a5fa":"#c9cdd6"}}>{label}</div>
+                  {sub&&<div style={{fontSize:11,color:"#4b5563",marginTop:2}}>{sub}</div>}
+                </div>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+                {cur===val&&<span style={{color:"#3b82f6",fontSize:13}}>✓</span>}
+                {badge&&<span style={{fontSize:10,color:warn?"#f87171":cur===val?"#3b82f6":"#374151",background:warn?"#2a0f14":cur===val?"#0d1a2e":"#1a1d28",padding:"2px 7px",borderRadius:4,whiteSpace:"nowrap"}}>{badge}</span>}
+              </div>
+            </div>
+          </div>
+        );
+        const reqs=deriveAVRequirements(avWiz);
+        const PURPOSE_LABELS={"exam":"Assessment / degree show","gallery":"Gallery/exhibition","class":"In-class presentation","performance":"Performance/screening","workshop":"Workshop","other":"Other"};
+        const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
+        const DEV_LABELS={"mediaplayer":"Dept media player (USB)","laptop":"Own laptop","phone":"Phone / tablet","unknown":"TBC"};
+        return(<>
+          {/* Progress bar */}
+          <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:18}}>
+            {STEP_LABELS.map((l,i)=>(
+              <div key={i} style={{flex:i===avStep?2:1,height:4,borderRadius:4,background:i<avStep?"#20B07F":i===avStep?"#3b82f6":"#1e2130",transition:"all 0.25s"}}/>
+            ))}
+          </div>
+          <div style={{fontSize:11,color:"#6b7280",marginBottom:16,letterSpacing:"0.3px"}}>STEP {avStep+1} OF {STEP_LABELS.length} &nbsp;·&nbsp; {STEP_LABELS[avStep].toUpperCase()}</div>
+
+          {/* Step 0: Purpose */}
+          {avStep===0&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>What is this setup for?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:14}}>This helps us understand your setup and plan the right support.</div>
+            {PURPOSE_OPTS.map(([v,icon,label,sub])=><SelBtn key={v} val={v} cur={avWiz.purpose} onSel={p=>setAv("purpose",p)} icon={icon} label={label} sub={sub}/>)}
+          </>)}
+
+          {/* Step 1: Venue */}
+          {avStep===1&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>Where is this happening?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:14}}>The venue affects projector placement, cable runs, and setup time needed.</div>
+            {VENUE_OPTS.map(([v,icon,label,sub])=><SelBtn key={v} val={v} cur={avWiz.venue} onSel={p=>setAv("venue",p)} icon={icon} label={label} sub={sub||undefined}/>)}
+            {avWiz.venue==="other"&&<input style={{...ipt,marginTop:4,marginBottom:4}} value={avWiz.venueOther} onChange={e=>setAv("venueOther",e.target.value)} placeholder="Describe the venue or space" autoFocus/>}
+          </>)}
+
+          {/* Step 2: Date & time */}
+          {avStep===2&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>Dates for your event</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:RUSH_MODE?8:16}}>We need both dates to book equipment and plan the setup.{!RUSH_MODE&&" Minimum 5 business days before your event date."}</div>
+            {RUSH_MODE&&<div style={{background:"#2a1a00",border:"0.5px solid #d4851a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#d4851a",marginBottom:14}}>⚡ Rush request — date restrictions lifted. Please coordinate setup times directly with Tech Support.</div>}
+
+            {/* Event date block */}
+            <div style={{background:"#111827",border:"0.5px solid #1f2937",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+              <div style={{fontSize:12,color:"#3b82f6",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Event date</div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Date of the event *</label>
+                <input type="date" style={ipt} value={avWiz.eventDate} min={RUSH_MODE?todayDate():addBusinessDays(todayDate(),5)} onChange={e=>setAv("eventDate",e.target.value)}/>
+                {avWiz.eventDate&&<div style={{fontSize:12,color:"#4b5563",marginTop:4}}>📅 {fmtDate(avWiz.eventDate)}</div>}
+              </div>
+              <div style={{display:"flex",gap:10}}>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Event start time</label>
+                  <input type="time" style={ipt} value={avWiz.eventTime} onChange={e=>setAv("eventTime",e.target.value)}/>
+                </div>
+                <div style={{flex:1}}>
+                  <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Duration</label>
+                  <select style={ipt} value={avWiz.duration} onChange={e=>setAv("duration",e.target.value)}>
+                    {["Select duration","Under 1 hour","1 hour","2 hours","3 hours","Half day","Full day","Multiple days"].map(d=><option key={d}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Setup / collection date block */}
+            <div style={{background:"#111827",border:"0.5px solid #1f2937",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+              <div style={{fontSize:12,color:"#a855f7",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Setup / collection date</div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Date for Tech Support to set up *</label>
+                <input type="date" style={ipt} value={avWiz.setupDate} min={RUSH_MODE?todayDate():addBusinessDays(todayDate(),5)} max={avWiz.eventDate||undefined} onChange={e=>setAv("setupDate",e.target.value)}/>
+                {avWiz.setupDate&&<div style={{fontSize:12,color:"#4b5563",marginTop:4}}>📅 {fmtDate(avWiz.setupDate)}</div>}
+              </div>
+              <div>
+                <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Preferred setup / arrival time</label>
+                <input type="time" style={ipt} value={avWiz.setupTime} onChange={e=>setAv("setupTime",e.target.value)}/>
+                <div style={{fontSize:11,color:"#4b5563",marginTop:4}}>This is when Tech Support should arrive to install and test. Equipment is also collected after your event.</div>
+              </div>
+            </div>
+
+            <div style={{background:"#0a1e35",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#3b82f6"}}>💡 Complex installs (multiple projectors, long cable runs) may need Tech Support on-site 1–2 days before your event.</div>
+          </>)}
+
+          {/* Step 3: Device / content source */}
+          {avStep===3&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>What will play the content?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:14}}>This helps us figure out what cables and adapters the setup will need.</div>
+            {DEVICE_OPTS.map(([v,icon,label,sub,badge])=><SelBtn key={v} val={v} cur={avWiz.device} onSel={p=>setAv("device",p)} icon={icon} label={label} sub={sub} badge={badge}/>)}
+          </>)}
+
+          {/* Step 4: Content type */}
+          {avStep===4&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>What will be displayed?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:14}}>Helps us understand resolution needs and check that your file format will work.</div>
+            {CONTENT_OPTS.map(([v,icon,label,sub])=><SelBtn key={v} val={v} cur={avWiz.contentType} onSel={p=>setAv("contentType",p)} icon={icon} label={label} sub={sub}/>)}
+          </>)}
+
+          {/* Step 5: Screen count */}
+          {avStep===5&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>How many screens or projections do you need?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Count every surface you want to show content on — whether it's a projected image on a wall, a physical screen, or a TV. Each one needs its own projector or display device.</div>
+            <div style={{background:"#0a2218",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#4ade80",marginBottom:14}}>📽️ The department has <strong>2 projectors</strong> available. Physical screens and TVs may also be requested — Tech Support will advise on availability.</div>
+            <input type="number" min="1" max="20" style={{...ipt,fontSize:22,fontWeight:600,textAlign:"center",padding:"14px"}} value={avWiz.screenCount} onChange={e=>setAv("screenCount",e.target.value)} placeholder="e.g. 2"/>
+            {avWiz.screenCount&&parseInt(avWiz.screenCount)>2&&(
+              <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#d4851a",marginTop:10}}>⚠️ More than 2 screens is a complex setup that needs early planning. Your request will be submitted so there's a record — Tech Support will contact you to discuss.</div>
+            )}
+            {avWiz.screenCount&&parseInt(avWiz.screenCount)===2&&(
+              <div style={{background:"#0a1e35",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#3b82f6",marginTop:10}}>📋 2 screens uses all available projectors — make sure to book well in advance.</div>
+            )}
+          </>)}
+
+          {/* Step 6: Audio */}
+          {avStep===6&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>Do you need audio or sound?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:14}}>Let us know so we can check what audio equipment is available for your setup.</div>
+            {AUDIO_OPTS.map(([v,icon,label,sub,badge])=><SelBtn key={v} val={v} cur={avWiz.audio} onSel={p=>setAv("audio",p)} icon={icon} label={label} sub={sub} badge={badge}/>)}
+          </>)}
+
+          {/* Step 7: Summary */}
+          {avStep===7&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>Your setup summary</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:16}}>Based on your answers. Tech Support will review this, confirm what's available, and contact you to plan setup days.</div>
+            <div style={{background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"12px 14px",marginBottom:10}}>
+              <div style={{fontSize:11,color:"#3b82f6",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Your event</div>
+              <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"5px 14px"}}>
+                {[["Purpose",PURPOSE_LABELS[avWiz.purpose]||avWiz.purpose],["Venue",VENUE_LABELS[avWiz.venue]],["Event date",avWiz.eventDate?fmtDate(avWiz.eventDate):"Not set"],["Event time",avWiz.eventTime||"Not specified"],["Setup date",avWiz.setupDate?fmtDate(avWiz.setupDate):"Not set"],["Setup time",avWiz.setupTime||"Not specified"],["Duration",avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"Not specified"],["Device",DEV_LABELS[avWiz.device]||avWiz.device]].filter(([,v])=>v&&v!=="Not set"&&v!=="Not specified").map(([k,v])=>(
+                  <><span key={k+"k"} style={{fontSize:12,color:"#4b5563",whiteSpace:"nowrap"}}>{k}</span><span key={k+"v"} style={{fontSize:12,color:"#c9cdd6"}}>{v}</span></>
+                ))}
+              </div>
+            </div>
+            <div style={{background:"#0a2218",border:"0.5px solid #14532d",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
+              <div style={{fontSize:11,color:"#20B07F",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>What this setup will likely need</div>
+              {reqs.map((r,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6}}>
+                  <span style={{fontSize:14,lineHeight:1.3}}>{r.icon}</span>
+                  <span style={{fontSize:13,color:r.warn?"#d4851a":"#c9cdd6",lineHeight:1.4}}>{r.label}</span>
+                </div>
+              ))}
+              <div style={{fontSize:11,color:"#4b5563",marginTop:8,borderTop:"0.5px solid #1e3a1e",paddingTop:8}}>Availability and exact setup plan confirmed by Tech Support after review. Setup may require 1–2 days before your event.</div>
+            </div>
+          </>)}
+
+          {/* Wizard navigation */}
+          <div style={{display:"flex",gap:8,marginBottom:avStep===7?16:24}}>
+            {avStep>0&&<button onClick={()=>setAvStep(s=>s-1)} style={{flex:1,padding:"11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>← Back</button>}
+            {avStep<7&&<Btn onClick={()=>setAvStep(s=>s+1)} disabled={!stepOk} style={{flex:avStep===0?undefined:1,padding:"11px",fontSize:13}} full={avStep===0}>{avStep===6?"Review summary →":"Next →"}</Btn>}
+          </div>
+        </>);
+      })()}
+      {!type.bookable&&!["gallery","studio","3d","avsetup"].includes(type.id)&&!(selType==="software"&&form.softwareType!=="mac")&&<div style={{marginBottom:14}}>
         <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>{selType==="software"?"When should we schedule the install?":"When do you need it?"}</label>
         <div style={{display:"flex",gap:8}}>{(selType==="software"?[["later","Schedule"]]: [["walkin","Right now"],["later","Schedule"]]).map(([v,l])=><button key={v} onClick={()=>setF("when",v)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.when===v?BLUE:"#1a1d28",color:form.when===v?"#fff":"#e0e3ea",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}</div>
         {form.when==="later"&&<>
@@ -3153,8 +3359,8 @@ export default function App() {
           )}
         </>}
       </div>}
-      <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Additional notes (optional)</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder="Any extra details Tech Support should know..."/></div>
-      <Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&!form.sessionDuration)||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot))} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>
+      {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&!form.sessionDuration)||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 
@@ -3469,6 +3675,16 @@ export default function App() {
                   {req.details.material3d&&!req.details.material3d.startsWith("Select")&&<span style={{marginRight:10}}>🧱 {req.details.material3d}</span>}
                   {req.details.infill&&!req.details.infill.startsWith("Select")&&<span style={{marginRight:10}}>{req.details.infill}</span>}
                   {req.details.dropOffDate&&<span style={{marginRight:10}}>📬 Drop-off: {req.details.dropOffDate}</span>}
+                  {req.typeId==="avsetup"&&req.details.purpose&&<span style={{marginRight:10}}>🎯 {req.details.purpose}</span>}
+                  {req.typeId==="avsetup"&&req.details.venue&&<span style={{marginRight:10}}>📍 {req.details.venue}</span>}
+                  {req.typeId==="avsetup"&&req.details.eventDate&&<span style={{marginRight:10}}>📅 Event: {fmtDate(req.details.eventDate)}{req.details.eventTime?` · ${req.details.eventTime}`:""}</span>}
+                  {req.typeId==="avsetup"&&req.details.setupDate&&<span style={{marginRight:10}}>🔧 Setup: {fmtDate(req.details.setupDate)}{req.details.setupTime?` · ${req.details.setupTime}`:""}</span>}
+                  {req.typeId==="avsetup"&&req.details.duration&&!String(req.details.duration).startsWith("Select")&&<span style={{marginRight:10}}>⏱ {req.details.duration}</span>}
+                  {req.typeId==="avsetup"&&req.details.device&&<span style={{marginRight:10}}>💻 {req.details.device}</span>}
+                  {req.typeId==="avsetup"&&req.details.screenCount&&<span style={{marginRight:10}}>📽️ {req.details.screenCount} screen{req.details.screenCount!=="1"?"s":""}</span>}
+                  {req.typeId==="avsetup"&&req.details.requirements?.length>0&&req.details.requirements.map((r,i)=>(
+                    <span key={i} style={{display:"inline-block",marginRight:6,marginBottom:2,background:"#0a2218",color:"#20B07F",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:500}}>✓ {r}</span>
+                  ))}
                 </div>
               )}
               {req.notes&&<div style={{fontSize:13,color:"#9ca3af",background:"#1a1d28",borderRadius:8,padding:"8px 10px",marginBottom:8}}>"{req.notes}"</div>}
