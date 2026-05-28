@@ -3457,7 +3457,7 @@ export default function App() {
       <div style={{background:"#2a1f0a",borderRadius:10,padding:"12px 14px",marginBottom:20,fontSize:13,color:"#d4851a",textAlign:"center"}}>
         ⏳ Wait for Tech Support to confirm before coming in person.
       </div>
-      <Btn outline color="#888" onClick={()=>{setScreen("home");setSelType(null);setPrepOk(false);setSelDate(null);setSelSlot(null);setLastReq(null);}} style={{color:"#9ca3af",border:"0.5px solid #1e2130",background:"transparent",width:"100%",padding:"11px"}}>Submit another request</Btn>
+      <Btn outline color="#888" onClick={()=>{setScreen("home");setSelType(null);setPrepOk(false);setSelDate(null);setSelSlot(null);setLastReq(null);setVerifiedStudent(null);setVerifyErr("");setForm(f=>({...f,studNo:"",name:""}));}} style={{color:"#9ca3af",border:"0.5px solid #1e2130",background:"transparent",width:"100%",padding:"11px"}}>Submit another request</Btn>
     </div>
   );
 
