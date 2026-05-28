@@ -8,6 +8,7 @@
 // Required env vars: AIRTABLE_PAT, GMAIL_USER, GMAIL_PASS, CRON_SECRET
 
 import nodemailer from "nodemailer";
+import { createGmailDraft } from "./draft.js";
 
 const BASE_ID     = "appUqkCfnsOo2Jf7z";
 const MAINT_TABLE = "tbldZisWbs1WQIr09";
@@ -252,6 +253,23 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true, html: emailHtml, open: open.length, resolved: recentResolved.length });
   }
 
+  // Draft mode (manual trigger with ?draft=true, or cron GET) — save to Gmail Drafts
+  const isDraft = req.query?.draft === "true" || req.method === "GET";
+  const subject = `Fine Art Department — Maintenance Update | ${dateStr}`;
+
+  if (isDraft) {
+    await createGmailDraft({
+      gmailUser,
+      gmailPass,
+      to:       STAFF,
+      subject,
+      html:     emailHtml,
+      fromName: "Mpumzi Mpati | Fine Art Dept",
+    });
+    return res.status(200).json({ ok: true, drafted: true, open: open.length, resolved: recentResolved.length });
+  }
+
+  // Legacy send path (kept but no longer used by the portal UI or cron)
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: { user: gmailUser, pass: gmailPass },
@@ -261,7 +279,7 @@ export default async function handler(req, res) {
     from:     `"Mpumzi Mpati | Fine Art Dept" <${gmailUser}>`,
     replyTo:  "Mpumzi Mpati <m.mpati@ru.ac.za>",
     to:       STAFF.join(", "),
-    subject:  `Fine Art Department — Maintenance Update | ${dateStr}`,
+    subject,
     html:     emailHtml,
   });
 

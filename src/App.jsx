@@ -2014,14 +2014,13 @@ function HsPanel(){
               }catch(e){alert("❌ Network error: "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
             <button onClick={async()=>{
-              if(!window.confirm("Send the full maintenance report to all Fine Art staff?"))return;
               try{
-                const r=await fetch("/api/staff-report",{method:"POST"});
+                const r=await fetch("/api/staff-report?draft=true",{method:"POST"});
                 const d=await r.json();
-                if(d.ok)alert(`✅ Report sent to ${d.sent} staff members (${d.open} open, ${d.resolved} resolved).`);
-                else alert("❌ Failed to send report: "+(d.error||"Unknown error"));
+                if(d.drafted)alert(`✅ Draft saved — open Gmail Drafts, review it, then send.`);
+                else alert("❌ Failed to create draft: "+(d.error||"Unknown error"));
               }catch(e){alert("❌ Network error: "+e.message);}
-            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#1a3a5c",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📧 Send staff report</button>
+            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#1a3a5c",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📋 Create Draft</button>
           </div>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8,paddingTop:12,borderTop:"0.5px solid #1e2130"}}>
@@ -2039,14 +2038,14 @@ function HsPanel(){
               }catch(e){alert("❌ "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
             <button onClick={async()=>{
-              if(!window.confirm("Send follow-up email to Estates?"))return;
               try{
-                const r=await fetch("/api/cron-followup",{method:"POST"});
+                const r=await fetch("/api/cron-followup?draft=true",{method:"POST"});
                 const d=await r.json();
-                if(d.sent>0)alert(`✅ Follow-up sent to Estates covering ${d.sent} outstanding request(s).`);
-                else alert("No requests over 14 days found.");
+                if(d.drafted)alert(`✅ Draft saved — open Gmail Drafts, review it, then send to Estates.`);
+                else if(d.message)alert(d.message);
+                else alert("❌ Failed to create draft: "+(d.error||"Unknown error"));
               }catch(e){alert("❌ "+e.message);}
-            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#2a1f0a",color:"#d4851a",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📧 Chase Estates</button>
+            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#2a1f0a",color:"#d4851a",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📋 Draft Estates email</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
