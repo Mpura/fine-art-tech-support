@@ -14,7 +14,7 @@ const MAINT_TABLE      = "tbldZisWbs1WQIr09";
 const CHASE_AFTER_DAYS = 14;
 const SKIP_STATUSES    = ["Open", "Resolved", "Closed"];
 
-const TO  = "estates@ru.ac.za";
+const TO  = "facilitieshelpdesk@ru.ac.za";
 const CCS = ["m.mpati@ru.ac.za", "h.smith@ru.ac.za", "j.nell@ru.ac.za", "lois.anguria@ru.ac.za"];
 
 export default async function handler(req, res) {
