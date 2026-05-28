@@ -2529,6 +2529,7 @@ export default function App() {
   const eqCollectionsToday=requests.filter(r=>r.typeId==="equipment"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Cancelled"&&r.status!=="Returned");
   const eqDueToday=requests.filter(r=>r.typeId==="equipment"&&r.dueDate===_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
   const eqOverdue=requests.filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
+  const avSetupToday=requests.filter(r=>r.typeId==="avsetup"&&r.details?.setupDate===_today&&r.status!=="Declined"&&r.status!=="Done");
 
   // ── TODAY CARD ───────────────────────────────────────────────────
   const TodayCard=({req,actionLabel,actionStatus})=>{
@@ -2540,7 +2541,7 @@ export default function App() {
     else if(req.typeId==="laser"){summary=[d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material,d.dimensions,d.jobType,d.sessionDuration,d.firstTime?"⭐ First time":null].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
     else if(req.typeId==="studio"){const sm=req.schedDate?.match(/\((.+?)\)/);summary=(d.shootType&&!d.shootType.startsWith("Select")?d.shootType+" · ":"")+(sm?sm[1]:"");}
     else if(req.typeId==="equipment"){summary=d.items||(d.itemsData||[]).map(i=>i.name).join(", ")||"Equipment";}
-    else if(req.typeId==="avsetup"){summary=[d.purpose,d.venue,d.screenCount&&`${d.screenCount} screen${d.screenCount>1?"s":""}`,d.device].filter(v=>v&&v!=="TBC").join(" · ");}
+    else if(req.typeId==="avsetup"){summary=[d.venue,d.displayType&&d.screenCount?`${d.displayType} × ${d.screenCount}`:d.displayType,d.setupTime?`Setup ${d.setupTime}`:"",d.eventDate?`Event ${fmtDate(d.eventDate)}`:""].filter(v=>v&&v!=="TBC").join(" · ");}
     const isOverdue=req.dueDate&&req.dueDate<_today;
     return(
       <div style={{display:"flex",alignItems:"stretch",background:"#141720",borderRadius:10,marginBottom:8,overflow:"hidden",border:isOverdue?"1px solid #7f1d1d":"0.5px solid #1e2130"}}>
@@ -3559,6 +3560,7 @@ export default function App() {
                 if(sk==="morning"||sk==="afternoon"){al=r.typeId==="laser"?"Start session":"Mark in progress";as_="In Progress";}
                 else if(sk==="studio"){al="Confirm";as_="Confirmed";}
                 else if(sk==="collections"){al="Mark ready";as_="Ready to collect";}
+                else if(sk==="avsetup"){al=r.status==="In Progress"?"Mark done":"Start setup";as_=r.status==="In Progress"?"Done":"In Progress";}
                 else{al="Check in";as_="Returned";}
                 return <TodayCard key={r.id} req={r} actionLabel={al} actionStatus={as_}/>;
               })
@@ -3579,6 +3581,7 @@ export default function App() {
               </div>
             ))}
           </div>
+          <Sec icon="📽️" title="AV setups today" items={avSetupToday} sk="avsetup"/>
           <Sec icon="🌅" title="Morning (09:00–12:00)" items={morningToday} sk="morning"/>
           {/* Now indicator — between morning and afternoon */}
           {(()=>{const h=new Date().getHours();return h>=9&&h<17&&(
