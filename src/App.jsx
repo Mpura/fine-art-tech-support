@@ -1948,6 +1948,7 @@ function HsPanel(){
     {/* ── REPORT ── */}
     {!hsLoading&&hsTab==="report"&&(()=>{
       const now=new Date();
+      function cleanDesc(d){if(!d)return"";return d.replace(/,?\s*Status been changed to:.*$/si,"").replace(/\n+/g," ").trim();}
       function startOf(period){
         const d=new Date();
         if(period==="month"){d.setDate(1);d.setHours(0,0,0,0);return d;}
@@ -2127,7 +2128,7 @@ function HsPanel(){
               return(
                 <div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"#141720",borderRadius:8,marginBottom:6,borderLeft:`3px solid ${col}`}}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,color:"#e0e3ea",marginBottom:2}}>{r.Description}</div>
+                    <div style={{fontSize:13,color:"#e0e3ea",marginBottom:2}}>{cleanDesc(r.Description)}</div>
                     <div style={{fontSize:11,color:"#6b7280"}}>{r.Location&&`📍 ${r.Location}`}{r.UniversityRef&&` · Ref: ${r.UniversityRef}`}</div>
                   </div>
                   <div style={{textAlign:"right",marginLeft:12,flexShrink:0}}>
