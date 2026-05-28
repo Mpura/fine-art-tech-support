@@ -1624,6 +1624,7 @@ function HsPanel(){
   const [resolveDate,setResolveDate]=useState("");
   const [submitting,setSubmitting]=useState(false);
   const [reportPeriod,setReportPeriod]=useState("month");
+  const [reportFilter,setReportFilter]=useState(null);
   const [lastFollowUp,setLastFollowUp]=useState(()=>{try{return JSON.parse(localStorage.getItem("fats_followup_log")||"null");}catch{return null;}});
   const [lastStaffReport,setLastStaffReport]=useState(()=>{try{return JSON.parse(localStorage.getItem("fats_staffreport_log")||"null");}catch{return null;}});
 
@@ -1762,13 +1763,11 @@ function HsPanel(){
       <button onClick={refreshHs} title="Refresh from Airtable" style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#6b7280",fontSize:11,fontFamily:"inherit"}}>↻ Refresh</button>
     </div>
     <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Requisitions and preventive maintenance log</div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
-      {[["Open",openReqs.length,"#d4851a","#2a1f0a"],["PM Overdue",overduePm,"#f87171","#2a0f14"],["PM Due Soon",dueSoonPm,"#60a5fa","#0a1e35"]].map(([l,n,col,bg])=>(
-        <div key={l} style={{background:bg,borderRadius:8,padding:"10px 12px",border:`0.5px solid ${col}22`}}>
-          <div style={{fontSize:22,fontWeight:500,color:col,lineHeight:1}}>{n}</div>
-          <div style={{fontSize:10,color:col,marginTop:3}}>{l}</div>
-        </div>
-      ))}
+    <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:16}}>
+      <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",border:"0.5px solid #d4851a22"}}>
+        <div style={{fontSize:22,fontWeight:500,color:"#d4851a",lineHeight:1}}>{openReqs.length}</div>
+        <div style={{fontSize:10,color:"#d4851a",marginTop:3}}>Open</div>
+      </div>
     </div>
     <div style={{display:"flex",gap:6,marginBottom:16}}>
       {[["reqs","🔧 Requisitions"],["pm","📋 PM Schedule"],["report","📊 Report"]].map(([v,l])=>(
@@ -1886,6 +1885,14 @@ function HsPanel(){
       )}
     </>)}
     {!hsLoading&&hsTab==="pm"&&(<>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+        {[["PM Overdue",overduePm,"#f87171","#2a0f14"],["PM Due Soon",dueSoonPm,"#60a5fa","#0a1e35"]].map(([l,n,col,bg])=>(
+          <div key={l} style={{background:bg,borderRadius:8,padding:"10px 12px",border:`0.5px solid ${col}22`}}>
+            <div style={{fontSize:22,fontWeight:500,color:col,lineHeight:1}}>{n}</div>
+            <div style={{fontSize:10,color:col,marginTop:3}}>{l}</div>
+          </div>
+        ))}
+      </div>
       <Btn outline color={TEAL} onClick={()=>{setShowPmForm(true);setEditPm(null);setPmForm({taskName:"",machine:"",interval:"Monthly",lastDone:todayDate(),nextDue:"",notes:""});}} full style={{marginBottom:16}}>+ Add maintenance task</Btn>
       {showPmForm&&(
         <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,padding:"16px",marginBottom:16}}>
@@ -2079,18 +2086,21 @@ function HsPanel(){
         {inPeriod.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14,border:"0.5px dashed #1e2130",borderRadius:10}}>No requests in this period</div>}
         {inPeriod.length>0&&(<>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-            {[["Total opened",inPeriod.length,"#e0e3ea","#1a1d28"],["Resolved",resolved.length,"#20B07F","#0a2218"],["Outstanding",outstanding.length,"#d4851a","#2a1f0a"],["Closed",closed.length,"#6b7280","#141720"]].map(([l,n,col,bg])=>(
-              <div key={l} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`0.5px solid ${col}22`}}>
-                <div style={{fontSize:24,fontWeight:600,color:col,lineHeight:1}}>{n}</div>
-                <div style={{fontSize:11,color:col,marginTop:4,opacity:0.8}}>{l}</div>
-              </div>
-            ))}
+            {[["Total opened",inPeriod.length,"#e0e3ea","#1a1d28","all"],["Resolved",resolved.length,"#20B07F","#0a2218","resolved"],["Outstanding",outstanding.length,"#d4851a","#2a1f0a","outstanding"],["Closed",closed.length,"#6b7280","#141720","closed"]].map(([l,n,col,bg,fKey])=>{
+              const active=reportFilter===fKey||(fKey==="outstanding"&&reportFilter===null);
+              return(
+                <div key={l} onClick={()=>setReportFilter(fKey==="outstanding"&&reportFilter===null?null:fKey)} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`0.5px solid ${active?col:col+"22"}`,cursor:"pointer",outline:active?`1.5px solid ${col}`:"none",transition:"outline 0.1s"}}>
+                  <div style={{fontSize:24,fontWeight:600,color:col,lineHeight:1}}>{n}</div>
+                  <div style={{fontSize:11,color:col,marginTop:4,opacity:0.8}}>{l}</div>
+                </div>
+              );
+            })}
           </div>
           {avgDays!==null&&<div style={{background:"#0a1e35",borderRadius:10,padding:"12px 14px",marginBottom:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:13,color:"#9ca3af"}}>Avg. resolution time</span>
             <span style={{fontSize:18,fontWeight:600,color:"#60a5fa"}}>{avgDays} days</span>
           </div>}
-          {outstanding.length>0&&(<>
+          {outstanding.length>0&&(!reportFilter||reportFilter==="outstanding")&&(<>
             <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8}}>Outstanding — aging</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,marginBottom:16}}>
               {[["< 7 days",aging.under7,"#20B07F"],["7–14 days",aging.d7to14,"#60a5fa"],["14–30 days",aging.d14to30,"#d4851a"],["> 30 days",aging.over30,"#f87171"]].map(([l,n,col])=>(
@@ -2100,8 +2110,14 @@ function HsPanel(){
                 </div>
               ))}
             </div>
-            <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8}}>Outstanding requests</div>
-            {outstanding.sort((a,b)=>{
+          </>)}
+          {(()=>{
+            const filterLabel=reportFilter==="resolved"?"Resolved":reportFilter==="closed"?"Closed":reportFilter==="all"?"All":outstanding.length>0?"Outstanding":null;
+            const filterList=reportFilter==="resolved"?resolved:reportFilter==="closed"?closed:reportFilter==="all"?inPeriod:outstanding;
+            if(!filterLabel||filterList.length===0)return null;
+            return(<>
+            <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8}}>{filterLabel} requests <span style={{fontWeight:400,color:"#6b7280",fontSize:12}}>({filterList.length})</span></div>
+            {filterList.sort((a,b)=>{
               const da=a.DateSubmitted?Math.floor((now-new Date(a.DateSubmitted+"T00:00:00"))/86400000):0;
               const db=b.DateSubmitted?Math.floor((now-new Date(b.DateSubmitted+"T00:00:00"))/86400000):0;
               return db-da;
@@ -2116,12 +2132,13 @@ function HsPanel(){
                   </div>
                   <div style={{textAlign:"right",marginLeft:12,flexShrink:0}}>
                     <div style={{fontSize:13,fontWeight:600,color:col}}>{days!==null?`${days}d`:"-"}</div>
-                    <div style={{fontSize:10,color:"#6b7280"}}>outstanding</div>
+                    <div style={{fontSize:10,color:"#6b7280"}}>{filterLabel?.toLowerCase()}</div>
                   </div>
                 </div>
               );
             })}
-          </>)}
+            </>);
+          })()}
           {Object.keys(byType).length>0&&(<>
             <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8,marginTop:8}}>By problem type</div>
             {Object.entries(byType).sort(([,a],[,b])=>b-a).map(([t,n])=>(
