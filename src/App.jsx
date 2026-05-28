@@ -1982,9 +1982,10 @@ function HsPanel(){
       const nextSendDate=(()=>{
         const now=new Date();
         const earliest=new Date("2026-06-01T07:00:00");
+        const sentCycle=lastStaffReport?.cycle||null;
         const y=now.getFullYear(),m=now.getMonth();
         const candidates=[new Date(y,m,1,7,0,0),new Date(y,m,15,7,0,0),new Date(y,m+1,1,7,0,0),new Date(y,m+1,15,7,0,0),new Date(y,m+2,1,7,0,0)];
-        const next=candidates.find(d=>d>now&&d>=earliest);
+        const next=candidates.find(d=>d>now&&d>=earliest&&d.toISOString().split("T")[0]!==sentCycle);
         const daysLeft=Math.ceil((next-now)/86400000);
         const label=next.toLocaleDateString("en-ZA",{day:"2-digit",month:"short"});
         const isWarningDay=daysLeft===1;
@@ -2017,7 +2018,13 @@ function HsPanel(){
               }catch(e){alert("❌ Network error: "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
 <button onClick={()=>{
-              const log={date:new Date().toISOString().split("T")[0]};
+              const now=new Date();
+              const today=now.toISOString().split("T")[0];
+              const y=now.getFullYear(),mo=now.getMonth();
+              const earliest=new Date("2026-06-01T07:00:00");
+              const cycleCandidates=[new Date(y,mo,1,7,0,0),new Date(y,mo,15,7,0,0),new Date(y,mo+1,1,7,0,0),new Date(y,mo+1,15,7,0,0)];
+              const cycle=(cycleCandidates.find(d=>d>=now&&d>=earliest)||cycleCandidates[0]).toISOString().split("T")[0];
+              const log={date:today,cycle};
               localStorage.setItem("fats_staffreport_log",JSON.stringify(log));
               setLastStaffReport(log);
               alert("✅ Logged — staff report marked as sent today.");
