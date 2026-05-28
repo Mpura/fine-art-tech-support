@@ -62,15 +62,16 @@ export default async function handler(req, res) {
     return loc;
   }
 
-  // Filter: not in skip list, logged 14+ days ago
+  // Filter: not in skip list, 14+ days since last follow-up (or submission if never chased)
   const stale = data.records
     .filter(r => {
       const status = r.fields.Status;
       if (!status || SKIP_STATUSES.includes(status)) return false;
-      const days = daysOld(r.fields.DateSubmitted || r.fields.DateLogged);
+      const checkDate = r.fields.LastFollowUpDate || r.fields.DateSubmitted || r.fields.DateLogged;
+      const days = daysOld(checkDate);
       return days !== null && days >= CHASE_AFTER_DAYS;
     })
-    .sort((a, b) => (daysOld(b.fields.DateLogged) || 0) - (daysOld(a.fields.DateLogged) || 0));
+    .sort((a, b) => (daysOld(b.fields.DateSubmitted || b.fields.DateLogged) || 0) - (daysOld(a.fields.DateSubmitted || a.fields.DateLogged) || 0));
 
   if (stale.length === 0) {
     return res.status(200).json({ message: "No stale requests — nothing to chase.", sent: 0 });
@@ -80,16 +81,18 @@ export default async function handler(req, res) {
   const dateStr = now.toLocaleDateString("en-ZA", { day: "2-digit", month: "long", year: "numeric" });
 
   const tableRows = stale.map(r => {
-    const f    = r.fields;
-    const days = daysOld(f.DateSubmitted || f.DateLogged);
-    const daysColor = days >= 60 ? "#b91c1c" : days >= 30 ? "#d97706" : "#555";
+    const f        = r.fields;
+    const ageDays  = daysOld(f.DateSubmitted || f.DateLogged);
+    const chaseDays = f.LastFollowUpDate ? daysOld(f.LastFollowUpDate) : null;
+    const ageColor  = ageDays >= 60 ? "#b91c1c" : ageDays >= 30 ? "#d97706" : "#555";
     return `
       <tr>
         <td style="padding:7px 10px;border-bottom:1px solid #e8e8e8;font-weight:600;white-space:nowrap">${f.UniversityRef || "—"}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #e8e8e8;white-space:nowrap">${f.ProblemType || "—"}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #e8e8e8;white-space:nowrap">${cleanLoc(f.Location)}</td>
         <td style="padding:7px 10px;border-bottom:1px solid #e8e8e8">${cleanDesc(f.Description)}</td>
-        <td style="padding:7px 10px;border-bottom:1px solid #e8e8e8;font-weight:700;color:${daysColor};white-space:nowrap">${days}d</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e8e8e8;font-weight:700;color:${ageColor};white-space:nowrap">${ageDays !== null ? ageDays + "d" : "—"}</td>
+        <td style="padding:7px 10px;border-bottom:1px solid #e8e8e8;white-space:nowrap;color:#888">${chaseDays !== null ? chaseDays + "d ago" : "—"}</td>
       </tr>`;
   }).join("");
 
@@ -121,7 +124,8 @@ export default async function handler(req, res) {
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #ddd">Type</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #ddd">Area</th>
           <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #ddd">Description</th>
-          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #ddd">Days</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #ddd">Age</th>
+          <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #ddd">Last Chased</th>
         </tr>
       </thead>
       <tbody>${tableRows}</tbody>

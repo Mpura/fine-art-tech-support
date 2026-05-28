@@ -1624,6 +1624,8 @@ function HsPanel(){
   const [resolveDate,setResolveDate]=useState("");
   const [submitting,setSubmitting]=useState(false);
   const [reportPeriod,setReportPeriod]=useState("month");
+  const [lastFollowUp,setLastFollowUp]=useState(()=>{try{return JSON.parse(localStorage.getItem("fats_followup_log")||"null");}catch{return null;}});
+  const [lastStaffReport,setLastStaffReport]=useState(()=>{try{return JSON.parse(localStorage.getItem("fats_staffreport_log")||"null");}catch{return null;}});
 
   function parseRUEmail(text){
     const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
@@ -2001,7 +2003,8 @@ function HsPanel(){
                   : `Next report: ${nextSendDate.label} · ${nextSendDate.daysLeft} day${nextSendDate.daysLeft!==1?"s":""} away`}
             </div>
           </div>
-          <div style={{display:"flex",gap:6}}>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {lastStaffReport&&<span style={{fontSize:11,color:"#4b5563",marginRight:4}}>Last sent: {new Date(lastStaffReport.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}</span>}
             <button onClick={async()=>{
               try{
                 const r=await fetch("/api/staff-report?preview=true",{method:"POST"});
@@ -2021,6 +2024,12 @@ function HsPanel(){
                 else alert("❌ Failed to create draft: "+(d.error||"Unknown error"));
               }catch(e){alert("❌ Network error: "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#1a3a5c",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📋 Create Draft</button>
+            <button onClick={()=>{
+              const log={date:new Date().toISOString().split("T")[0]};
+              localStorage.setItem("fats_staffreport_log",JSON.stringify(log));
+              setLastStaffReport(log);
+              alert("✅ Logged — staff report marked as sent today.");
+            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#0a2218",color:"#20B07F",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>✅ Mark sent</button>
           </div>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8,paddingTop:12,borderTop:"0.5px solid #1e2130"}}>
@@ -2028,7 +2037,8 @@ function HsPanel(){
             <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Estates Follow-up</div>
             <div style={{fontSize:11,marginTop:3,color:"#6b7280"}}>Chases all open requests outstanding 14+ days · auto-sends 8th &amp; 22nd</div>
           </div>
-          <div style={{display:"flex",gap:6}}>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {lastFollowUp&&<span style={{fontSize:11,color:"#4b5563",marginRight:4}}>Last sent: {new Date(lastFollowUp.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}{lastFollowUp.count?` (${lastFollowUp.count} requests)`:""}</span>}
             <button onClick={async()=>{
               try{
                 const r=await fetch("/api/cron-followup?preview=true",{method:"POST"});
@@ -2037,6 +2047,18 @@ function HsPanel(){
                 else alert("No stale requests to preview.");
               }catch(e){alert("❌ "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
+            <button onClick={async()=>{
+              try{
+                const r=await fetch("/api/log-followup",{method:"POST"});
+                const d=await r.json();
+                if(d.ok){
+                  const log={date:new Date().toISOString().split("T")[0],count:d.updated};
+                  localStorage.setItem("fats_followup_log",JSON.stringify(log));
+                  setLastFollowUp(log);
+                  alert(`✅ Logged — ${d.updated} request${d.updated!==1?"s":""} marked as followed up today.`);
+                }else alert("❌ "+(d.error||"Unknown error"));
+              }catch(e){alert("❌ "+e.message);}
+            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#0a2218",color:"#20B07F",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>✅ Mark sent</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
