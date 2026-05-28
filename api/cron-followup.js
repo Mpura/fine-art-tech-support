@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 
   function cleanDesc(desc) {
     if (!desc) return "";
-    return desc.replace(/,?\s*Status been changed to:.*$/si, "").replace(/\n+/g, " ").trim().slice(0, 120);
+    return desc.replace(/,?\s*Status been changed to:.*$/si, "").replace(/\n+/g, " ").trim();
   }
 
   function cleanLoc(loc) {
