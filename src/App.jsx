@@ -3678,7 +3678,30 @@ export default function App() {
                   📦 {req.details.items}{req.dueDate&&<span style={{marginLeft:10}}>↩ Due: {fmtDate(req.dueDate)}</span>}
                 </div>
               )}
-              {req.typeId!=="equipment"&&Object.values(req.details||{}).some(v=>v&&!String(v).startsWith("Select"))&&(
+              {/* ── AV SETUP: structured detail card ── */}
+              {req.typeId==="avsetup"&&req.details&&(
+                <div style={{background:"#1a1d28",borderRadius:8,padding:"10px 12px",marginBottom:6,fontSize:12}}>
+                  <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"5px 14px",marginBottom:req.details.requirements?.length>0?10:0}}>
+                    {req.details.purpose&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Purpose</span><span style={{color:"#c9cdd6"}}>🎯 {req.details.purpose}</span></>}
+                    {req.details.venue&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Venue</span><span style={{color:"#c9cdd6"}}>📍 {req.details.venue}</span></>}
+                    {req.details.eventDate&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Event</span><span style={{color:"#c9cdd6"}}>📅 {fmtDate(req.details.eventDate)}{req.details.eventTime?` · ${req.details.eventTime}`:""}</span></>}
+                    {req.details.setupDate&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Setup</span><span style={{color:"#c9cdd6"}}>🔧 {fmtDate(req.details.setupDate)}{req.details.setupTime?` · ${req.details.setupTime}`:""}</span></>}
+                    {req.details.duration&&!String(req.details.duration).startsWith("Select")&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Duration</span><span style={{color:"#c9cdd6"}}>⏱ {req.details.duration}</span></>}
+                    {req.details.device&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Device</span><span style={{color:"#c9cdd6"}}>💻 {req.details.device}</span></>}
+                    {req.details.displayType&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Display</span><span style={{color:"#c9cdd6"}}>{req.details.displayType==="Screen / TV"?"📺":"📽️"} {req.details.displayType}{req.details.screenCount?` × ${req.details.screenCount}`:""}</span></>}
+                    {req.details.contentType&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Content</span><span style={{color:"#c9cdd6"}}>🎬 {req.details.contentType}</span></>}
+                    {req.details.audio&&req.details.audio!=="none"&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Audio</span><span style={{color:"#c9cdd6"}}>🔊 {req.details.audio}</span></>}
+                  </div>
+                  {req.details.requirements?.length>0&&(
+                    <div style={{borderTop:"0.5px solid #1e2130",paddingTop:8}}>
+                      {req.details.requirements.map((r,i)=>(
+                        <div key={i} style={{color:"#20B07F",marginBottom:4,lineHeight:1.4}}>✓ {r}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {req.typeId!=="equipment"&&req.typeId!=="avsetup"&&Object.values(req.details||{}).some(v=>v&&!String(v).startsWith("Select"))&&(
                 <div style={{fontSize:12,color:"#9ca3af",background:"#1a1d28",borderRadius:8,padding:"8px 10px",marginBottom:6,lineHeight:1.8}}>
                   {req.details.paperSize&&<span style={{marginRight:10}}>📐 {req.details.paperSize}</span>}
                   {req.details.paperType&&!req.details.paperType.startsWith("Select")&&<span style={{marginRight:10}}>🗒️ {req.details.paperType}</span>}
@@ -3703,17 +3726,6 @@ export default function App() {
                   {req.details.material3d&&!req.details.material3d.startsWith("Select")&&<span style={{marginRight:10}}>🧱 {req.details.material3d}</span>}
                   {req.details.infill&&!req.details.infill.startsWith("Select")&&<span style={{marginRight:10}}>{req.details.infill}</span>}
                   {req.details.dropOffDate&&<span style={{marginRight:10}}>📬 Drop-off: {req.details.dropOffDate}</span>}
-                  {req.typeId==="avsetup"&&req.details.purpose&&<span style={{marginRight:10}}>🎯 {req.details.purpose}</span>}
-                  {req.typeId==="avsetup"&&req.details.venue&&<span style={{marginRight:10}}>📍 {req.details.venue}</span>}
-                  {req.typeId==="avsetup"&&req.details.eventDate&&<span style={{marginRight:10}}>📅 Event: {fmtDate(req.details.eventDate)}{req.details.eventTime?` · ${req.details.eventTime}`:""}</span>}
-                  {req.typeId==="avsetup"&&req.details.setupDate&&<span style={{marginRight:10}}>🔧 Setup: {fmtDate(req.details.setupDate)}{req.details.setupTime?` · ${req.details.setupTime}`:""}</span>}
-                  {req.typeId==="avsetup"&&req.details.duration&&!String(req.details.duration).startsWith("Select")&&<span style={{marginRight:10}}>⏱ {req.details.duration}</span>}
-                  {req.typeId==="avsetup"&&req.details.device&&<span style={{marginRight:10}}>💻 {req.details.device}</span>}
-                  {req.typeId==="avsetup"&&req.details.displayType&&<span style={{marginRight:10}}>{req.details.displayType==="Screen / TV"?"📺":"📽️"} {req.details.displayType}</span>}
-                  {req.typeId==="avsetup"&&req.details.screenCount&&<span style={{marginRight:10}}>× {req.details.screenCount}</span>}
-                  {req.typeId==="avsetup"&&req.details.requirements?.length>0&&req.details.requirements.map((r,i)=>(
-                    <span key={i} style={{display:"inline-block",marginRight:6,marginBottom:2,background:"#0a2218",color:"#20B07F",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:500}}>✓ {r}</span>
-                  ))}
                 </div>
               )}
               {req.notes&&<div style={{fontSize:13,color:"#9ca3af",background:"#1a1d28",borderRadius:8,padding:"8px 10px",marginBottom:8}}>"{req.notes}"</div>}
