@@ -2027,7 +2027,7 @@ function HsPanel(){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8,paddingTop:12,borderTop:"0.5px solid #1e2130"}}>
           <div>
             <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Estates Follow-up</div>
-            <div style={{fontSize:11,marginTop:3,color:"#6b7280"}}>Chases all open requests outstanding 14+ days · auto-sends 8th &amp; 22nd</div>
+            <div style={{fontSize:11,marginTop:3,color:"#6b7280"}}>{(()=>{if(!lastFollowUp)return"Chases all open requests outstanding 14+ days";const next=new Date(lastFollowUp.date+"T00:00:00");next.setDate(next.getDate()+14);const daysLeft=Math.ceil((next-new Date())/86400000);const nextLabel=next.toLocaleDateString("en-ZA",{day:"2-digit",month:"short"});return daysLeft<=0?"Chases all open requests outstanding 14+ days · next chase overdue":`Chases all open requests outstanding 14+ days · next chase: ${nextLabel} (${daysLeft}d)`;})()}</div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
             {lastFollowUp&&<span style={{fontSize:11,color:"#4b5563",marginRight:4}}>Last sent: {new Date(lastFollowUp.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}{lastFollowUp.count?` · ${lastFollowUp.count} requests`:""}{lastFollowUp.ticket?` · ${lastFollowUp.ticket}`:""}</span>}
