@@ -1629,6 +1629,7 @@ function HsPanel(){
   const [lastStaffReport,setLastStaffReport]=useState(()=>{try{return JSON.parse(localStorage.getItem("fats_staffreport_log")||"null");}catch{return null;}});
   const [showTicketInput,setShowTicketInput]=useState(false);
   const [ticketInput,setTicketInput]=useState("");
+  const [openMenuId,setOpenMenuId]=useState(null);
 
   function parseRUEmail(text){
     const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
@@ -1846,10 +1847,7 @@ function HsPanel(){
                 <span style={{...statusStyle[req.Status]||{bg:"#1a1d28",color:"#9ca3af"},background:(statusStyle[req.Status]||{bg:"#1a1d28"}).bg,color:(statusStyle[req.Status]||{color:"#9ca3af"}).color,fontSize:11,fontWeight:600,padding:"3px 8px",borderRadius:6,whiteSpace:"nowrap"}}>{req.Status}</span>
               </div>
             </div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>
-              {["Submitted to Estates","In Progress","Closed"].filter(s=>s!==req.Status).map(s=>(
-                <button key={s} onClick={()=>updateMaintStatus(req,s)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ {s}</button>
-              ))}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,alignItems:"center"}}>
               {req.Status!=="Resolved"&&(resolvingId===req.id?(
                 <span style={{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}}>
                   <input type="date" value={resolveDate} onChange={e=>setResolveDate(e.target.value)} style={{...ipt,padding:"3px 7px",fontSize:11,width:"auto"}}/>
@@ -1857,10 +1855,21 @@ function HsPanel(){
                   <button onClick={()=>{setResolvingId(null);setResolveDate("");}} style={{padding:"4px 8px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#6b7280",fontSize:11,fontFamily:"inherit"}}>✕</button>
                 </span>
               ):(
-                <button onClick={()=>{setResolvingId(req.id);setResolveDate(todayDate());}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ Resolved</button>
+                <button onClick={()=>{setResolvingId(req.id);setResolveDate(todayDate());setOpenMenuId(null);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:11,fontFamily:"inherit"}}>→ Resolved</button>
               ))}
-              <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||"",emailDateTime:req.EmailDateTime||""});setShowMaintForm(true);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
-              <button onClick={()=>deleteMaintReq(req)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:11,fontFamily:"inherit"}}>🗑 Delete</button>
+              <button onClick={()=>{setEditMaint(req);setMaintForm({description:req.Description||"",location:req.Location||"",problemType:req.ProblemType||"",universityRef:req.UniversityRef||"",dateLogged:req.DateLogged||todayDate(),dateSubmitted:req.DateSubmitted||"",notes:req.Notes||"",emailDateTime:req.EmailDateTime||""});setShowMaintForm(true);setOpenMenuId(null);}} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:11,fontFamily:"inherit"}}>✏ Edit</button>
+              <div style={{position:"relative",marginLeft:"auto"}}>
+                <button onClick={()=>setOpenMenuId(openMenuId===req.id?null:req.id)} style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:openMenuId===req.id?"#1e2130":"#141720",cursor:"pointer",color:"#6b7280",fontSize:15,fontFamily:"inherit",lineHeight:1}}>⋯</button>
+                {openMenuId===req.id&&(
+                  <div style={{position:"absolute",bottom:"calc(100% + 6px)",right:0,zIndex:100,background:"#1a1d28",border:"0.5px solid #1e2130",borderRadius:9,padding:"4px",minWidth:175,boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
+                    {["Submitted to Estates","In Progress","Closed"].filter(s=>s!==req.Status).map(s=>(
+                      <button key={s} onClick={()=>{updateMaintStatus(req,s);setOpenMenuId(null);}} style={{display:"block",width:"100%",textAlign:"left",padding:"7px 10px",border:"none",background:"transparent",cursor:"pointer",color:"#9ca3af",fontSize:12,fontFamily:"inherit",borderRadius:6}}>→ {s}</button>
+                    ))}
+                    <div style={{borderTop:"0.5px solid #1e2130",margin:"3px 0"}}/>
+                    <button onClick={()=>{deleteMaintReq(req);setOpenMenuId(null);}} style={{display:"block",width:"100%",textAlign:"left",padding:"7px 10px",border:"none",background:"transparent",cursor:"pointer",color:"#f87171",fontSize:12,fontFamily:"inherit",borderRadius:6}}>🗑 Delete</button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
