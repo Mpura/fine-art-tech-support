@@ -1975,6 +1975,7 @@ function HsPanel(){
       const resolved=inPeriod.filter(r=>r.Status==="Resolved");
       const outstanding=inPeriod.filter(r=>!["Resolved","Closed"].includes(r.Status));
       const closed=inPeriod.filter(r=>r.Status==="Closed");
+      const followedUp=inPeriod.filter(r=>r.LastFollowUpDate);
       const avgDays=resolved.length?Math.round(resolved.reduce((sum,r)=>{
         if(!r.DateSubmitted||!r.DateResolved)return sum;
         return sum+Math.floor((new Date(r.DateResolved+"T00:00:00")-new Date(r.DateSubmitted+"T00:00:00"))/86400000);
@@ -2087,7 +2088,7 @@ function HsPanel(){
         {inPeriod.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14,border:"0.5px dashed #1e2130",borderRadius:10}}>No requests in this period</div>}
         {inPeriod.length>0&&(<>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-            {[["Total opened",inPeriod.length,"#e0e3ea","#1a1d28","all"],["Resolved",resolved.length,"#20B07F","#0a2218","resolved"],["Outstanding",outstanding.length,"#d4851a","#2a1f0a","outstanding"],["Closed",closed.length,"#6b7280","#141720","closed"]].map(([l,n,col,bg,fKey])=>{
+            {[["Total opened",inPeriod.length,"#e0e3ea","#1a1d28","all"],["Resolved",resolved.length,"#20B07F","#0a2218","resolved"],["Outstanding",outstanding.length,"#d4851a","#2a1f0a","outstanding"],["Followed Up",followedUp.length,"#3b82f6","#0d1a2e","followedup"]].map(([l,n,col,bg,fKey])=>{
               const active=reportFilter===fKey||(fKey==="outstanding"&&reportFilter===null);
               return(
                 <div key={l} onClick={()=>setReportFilter(fKey==="outstanding"&&reportFilter===null?null:fKey)} style={{background:bg,borderRadius:10,padding:"12px 14px",border:`0.5px solid ${active?col:col+"22"}`,cursor:"pointer",outline:active?`1.5px solid ${col}`:"none",transition:"outline 0.1s"}}>
@@ -2113,8 +2114,8 @@ function HsPanel(){
             </div>
           </>)}
           {(()=>{
-            const filterLabel=reportFilter==="resolved"?"Resolved":reportFilter==="closed"?"Closed":reportFilter==="all"?"All":outstanding.length>0?"Outstanding":null;
-            const filterList=reportFilter==="resolved"?resolved:reportFilter==="closed"?closed:reportFilter==="all"?inPeriod:outstanding;
+            const filterLabel=reportFilter==="resolved"?"Resolved":reportFilter==="followedup"?"Followed Up":reportFilter==="all"?"All":outstanding.length>0?"Outstanding":null;
+            const filterList=reportFilter==="resolved"?resolved:reportFilter==="followedup"?followedUp:reportFilter==="all"?inPeriod:outstanding;
             if(!filterLabel||filterList.length===0)return null;
             return(<>
             <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:8}}>{filterLabel} requests <span style={{fontWeight:400,color:"#6b7280",fontSize:12}}>({filterList.length})</span></div>
