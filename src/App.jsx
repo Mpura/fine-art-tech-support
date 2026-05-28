@@ -1630,6 +1630,7 @@ function HsPanel(){
   const [showTicketInput,setShowTicketInput]=useState(false);
   const [ticketInput,setTicketInput]=useState("");
   const [openMenuId,setOpenMenuId]=useState(null);
+  const [archiveOpen,setArchiveOpen]=useState(false);
 
   function parseRUEmail(text){
     const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
@@ -1887,9 +1888,9 @@ function HsPanel(){
         );
       })}
       {closedReqs.length>0&&(
-        <details style={{marginTop:8}}>
+        <details style={{marginTop:8}} open={archiveOpen} onToggle={e=>setArchiveOpen(e.target.open)}>
           <summary style={{fontSize:13,color:"#4b5563",cursor:"pointer",padding:"10px 14px",background:"#0f1117",borderRadius:8,border:"0.5px solid #1e2130",listStyle:"none",display:"flex",alignItems:"center",gap:8,userSelect:"none"}}>
-            <span style={{fontSize:11}}>▶</span> Archive — {closedReqs.length} resolved / closed
+            <span style={{fontSize:11,display:"inline-block",transition:"transform 0.2s",transform:archiveOpen?"rotate(90deg)":"rotate(0deg)"}}>▶</span> Archive — {closedReqs.length} resolved / closed
           </summary>
           <div style={{marginTop:8}}>
             {closedReqs.map(req=>(
@@ -2014,7 +2015,7 @@ function HsPanel(){
       });
       const byType={};
       inPeriod.forEach(r=>{const t=r.ProblemType||"Other";byType[t]=(byType[t]||0)+1;});
-      const periods=[["month","This Month"],["lastmonth","Last Month"],["3months","Last 3 Months"],["term","This Term"],["all","All Time"]];
+      const periods=[["month","This Month"],["term","This Term"],["all","All Time"]];
       const nextSendDate=(()=>{
         const now=new Date();
         const earliest=new Date("2026-06-01T07:00:00");
