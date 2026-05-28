@@ -1627,6 +1627,8 @@ function HsPanel(){
   const [reportFilter,setReportFilter]=useState(null);
   const [lastFollowUp,setLastFollowUp]=useState(()=>{try{return JSON.parse(localStorage.getItem("fats_followup_log")||"null");}catch{return null;}});
   const [lastStaffReport,setLastStaffReport]=useState(()=>{try{return JSON.parse(localStorage.getItem("fats_staffreport_log")||"null");}catch{return null;}});
+  const [showTicketInput,setShowTicketInput]=useState(false);
+  const [ticketInput,setTicketInput]=useState("");
 
   function parseRUEmail(text){
     const id=(text.match(/ID[:\s]+(\d+)/i)||[])[1]||"";
@@ -2006,82 +2008,89 @@ function HsPanel(){
         return{daysLeft,label,isWarningDay,isSendDay};
       })();
       return(<>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
-          <div>
-            <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Maintenance Report</div>
-            <div style={{fontSize:11,marginTop:3,color:nextSendDate.isSendDay?"#20B07F":nextSendDate.isWarningDay?"#d97706":"#6b7280"}}>
-              {nextSendDate.isSendDay
-                ? "📧 Report sends today at 07:00"
-                : nextSendDate.isWarningDay
-                  ? `⏰ Report sends tomorrow (${nextSendDate.label}) — check everything is up to date`
-                  : `Next report: ${nextSendDate.label} · ${nextSendDate.daysLeft} day${nextSendDate.daysLeft!==1?"s":""} away`}
+        <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Maintenance Report</div>
+              <div style={{fontSize:11,marginTop:3,color:nextSendDate.isSendDay?"#20B07F":nextSendDate.isWarningDay?"#d97706":"#6b7280"}}>
+                {nextSendDate.isSendDay
+                  ? "📧 Report sends today at 07:00"
+                  : nextSendDate.isWarningDay
+                    ? `⏰ Report sends tomorrow (${nextSendDate.label}) — check everything is up to date`
+                    : `Next report: ${nextSendDate.label} · ${nextSendDate.daysLeft} day${nextSendDate.daysLeft!==1?"s":""} away`}
+              </div>
+              {lastStaffReport&&<div style={{fontSize:11,color:"#6b7280",marginTop:4}}>Last sent: {new Date(lastStaffReport.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}</div>}
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              <button onClick={async()=>{
+                try{
+                  const r=await fetch("/api/staff-report?preview=true",{method:"POST"});
+                  const d=await r.json();
+                  if(d.html){
+                    const w=window.open("","_blank");
+                    w.document.write(d.html);
+                    w.document.close();
+                  }else alert("❌ Could not load preview: "+(d.error||"Unknown error"));
+                }catch(e){alert("❌ Network error: "+e.message);}
+              }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
+              <button onClick={()=>{
+                const now=new Date();
+                const today=now.toISOString().split("T")[0];
+                const y=now.getFullYear(),mo=now.getMonth();
+                const earliest=new Date("2026-06-01T07:00:00");
+                const cycleCandidates=[new Date(y,mo,1,7,0,0),new Date(y,mo,15,7,0,0),new Date(y,mo+1,1,7,0,0),new Date(y,mo+1,15,7,0,0)];
+                const cycle=(cycleCandidates.find(d=>d>=now&&d>=earliest)||cycleCandidates[0]).toISOString().split("T")[0];
+                const log={date:today,cycle};
+                localStorage.setItem("fats_staffreport_log",JSON.stringify(log));
+                setLastStaffReport(log);
+              }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#0a2218",color:"#20B07F",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>✅ Mark sent</button>
             </div>
           </div>
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {lastStaffReport&&<span style={{fontSize:11,color:"#4b5563",marginRight:4}}>Last sent: {new Date(lastStaffReport.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}</span>}
-            <button onClick={async()=>{
-              try{
-                const r=await fetch("/api/staff-report?preview=true",{method:"POST"});
-                const d=await r.json();
-                if(d.html){
-                  const w=window.open("","_blank");
-                  w.document.write(d.html);
-                  w.document.close();
-                }else alert("❌ Could not load preview: "+(d.error||"Unknown error"));
-              }catch(e){alert("❌ Network error: "+e.message);}
-            }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
-<button onClick={()=>{
-              const now=new Date();
-              const today=now.toISOString().split("T")[0];
-              const y=now.getFullYear(),mo=now.getMonth();
-              const earliest=new Date("2026-06-01T07:00:00");
-              const cycleCandidates=[new Date(y,mo,1,7,0,0),new Date(y,mo,15,7,0,0),new Date(y,mo+1,1,7,0,0),new Date(y,mo+1,15,7,0,0)];
-              const cycle=(cycleCandidates.find(d=>d>=now&&d>=earliest)||cycleCandidates[0]).toISOString().split("T")[0];
-              const log={date:today,cycle};
-              localStorage.setItem("fats_staffreport_log",JSON.stringify(log));
-              setLastStaffReport(log);
-              alert("✅ Logged — staff report marked as sent today.");
-            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#0a2218",color:"#20B07F",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>✅ Mark sent</button>
-          </div>
         </div>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8,paddingTop:12,borderTop:"0.5px solid #1e2130"}}>
-          <div>
-            <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Estates Follow-up</div>
-            <div style={{fontSize:11,marginTop:3,color:"#6b7280"}}>{(()=>{if(!lastFollowUp)return"Chases all open requests outstanding 14+ days";const next=new Date(lastFollowUp.date+"T00:00:00");next.setDate(next.getDate()+14);const daysLeft=Math.ceil((next-new Date())/86400000);const nextLabel=next.toLocaleDateString("en-ZA",{day:"2-digit",month:"short"});return daysLeft<=0?"Chases all open requests outstanding 14+ days · next chase overdue":`Chases all open requests outstanding 14+ days · next chase: ${nextLabel} (${daysLeft}d)`;})()}</div>
-          </div>
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {lastFollowUp&&<span style={{fontSize:11,color:"#4b5563",marginRight:4}}>Last sent: {new Date(lastFollowUp.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}{lastFollowUp.count?` · ${lastFollowUp.count} requests`:""}{lastFollowUp.ticket?` · ${lastFollowUp.ticket}`:""}</span>}
-            <button onClick={async()=>{
-              try{
-                const r=await fetch("/api/cron-followup?preview=true",{method:"POST"});
-                const d=await r.json();
-                if(d.html){const w=window.open("","_blank");w.document.write(d.html);w.document.close();}
-                else alert("No stale requests to preview.");
-              }catch(e){alert("❌ "+e.message);}
-            }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
-            <button onClick={async()=>{
-              const ticket=window.prompt("Paste the Facilities RT ticket number from their auto-reply (e.g. ru.ac.za #805652):");
-              if(ticket===null)return;
-              const today=new Date().toISOString().split("T")[0];
-              // If already logged today, just update the ticket — don't re-hit Airtable
-              if(lastFollowUp&&lastFollowUp.date===today){
-                const log={...lastFollowUp,ticket:ticket.trim()||null};
-                localStorage.setItem("fats_followup_log",JSON.stringify(log));
-                setLastFollowUp(log);
-                alert("✅ Ticket reference saved.");
-                return;
-              }
-              try{
-                const r=await fetch("/api/log-followup",{method:"POST"});
-                const d=await r.json();
-                if(d.ok){
-                  const log={date:today,count:d.updated,ticket:ticket.trim()||null};
-                  localStorage.setItem("fats_followup_log",JSON.stringify(log));
-                  setLastFollowUp(log);
-                  alert(`✅ Logged — ${d.updated} request${d.updated!==1?"s":""} marked as followed up today.`);
-                }else alert("❌ "+(d.error||"Unknown error"));
-              }catch(e){alert("❌ "+e.message);}
-            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#0a2218",color:"#20B07F",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>✅ Mark sent</button>
+        <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"14px 16px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#e0e3ea"}}>Estates Follow-up</div>
+              <div style={{fontSize:11,marginTop:3,color:"#6b7280"}}>{(()=>{if(!lastFollowUp)return"Chases all open requests outstanding 14+ days";const next=new Date(lastFollowUp.date+"T00:00:00");next.setDate(next.getDate()+14);const daysLeft=Math.ceil((next-new Date())/86400000);const nextLabel=next.toLocaleDateString("en-ZA",{day:"2-digit",month:"short"});return daysLeft<=0?"Chases all open requests outstanding 14+ days · next chase overdue":`Chases all open requests outstanding 14+ days · next chase: ${nextLabel} (${daysLeft}d)`;})()}</div>
+              {lastFollowUp&&<div style={{fontSize:11,color:"#6b7280",marginTop:4}}>Last sent: {new Date(lastFollowUp.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}{lastFollowUp.count?` · ${lastFollowUp.count} req`:""}{lastFollowUp.ticket?` · ${lastFollowUp.ticket}`:""}</div>}
+            </div>
+            <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+              <button onClick={async()=>{
+                try{
+                  const r=await fetch("/api/cron-followup?preview=true",{method:"POST"});
+                  const d=await r.json();
+                  if(d.html){const w=window.open("","_blank");w.document.write(d.html);w.document.close();}
+                  else alert("No stale requests to preview.");
+                }catch(e){alert("❌ "+e.message);}
+              }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
+              {showTicketInput?(
+                <span style={{display:"flex",gap:5,alignItems:"center"}}>
+                  <input value={ticketInput} onChange={e=>setTicketInput(e.target.value)} placeholder="RT ticket, e.g. #805652" style={{...ipt,padding:"5px 9px",fontSize:11,width:170}} autoFocus/>
+                  <button onClick={async()=>{
+                    const today=new Date().toISOString().split("T")[0];
+                    if(lastFollowUp&&lastFollowUp.date===today){
+                      const log={...lastFollowUp,ticket:ticketInput.trim()||null};
+                      localStorage.setItem("fats_followup_log",JSON.stringify(log));
+                      setLastFollowUp(log);
+                    }else{
+                      try{
+                        const r=await fetch("/api/log-followup",{method:"POST"});
+                        const d=await r.json();
+                        if(d.ok){
+                          const log={date:today,count:d.updated,ticket:ticketInput.trim()||null};
+                          localStorage.setItem("fats_followup_log",JSON.stringify(log));
+                          setLastFollowUp(log);
+                        }else alert("❌ "+(d.error||"Unknown error"));
+                      }catch(e){alert("❌ "+e.message);}
+                    }
+                    setShowTicketInput(false);setTicketInput("");
+                  }} style={{padding:"5px 10px",borderRadius:7,border:"none",background:"#20B07F",cursor:"pointer",color:"#fff",fontSize:11,fontFamily:"inherit"}}>✓</button>
+                  <button onClick={()=>{setShowTicketInput(false);setTicketInput("");}} style={{padding:"5px 8px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#6b7280",fontSize:11,fontFamily:"inherit"}}>✕</button>
+                </span>
+              ):(
+                <button onClick={()=>{setShowTicketInput(true);setTicketInput(lastFollowUp?.ticket||"");}} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#0a2218",color:"#20B07F",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>✅ Mark sent</button>
+              )}
+            </div>
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
