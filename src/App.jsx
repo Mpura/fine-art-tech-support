@@ -2168,7 +2168,7 @@ export default function App() {
 
   // AV setup wizard state
   const [avStep, setAvStep] = useState(0);
-  const [avWiz, setAvWiz] = useState({purpose:"",venue:"",venueOther:"",eventDate:"",eventTime:"",setupDate:"",setupTime:"",duration:"",device:"",screenCount:"1",contentType:"",audio:""});
+  const [avWiz, setAvWiz] = useState({purpose:"",venue:"",venueOther:"",eventDate:"",eventTime:"",setupDate:"",setupTime:"",duration:"",device:"",displayType:"",screenCount:"1",contentType:"",audio:""});
   const setAv = (key,val) => setAvWiz(w=>({...w,[key]:val}));
   function avWizStepOk(step){
     if(step===0)return !!avWiz.purpose;
@@ -2176,20 +2176,31 @@ export default function App() {
     if(step===2)return !!avWiz.eventDate&&!!avWiz.setupDate;
     if(step===3)return !!avWiz.device;
     if(step===4)return !!avWiz.contentType;
-    if(step===5)return !!avWiz.screenCount&&parseInt(avWiz.screenCount)>0;
+    if(step===5)return !!avWiz.displayType&&!!avWiz.screenCount&&parseInt(avWiz.screenCount)>0;
     if(step===6)return !!avWiz.audio;
     return true;
   }
   function deriveAVRequirements(w){
     const reqs=[];
     const n=parseInt(w.screenCount)||1;
-    if(n>2)reqs.push({icon:"⚠️",label:`${n} × projectors / screens — complex setup, Tech Support will advise`,warn:true});
-    else reqs.push({icon:"📽️",label:`${n} × projector${n>1?"s":""}`});
-    if(w.device==="mediaplayer")reqs.push({icon:"📺",label:"Media player (USB) — bring content on USB stick"});
-    else if(w.device==="laptop")reqs.push({icon:"🔌",label:"Adapter may be needed — bring your laptop to confirm"});
-    else if(w.device==="phone")reqs.push({icon:"🔌",label:"Phone / tablet adapter — check availability"});
-    else if(w.device==="unknown")reqs.push({icon:"🔌",label:"Adapter TBC — Tech Support will advise"});
-    reqs.push({icon:"🔗",label:"HDMI cable(s)"});
+    const dt=w.displayType||"projector";
+    // Projector requirements
+    if(dt==="projector"||dt==="both"){
+      if(n>2)reqs.push({icon:"⚠️",label:`${n} × projectors — complex setup, Tech Support will advise`,warn:true});
+      else reqs.push({icon:"📽️",label:`${n} × projector${n>1?"s":""}`});
+      reqs.push({icon:"🔗",label:"HDMI cable(s)"});
+      if(w.device==="mediaplayer")reqs.push({icon:"🎞️",label:"Media player (USB) — bring content on USB stick"});
+      else if(w.device==="laptop")reqs.push({icon:"🔌",label:"Adapter may be needed — bring your laptop to confirm"});
+      else if(w.device==="phone")reqs.push({icon:"🔌",label:"Phone / tablet adapter — check availability"});
+      else if(w.device==="unknown")reqs.push({icon:"🔌",label:"Adapter TBC — Tech Support will advise"});
+    }
+    // Screen / TV requirements
+    if(dt==="screen"||dt==="both"){
+      reqs.push({icon:"📺",label:`${n} × screen${n>1?"s":""} / TV — size to be confirmed with Tech Support`});
+      reqs.push({icon:"🔌",label:"Power / extension lead — plug points to be confirmed at venue"});
+      reqs.push({icon:"🎬",label:"Video format: MP4 (H.264) recommended for USB playback"});
+    }
+    // Audio
     if(w.audio==="music"||w.audio==="video")reqs.push({icon:"🔊",label:"Audio output — check availability"});
     else if(w.audio==="performance")reqs.push({icon:"🎤",label:"PA + microphone — check availability"});
     return reqs;
@@ -2317,7 +2328,7 @@ export default function App() {
   },[view]);
   useEffect(()=>{const handle=()=>setIsDesktop(window.innerWidth>=900);window.addEventListener("resize",handle);return()=>window.removeEventListener("resize",handle);},[]);
   // Reset AV wizard whenever user selects a different request type
-  useEffect(()=>{setAvStep(0);setAvWiz({purpose:"",venue:"",venueOther:"",eventDate:"",eventTime:"",setupDate:"",setupTime:"",duration:"",device:"",screenCount:"1",contentType:"",audio:""});},[selType]);
+  useEffect(()=>{setAvStep(0);setAvWiz({purpose:"",venue:"",venueOther:"",eventDate:"",eventTime:"",setupDate:"",setupTime:"",duration:"",device:"",displayType:"",screenCount:"1",contentType:"",audio:""});},[selType]);
 
 
   useEffect(()=>{
@@ -2340,7 +2351,8 @@ export default function App() {
     if(selType==="avsetup"){
       const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
       const DEV_LABELS={"mediaplayer":"Dept media player (USB)","laptop":"Own laptop","phone":"Phone / tablet","unknown":"TBC"};
-      return{purpose:avWiz.purpose,venue:VENUE_LABELS[avWiz.venue]||avWiz.venue,eventDate:avWiz.eventDate,eventTime:avWiz.eventTime,setupDate:avWiz.setupDate,setupTime:avWiz.setupTime,duration:avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"",device:DEV_LABELS[avWiz.device]||avWiz.device,screenCount:avWiz.screenCount,contentType:avWiz.contentType,audio:avWiz.audio,requirements:deriveAVRequirements(avWiz).map(r=>r.label)};
+      const DT_LABELS={"projector":"Projector","screen":"Screen / TV","both":"Projector + Screen"};
+      return{purpose:avWiz.purpose,venue:VENUE_LABELS[avWiz.venue]||avWiz.venue,eventDate:avWiz.eventDate,eventTime:avWiz.eventTime,setupDate:avWiz.setupDate,setupTime:avWiz.setupTime,duration:avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"",device:DEV_LABELS[avWiz.device]||avWiz.device,displayType:DT_LABELS[avWiz.displayType]||avWiz.displayType,screenCount:avWiz.screenCount,contentType:avWiz.contentType,audio:avWiz.audio,requirements:deriveAVRequirements(avWiz).map(r=>r.label)};
     }
     return{};
   }
@@ -3185,7 +3197,7 @@ export default function App() {
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Setup requirements</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.setupNeeds} onChange={e=>setF("setupNeeds",e.target.value)} placeholder="e.g. 6 tables, chairs for 30, projector, background lighting"/></div>
       </>)}
       {type.id==="avsetup"&&(()=>{
-        const STEP_LABELS=["Purpose","Venue","Date & time","Content source","Content","Screens","Audio","Review"];
+        const STEP_LABELS=["Purpose","Venue","Date & time","Content source","Content","Display","Audio","Review"];
         const PURPOSE_OPTS=[["exam","🎓","Assessment or degree show","Mid-year, end-of-year, or degree show"],["gallery","🖼️","Gallery or exhibition install","Looping video, immersive projection"],["class","📚","In-class or lecture presentation","Slides, demo or tutorial"],["performance","🎭","Performance or screening","Film screening, live performance"],["workshop","🔧","Workshop or demonstration","Practical session, live demo"],["other","💬","Other / not sure","Describe in notes at the end"]];
         const VENUE_OPTS=[["sculpture","🗿","Sculpture studio",""],["painting","🎨","Painting studio",""],["da","💻","DA studio","Digital Arts"],["print","🖨️","Print studio",""],["year1","1️⃣","1st year studio","Main Fine Art building"],["year2","2️⃣","2nd year studio","Main Fine Art building"],["gallery","🖼️","Main gallery","Main Fine Art building"],["seminar","📐","Seminar room","Main Fine Art building"],["outdoor","🌳","Outdoor space","Cables and power may be limited"],["other","📍","Other — describe below",""]];
         const DEVICE_OPTS=[["mediaplayer","📺","Department media player","Content played from USB stick via dept player","Bring content on USB"],["laptop","💻","My own laptop","MacBook, Windows, or other — bring your laptop","Adapter may be needed"],["phone","📱","Phone or tablet","iPhone, Android, iPad","Adapter likely needed"],["unknown","🤔","Not sure yet","Tech Support will advise when reviewing your request","To confirm at collection"]];
@@ -3213,6 +3225,7 @@ export default function App() {
         const PURPOSE_LABELS={"exam":"Assessment / degree show","gallery":"Gallery/exhibition","class":"In-class presentation","performance":"Performance/screening","workshop":"Workshop","other":"Other"};
         const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
         const DEV_LABELS={"mediaplayer":"Dept media player (USB)","laptop":"Own laptop","phone":"Phone / tablet","unknown":"TBC"};
+        const DT_LABELS={"projector":"Projector","screen":"Screen / TV","both":"Projector + Screen"};
         return(<>
           {/* Progress bar */}
           <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:18}}>
@@ -3297,18 +3310,32 @@ export default function App() {
             {CONTENT_OPTS.map(([v,icon,label,sub])=><SelBtn key={v} val={v} cur={avWiz.contentType} onSel={p=>setAv("contentType",p)} icon={icon} label={label} sub={sub}/>)}
           </>)}
 
-          {/* Step 5: Screen count */}
+          {/* Step 5: Display type + count */}
           {avStep===5&&(<>
-            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>How many screens or projections do you need?</div>
-            <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Count every surface you want to show content on — whether it's a projected image on a wall, a physical screen, or a TV. Each one needs its own projector or display device.</div>
-            <div style={{background:"#0a2218",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#4ade80",marginBottom:14}}>📽️ The department has <strong>2 projectors</strong> available. Physical screens and TVs may also be requested — Tech Support will advise on availability.</div>
-            <input type="number" min="1" max="20" style={{...ipt,fontSize:22,fontWeight:600,textAlign:"center",padding:"14px"}} value={avWiz.screenCount} onChange={e=>setAv("screenCount",e.target.value)} placeholder="e.g. 2"/>
-            {avWiz.screenCount&&parseInt(avWiz.screenCount)>2&&(
-              <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#d4851a",marginTop:10}}>⚠️ More than 2 screens is a complex setup that needs early planning. Your request will be submitted so there's a record — Tech Support will contact you to discuss.</div>
-            )}
-            {avWiz.screenCount&&parseInt(avWiz.screenCount)===2&&(
-              <div style={{background:"#0a1e35",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#3b82f6",marginTop:10}}>📋 2 screens uses all available projectors — make sure to book well in advance.</div>
-            )}
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>What type of display do you need?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:14}}>This determines what equipment is needed for your setup.</div>
+            {[["projector","📽️","Projector","Image projected onto a wall or ceiling surface"],["screen","📺","Screen / TV","Physical display — various sizes available, plays from USB or HDMI"],["both","🔀","Both","A projector and a physical screen / TV"]].map(([v,icon,label,sub])=><SelBtn key={v} val={v} cur={avWiz.displayType} onSel={p=>setAv("displayType",p)} icon={icon} label={label} sub={sub}/>)}
+
+            {avWiz.displayType&&(<>
+              <div style={{fontSize:13,color:"#9ca3af",marginTop:16,marginBottom:6,fontWeight:600}}>How many {avWiz.displayType==="projector"?"projectors":avWiz.displayType==="screen"?"screens / TVs":"displays in total"}?</div>
+              <input type="number" min="1" max="20" style={{...ipt,fontSize:22,fontWeight:600,textAlign:"center",padding:"14px"}} value={avWiz.screenCount} onChange={e=>setAv("screenCount",e.target.value)} placeholder="e.g. 1"/>
+
+              {/* Projector stock warnings */}
+              {(avWiz.displayType==="projector"||avWiz.displayType==="both")&&avWiz.screenCount&&parseInt(avWiz.screenCount)>2&&(
+                <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#d4851a",marginTop:10}}>⚠️ More than 2 projectors is a complex setup that needs early planning. Submit the request — Tech Support will contact you to discuss.</div>
+              )}
+              {(avWiz.displayType==="projector"||avWiz.displayType==="both")&&avWiz.screenCount&&parseInt(avWiz.screenCount)===2&&(
+                <div style={{background:"#0a1e35",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#3b82f6",marginTop:10}}>📋 2 projectors uses the full department stock — book well in advance.</div>
+              )}
+              {(avWiz.displayType==="projector"||avWiz.displayType==="both")&&avWiz.screenCount&&parseInt(avWiz.screenCount)===1&&(
+                <div style={{background:"#0a1e35",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#3b82f6",marginTop:10}}>📽️ 1 projector available — Tech Support will confirm.</div>
+              )}
+
+              {/* Screen advisory */}
+              {(avWiz.displayType==="screen"||avWiz.displayType==="both")&&(
+                <div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#4ade80",marginTop:10}}>📺 Screens are available in different sizes. Add a size preference in the notes at the end if you have one — otherwise Tech Support will advise.</div>
+              )}
+            </>)}
           </>)}
 
           {/* Step 6: Audio */}
@@ -3325,7 +3352,7 @@ export default function App() {
             <div style={{background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"12px 14px",marginBottom:10}}>
               <div style={{fontSize:11,color:"#3b82f6",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Your event</div>
               <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"5px 14px"}}>
-                {[["Purpose",PURPOSE_LABELS[avWiz.purpose]||avWiz.purpose],["Venue",VENUE_LABELS[avWiz.venue]],["Event date",avWiz.eventDate?fmtDate(avWiz.eventDate):"Not set"],["Event time",avWiz.eventTime||"Not specified"],["Setup date",avWiz.setupDate?fmtDate(avWiz.setupDate):"Not set"],["Setup time",avWiz.setupTime||"Not specified"],["Duration",avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"Not specified"],["Device",DEV_LABELS[avWiz.device]||avWiz.device]].filter(([,v])=>v&&v!=="Not set"&&v!=="Not specified").map(([k,v])=>(
+                {[["Purpose",PURPOSE_LABELS[avWiz.purpose]||avWiz.purpose],["Venue",VENUE_LABELS[avWiz.venue]],["Event date",avWiz.eventDate?fmtDate(avWiz.eventDate):"Not set"],["Event time",avWiz.eventTime||"Not specified"],["Setup date",avWiz.setupDate?fmtDate(avWiz.setupDate):"Not set"],["Setup time",avWiz.setupTime||"Not specified"],["Duration",avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"Not specified"],["Display",DT_LABELS[avWiz.displayType]||"Not set"],["Count",avWiz.screenCount||"Not set"],["Device",DEV_LABELS[avWiz.device]||avWiz.device]].filter(([,v])=>v&&v!=="Not set"&&v!=="Not specified").map(([k,v])=>(
                   <><span key={k+"k"} style={{fontSize:12,color:"#4b5563",whiteSpace:"nowrap"}}>{k}</span><span key={k+"v"} style={{fontSize:12,color:"#c9cdd6"}}>{v}</span></>
                 ))}
               </div>
@@ -3681,7 +3708,8 @@ export default function App() {
                   {req.typeId==="avsetup"&&req.details.setupDate&&<span style={{marginRight:10}}>🔧 Setup: {fmtDate(req.details.setupDate)}{req.details.setupTime?` · ${req.details.setupTime}`:""}</span>}
                   {req.typeId==="avsetup"&&req.details.duration&&!String(req.details.duration).startsWith("Select")&&<span style={{marginRight:10}}>⏱ {req.details.duration}</span>}
                   {req.typeId==="avsetup"&&req.details.device&&<span style={{marginRight:10}}>💻 {req.details.device}</span>}
-                  {req.typeId==="avsetup"&&req.details.screenCount&&<span style={{marginRight:10}}>📽️ {req.details.screenCount} screen{req.details.screenCount!=="1"?"s":""}</span>}
+                  {req.typeId==="avsetup"&&req.details.displayType&&<span style={{marginRight:10}}>{req.details.displayType==="Screen / TV"?"📺":"📽️"} {req.details.displayType}</span>}
+                  {req.typeId==="avsetup"&&req.details.screenCount&&<span style={{marginRight:10}}>× {req.details.screenCount}</span>}
                   {req.typeId==="avsetup"&&req.details.requirements?.length>0&&req.details.requirements.map((r,i)=>(
                     <span key={i} style={{display:"inline-block",marginRight:6,marginBottom:2,background:"#0a2218",color:"#20B07F",borderRadius:6,padding:"2px 8px",fontSize:11,fontWeight:500}}>✓ {r}</span>
                   ))}
