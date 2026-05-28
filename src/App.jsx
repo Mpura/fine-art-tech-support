@@ -2042,11 +2042,20 @@ function HsPanel(){
             <button onClick={async()=>{
               const ticket=window.prompt("Paste the Facilities RT ticket number from their auto-reply (e.g. ru.ac.za #805652):");
               if(ticket===null)return;
+              const today=new Date().toISOString().split("T")[0];
+              // If already logged today, just update the ticket — don't re-hit Airtable
+              if(lastFollowUp&&lastFollowUp.date===today){
+                const log={...lastFollowUp,ticket:ticket.trim()||null};
+                localStorage.setItem("fats_followup_log",JSON.stringify(log));
+                setLastFollowUp(log);
+                alert("✅ Ticket reference saved.");
+                return;
+              }
               try{
                 const r=await fetch("/api/log-followup",{method:"POST"});
                 const d=await r.json();
                 if(d.ok){
-                  const log={date:new Date().toISOString().split("T")[0],count:d.updated,ticket:ticket.trim()||null};
+                  const log={date:today,count:d.updated,ticket:ticket.trim()||null};
                   localStorage.setItem("fats_followup_log",JSON.stringify(log));
                   setLastFollowUp(log);
                   alert(`✅ Logged — ${d.updated} request${d.updated!==1?"s":""} marked as followed up today.`);
