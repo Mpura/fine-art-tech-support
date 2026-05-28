@@ -2259,6 +2259,7 @@ export default function App() {
   const [eqCheckImages, setEqCheckImages] = useState({});
   const [queueEqImages, setQueueEqImages] = useState({});
   const [eqIsWalkIn, setEqIsWalkIn] = useState(false);
+  const [pmDueToday, setPmDueToday] = useState([]);
 
   const type = REQUEST_TYPES.find(t=>t.id===selType);
   const getLoanDays = (yearStr) => {
@@ -2328,6 +2329,15 @@ export default function App() {
     }).catch(()=>{});
   },[view]);
   useEffect(()=>{const handle=()=>setIsDesktop(window.innerWidth>=900);window.addEventListener("resize",handle);return()=>window.removeEventListener("resize",handle);},[]);
+  // Fetch PM tasks due today or overdue for the Today tab
+  useEffect(()=>{
+    if(view!=="dashboard")return;
+    atGet(PM_TABLE,{maxRecords:200}).then(d=>{
+      const today=todayDate();
+      const due=(d.records||[]).map(r=>({id:r.id,...r.fields})).filter(t=>t.NextDue&&t.NextDue<=today);
+      setPmDueToday(due);
+    }).catch(()=>{});
+  },[view]);
   // Reset AV wizard whenever user selects a different request type
   useEffect(()=>{setAvStep(0);setAvWiz({purpose:"",venue:"",venueOther:"",eventDate:"",eventTime:"",setupDate:"",setupTime:"",duration:"",device:"",displayType:"",screenCount:"1",contentType:"",audio:""});},[selType]);
 
@@ -3582,6 +3592,30 @@ export default function App() {
             ))}
           </div>
           <Sec icon="📽️" title="AV setups today" items={avSetupToday} sk="avsetup"/>
+          {pmDueToday.length>0&&(
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#6b7280",marginBottom:8,display:"flex",alignItems:"center",gap:6,borderBottom:"1px solid #1e2130",paddingBottom:6}}>
+                🔧 PM tasks due <span style={{fontSize:11,fontWeight:400}}>· {pmDueToday.length}</span>
+              </div>
+              {pmDueToday.map(t=>{
+                const days=Math.floor((new Date()-new Date(t.NextDue+"T00:00:00"))/86400000);
+                const overdue=days>0;
+                return(
+                  <div key={t.id} style={{display:"flex",alignItems:"stretch",background:"#141720",borderRadius:10,marginBottom:8,overflow:"hidden",border:`0.5px solid ${overdue?"#7f1d1d":"#1e2130"}`}}>
+                    <div style={{width:4,flexShrink:0,background:overdue?"#f87171":"#d4851a"}}/>
+                    <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
+                      <div style={{fontSize:11,color:overdue?"#f87171":"#d4851a",fontWeight:600,marginBottom:2}}>{overdue?`${days}d overdue`:"Due today"}</div>
+                      <div style={{fontSize:14,fontWeight:500,color:"#e0e3ea"}}>{t.TaskName}</div>
+                      <div style={{fontSize:12,color:"#6b7280",marginTop:1}}>{t.Machine}{t.Interval?` · ${t.Interval}`:""}</div>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",padding:"0 12px"}}>
+                      <button onClick={()=>setDashTab("pm")} style={{fontSize:11,padding:"4px 10px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>Log →</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <Sec icon="🌅" title="Morning (09:00–12:00)" items={morningToday} sk="morning"/>
           {/* Now indicator — between morning and afternoon */}
           {(()=>{const h=new Date().getHours();return h>=9&&h<17&&(
