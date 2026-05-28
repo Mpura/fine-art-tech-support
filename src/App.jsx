@@ -2037,15 +2037,6 @@ function HsPanel(){
                 else alert("No stale requests to preview.");
               }catch(e){alert("❌ "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
-            <button onClick={async()=>{
-              try{
-                const r=await fetch("/api/cron-followup?draft=true",{method:"POST"});
-                const d=await r.json();
-                if(d.drafted)alert(`✅ Draft saved — open Gmail Drafts, review it, then send to Estates.`);
-                else if(d.message)alert(d.message);
-                else alert("❌ Failed to create draft: "+(d.error||"Unknown error"));
-              }catch(e){alert("❌ "+e.message);}
-            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#2a1f0a",color:"#d4851a",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📋 Draft Estates email</button>
           </div>
         </div>
         <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
