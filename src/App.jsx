@@ -2016,15 +2016,7 @@ function HsPanel(){
                 }else alert("❌ Could not load preview: "+(d.error||"Unknown error"));
               }catch(e){alert("❌ Network error: "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
-            <button onClick={async()=>{
-              try{
-                const r=await fetch("/api/staff-report?draft=true",{method:"POST"});
-                const d=await r.json();
-                if(d.drafted)alert(`✅ Draft saved — open Gmail Drafts, review it, then send.`);
-                else alert("❌ Failed to create draft: "+(d.error||"Unknown error"));
-              }catch(e){alert("❌ Network error: "+e.message);}
-            }} style={{padding:"7px 14px",borderRadius:8,border:"none",background:"#1a3a5c",color:"#60a5fa",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>📋 Create Draft</button>
-            <button onClick={()=>{
+<button onClick={()=>{
               const log={date:new Date().toISOString().split("T")[0]};
               localStorage.setItem("fats_staffreport_log",JSON.stringify(log));
               setLastStaffReport(log);
