@@ -2030,7 +2030,7 @@ function HsPanel(){
             <div style={{fontSize:11,marginTop:3,color:"#6b7280"}}>Chases all open requests outstanding 14+ days · auto-sends 8th &amp; 22nd</div>
           </div>
           <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {lastFollowUp&&<span style={{fontSize:11,color:"#4b5563",marginRight:4}}>Last sent: {new Date(lastFollowUp.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}{lastFollowUp.count?` (${lastFollowUp.count} requests)`:""}</span>}
+            {lastFollowUp&&<span style={{fontSize:11,color:"#4b5563",marginRight:4}}>Last sent: {new Date(lastFollowUp.date+"T00:00:00").toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}{lastFollowUp.count?` · ${lastFollowUp.count} requests`:""}{lastFollowUp.ticket?` · ${lastFollowUp.ticket}`:""}</span>}
             <button onClick={async()=>{
               try{
                 const r=await fetch("/api/cron-followup?preview=true",{method:"POST"});
@@ -2040,11 +2040,13 @@ function HsPanel(){
               }catch(e){alert("❌ "+e.message);}
             }} style={{padding:"7px 14px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>👁 Preview</button>
             <button onClick={async()=>{
+              const ticket=window.prompt("Paste the Facilities RT ticket number from their auto-reply (e.g. ru.ac.za #805652):");
+              if(ticket===null)return;
               try{
                 const r=await fetch("/api/log-followup",{method:"POST"});
                 const d=await r.json();
                 if(d.ok){
-                  const log={date:new Date().toISOString().split("T")[0],count:d.updated};
+                  const log={date:new Date().toISOString().split("T")[0],count:d.updated,ticket:ticket.trim()||null};
                   localStorage.setItem("fats_followup_log",JSON.stringify(log));
                   setLastFollowUp(log);
                   alert(`✅ Logged — ${d.updated} request${d.updated!==1?"s":""} marked as followed up today.`);
