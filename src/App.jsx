@@ -49,6 +49,7 @@ const DEFAULT_SCHEDULE = {
 };
 
 const STATUSES = ["Pending","In Progress","Done","Declined"];
+const AV_STATUSES = ["Pending","Confirmed","In Progress","Done","Declined"];
 const LASER_STATUSES = ["Pending","Material test required","Ready to cut","In Progress","Done","Declined"];
 const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"];
 
@@ -3718,7 +3719,7 @@ export default function App() {
               {req.notes&&<div style={{fontSize:13,color:"#9ca3af",background:"#1a1d28",borderRadius:8,padding:"8px 10px",marginBottom:8}}>"{req.notes}"</div>}
               {req.staffNote&&<div style={{fontSize:12,color:"#3b82f6",background:"#0a1e35",borderRadius:8,padding:"6px 10px",marginBottom:8}}>📝 {req.staffNote}</div>}
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
-                {(req.typeId==="laser"?LASER_STATUSES:req.typeId==="equipment"?EQ_STATUSES:STATUSES).filter(s=>s!==req.status).map(s=>(
+                {(req.typeId==="laser"?LASER_STATUSES:req.typeId==="equipment"?EQ_STATUSES:req.typeId==="avsetup"?AV_STATUSES:STATUSES).filter(s=>s!==req.status).map(s=>(
                   <button key={s} onClick={()=>{
                     if(req.typeId==="equipment"&&s==="Returned"){const items=(req.details?.itemsData||[]).map(i=>i.name).filter(n=>!(req.returnedItems||[]).includes(n));setCheckInModal(req);setCiReturning(items);setCiLost([]);setCiNotes("");}
                     else updateStatus(req.id,s);
