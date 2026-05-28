@@ -1311,6 +1311,8 @@ function PmPanel(){
   const [showForm,setShowForm]=useState(false);
   const [editTask,setEditTask]=useState(null);
   const [pmForm,setPmForm]=useState({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});
+  const [editingInlineId,setEditingInlineId]=useState(null);
+  const [confirmDeleteId,setConfirmDeleteId]=useState(null);
 
   const PM_SECTIONS=[
     {id:"printmaking",label:"Printmaking",icon:"🖨",match:m=>/etching|relief press|aquatint|acid bath|hot plate|extractor/i.test(m)},
@@ -1394,12 +1396,11 @@ function PmPanel(){
       const result=await atPost(PM_TABLE,{Name:genId(),...fields});
       if(result.id)setPmTasks(prev=>[...prev,{id:result.id,...fields}]);
     }
-    setShowForm(false);setEditTask(null);
+    setShowForm(false);setEditTask(null);setEditingInlineId(null);
     setPmForm({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});
   }
 
   async function deletePm(task){
-    if(!window.confirm(`Delete "${task.TaskName}"?`))return;
     await atDelete(PM_TABLE,task.id);
     setPmTasks(prev=>prev.filter(t=>t.id!==task.id));
   }
@@ -1421,21 +1422,24 @@ function PmPanel(){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div>
           <div style={{fontSize:15,fontWeight:500,color:"#e0e3ea"}}>PM Schedule</div>
-          <div style={{fontSize:12,color:"#6b7280",marginTop:1}}>{tasks.length} tasks across {activeSectionCount} sections</div>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:1}}>
+            {counts.overdue>0&&<span style={{color:"#f87171",marginRight:8}}>{counts.overdue} overdue</span>}
+            {counts["due-soon"]>0&&<span style={{color:"#d4851a",marginRight:8}}>{counts["due-soon"]} due soon</span>}
+            {counts.overdue===0&&counts["due-soon"]===0?<span style={{color:"#20B07F"}}>all on track</span>:null}
+            <span style={{color:"#374151",marginLeft:counts.overdue>0||counts["due-soon"]>0?4:0}}>{tasks.length} tasks · {activeSectionCount} sections</span>
+          </div>
         </div>
         <Btn small outline color={TEAL} onClick={()=>{setShowForm(true);setEditTask(null);setPmForm({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});}}>+ Add task</Btn>
       </div>
 
       {/* Summary chips */}
-      <div style={{display:"flex",gap:6,marginBottom:16,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
         {[
           ["all","All",tasks.length,"#6b7280","#1a1d28"],
           ["overdue","Overdue",counts.overdue,"#f87171","#2a0f14"],
           ["due-soon","Due soon",counts["due-soon"],"#d4851a","#2a1f0a"],
-          ["not-done","Not yet done",counts["not-done"],"#6b7280","#1a1d28"],
-          ["scheduled","Scheduled",counts.scheduled,"#20B07F","#0a2218"],
         ].map(([v,l,n,col,bg])=>(
-          <button key={v} onClick={()=>setFilterStatus(v)} style={{flex:1,minWidth:60,padding:"10px 4px",borderRadius:10,border:filterStatus===v?`1.5px solid ${col}`:"0.5px solid #1e2130",background:filterStatus===v?bg:"#141720",cursor:"pointer",fontFamily:"inherit",textAlign:"center"}}>
+          <button key={v} onClick={()=>setFilterStatus(v)} style={{flex:1,padding:"10px 4px",borderRadius:10,border:filterStatus===v?`1.5px solid ${col}`:"0.5px solid #1e2130",background:filterStatus===v?bg:"#141720",cursor:"pointer",fontFamily:"inherit",textAlign:"center"}}>
             <div style={{fontSize:17,fontWeight:600,color:filterStatus===v?col:"#e0e3ea"}}>{n}</div>
             <div style={{fontSize:10,color:filterStatus===v?col:"#4b5563",marginTop:1}}>{l}</div>
           </button>
@@ -1477,6 +1481,7 @@ function PmPanel(){
         const isExpanded=!!expandedSections[section.id];
         const secOverdue=section.tasks.filter(t=>getTaskStatus(t)==="overdue").length;
         const secDueSoon=section.tasks.filter(t=>getTaskStatus(t)==="due-soon").length;
+        const secLastDone=section.tasks.map(t=>t.LastDone).filter(Boolean).sort().pop();
         return(
           <div key={section.id} style={{marginBottom:8}}>
             <button onClick={()=>setExpandedSections(p=>({...p,[section.id]:!p[section.id]}))} style={{width:"100%",background:"#1a1d28",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontFamily:"inherit",marginBottom:isExpanded?4:0}}>
@@ -1484,8 +1489,8 @@ function PmPanel(){
               <span style={{fontSize:13,fontWeight:500,color:"#e0e3ea",flex:1,textAlign:"left"}}>{section.label}</span>
               {secOverdue>0&&<span style={{fontSize:10,background:"#2a0f14",color:"#f87171",borderRadius:5,padding:"2px 7px"}}>{secOverdue} overdue</span>}
               {secDueSoon>0&&<span style={{fontSize:10,background:"#2a1f0a",color:"#d4851a",borderRadius:5,padding:"2px 7px"}}>{secDueSoon} due soon</span>}
-              <span style={{fontSize:11,color:"#4b5563"}}>{section.tasks.length} task{section.tasks.length!==1?"s":""}</span>
-              <span style={{fontSize:11,color:"#374151",marginLeft:2}}>{isExpanded?"▲":"▼"}</span>
+              {secLastDone&&secOverdue===0&&secDueSoon===0&&<span style={{fontSize:10,color:"#374151"}}>last {fmtDate(secLastDone)}</span>}
+              <span style={{fontSize:10,display:"inline-block",transition:"transform 0.2s",transform:isExpanded?"rotate(90deg)":"rotate(0deg)",color:"#374151",marginLeft:2}}>▶</span>
             </button>
 
             {isExpanded&&section.tasks.map(task=>{
@@ -1538,7 +1543,7 @@ function PmPanel(){
                               <div key={i} style={{background:bg,borderRadius:8,padding:"8px 10px",borderLeft:`2px solid ${col}`}}>
                                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:entry.note?3:0}}>
                                   <span style={{fontSize:12,fontWeight:600,color:col}}>{entry.outcome}</span>
-                                  <span style={{fontSize:11,color:"#4b5563"}}>— {entry.date}</span>
+                                  <span style={{fontSize:11,color:"#4b5563"}}>— {fmtDate(entry.date)}</span>
                                 </div>
                                 {entry.note&&<div style={{fontSize:12,color:"#9ca3af"}}>{entry.note}</div>}
                               </div>
@@ -1588,12 +1593,40 @@ function PmPanel(){
                     </div>
                   )}
 
+                  {/* Inline edit form */}
+                  {editingInlineId===task.id&&(
+                    <div style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px",marginTop:6}}>
+                      <div style={{fontSize:12,fontWeight:500,color:"#e0e3ea",marginBottom:10}}>Edit task</div>
+                      <div style={{display:"flex",gap:8,marginBottom:8}}>
+                        <div style={{flex:2}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Task name *</label><input style={ipt} value={pmForm.taskName} onChange={e=>setPmForm(f=>({...f,taskName:e.target.value}))}/></div>
+                        <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Machine</label><input style={ipt} value={pmForm.machine} onChange={e=>setPmForm(f=>({...f,machine:e.target.value}))}/></div>
+                      </div>
+                      <div style={{display:"flex",gap:8,marginBottom:8}}>
+                        <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Interval</label><select style={ipt} value={pmForm.interval} onChange={e=>setPmForm(f=>({...f,interval:e.target.value}))}>{["Daily","Weekly","Monthly","Per Term","Annually"].map(t=><option key={t}>{t}</option>)}</select></div>
+                        <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Last done</label><input type="date" style={ipt} value={pmForm.lastDone} onChange={e=>setPmForm(f=>({...f,lastDone:e.target.value}))}/></div>
+                        <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Next due</label><input type="date" style={ipt} value={pmForm.nextDue} onChange={e=>setPmForm(f=>({...f,nextDue:e.target.value}))}/></div>
+                      </div>
+                      <div style={{marginBottom:10}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Notes</label><textarea style={{...ipt,resize:"vertical",fontSize:12}} rows={2} value={pmForm.notes} onChange={e=>setPmForm(f=>({...f,notes:e.target.value}))} placeholder="What to check, steps…"/></div>
+                      <div style={{display:"flex",gap:6}}>
+                        <button onClick={()=>{setEditingInlineId(null);setEditTask(null);}} style={{flex:1,padding:"7px",borderRadius:8,border:"0.5px solid #1e2130",background:"#141720",color:"#6b7280",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Cancel</button>
+                        <button onClick={savePm} disabled={!pmForm.taskName.trim()} style={{flex:2,padding:"7px",borderRadius:8,border:"none",background:pmForm.taskName.trim()?TEAL:"#1e2130",color:pmForm.taskName.trim()?"#fff":"#4b5563",fontSize:12,fontWeight:500,cursor:pmForm.taskName.trim()?"pointer":"not-allowed",fontFamily:"inherit"}}>Save</button>
+                      </div>
+                    </div>
+                  )}
                   {/* Action buttons */}
-                  {!logOpen_&&(
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {!logOpen_&&editingInlineId!==task.id&&(
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
                       <Btn small color={TEAL} onClick={()=>openLogForm(task)}>📋 Log</Btn>
-                      <button onClick={()=>{setEditTask(task);setPmForm({taskName:task.TaskName||"",machine:task.Machine||"",interval:task.Interval||"Monthly",lastDone:task.LastDone||"",nextDue:task.NextDue||"",notes:task.Notes||""});setShowForm(true);window.scrollTo({top:0,behavior:"smooth"});}} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:12,fontFamily:"inherit"}}>✏ Edit</button>
-                      <button onClick={()=>deletePm(task)} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:12,fontFamily:"inherit"}}>🗑</button>
+                      <button onClick={()=>{setEditTask(task);setPmForm({taskName:task.TaskName||"",machine:task.Machine||"",interval:task.Interval||"Monthly",lastDone:task.LastDone||"",nextDue:task.NextDue||"",notes:task.Notes||""});setEditingInlineId(task.id);}} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#60a5fa",fontSize:12,fontFamily:"inherit"}}>✏ Edit</button>
+                      {confirmDeleteId===task.id?(
+                        <span style={{display:"flex",gap:5,alignItems:"center",marginLeft:"auto"}}>
+                          <span style={{fontSize:11,color:"#f87171"}}>Delete?</span>
+                          <button onClick={()=>{deletePm(task);setConfirmDeleteId(null);}} style={{padding:"4px 9px",borderRadius:6,border:"none",background:"#f87171",color:"#fff",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>Yes</button>
+                          <button onClick={()=>setConfirmDeleteId(null)} style={{padding:"4px 9px",borderRadius:6,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#6b7280",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>No</button>
+                        </span>
+                      ):(
+                        <button onClick={()=>setConfirmDeleteId(task.id)} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #3b1a1a",background:"#1f0f0f",cursor:"pointer",color:"#f87171",fontSize:12,fontFamily:"inherit",marginLeft:"auto"}}>🗑</button>
+                      )}
                     </div>
                   )}
                 </div>
