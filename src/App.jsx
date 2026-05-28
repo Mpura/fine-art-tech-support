@@ -1765,11 +1765,23 @@ function HsPanel(){
       <div style={{fontSize:15,fontWeight:500}}>🦺 H&S / Maintenance</div>
       <button onClick={refreshHs} title="Refresh from Airtable" style={{padding:"4px 10px",borderRadius:7,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#6b7280",fontSize:11,fontFamily:"inherit"}}>↻ Refresh</button>
     </div>
-    <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Requisitions and preventive maintenance log</div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr",gap:8,marginBottom:16}}>
-      <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",border:"0.5px solid #d4851a22"}}>
+    <div style={{fontSize:13,color:"#6b7280",marginBottom:12}}>Requisitions and preventive maintenance log</div>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
+      <div onClick={()=>setHsTab("reqs")} style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",border:"0.5px solid #d4851a33",cursor:"pointer"}}>
         <div style={{fontSize:22,fontWeight:500,color:"#d4851a",lineHeight:1}}>{openReqs.length}</div>
-        <div style={{fontSize:10,color:"#d4851a",marginTop:3}}>Open</div>
+        <div style={{fontSize:10,color:"#d4851a",marginTop:3}}>Open requests</div>
+      </div>
+      <div onClick={()=>setHsTab("pm")} style={{background:overduePm>0?"#2a0f14":"#141720",borderRadius:8,padding:"10px 12px",border:`0.5px solid ${overduePm>0?"#f8717133":"#1e2130"}`,cursor:"pointer"}}>
+        <div style={{fontSize:22,fontWeight:500,color:overduePm>0?"#f87171":"#6b7280",lineHeight:1}}>{overduePm}</div>
+        <div style={{fontSize:10,color:overduePm>0?"#f87171":"#6b7280",marginTop:3}}>PM overdue</div>
+      </div>
+      <div onClick={()=>setHsTab("report")} style={{background:"#0d1525",borderRadius:8,padding:"10px 12px",border:"0.5px solid #3b82f633",cursor:"pointer"}}>
+        {(()=>{
+          if(!lastFollowUp)return(<><div style={{fontSize:22,fontWeight:500,color:"#4b5563",lineHeight:1}}>—</div><div style={{fontSize:10,color:"#4b5563",marginTop:3}}>Never chased</div></>);
+          const days=Math.floor((new Date()-new Date(lastFollowUp.date+"T00:00:00"))/86400000);
+          const col=days===0?"#20B07F":days<=14?"#60a5fa":days<=21?"#d97706":"#f87171";
+          return(<><div style={{fontSize:22,fontWeight:500,color:col,lineHeight:1}}>{days===0?"Today":`${days}d`}</div><div style={{fontSize:10,color:col,marginTop:3}}>{days===0?"Chased today":"Since last chase"}</div></>);
+        })()}
       </div>
     </div>
     <div style={{display:"flex",gap:6,marginBottom:16}}>
