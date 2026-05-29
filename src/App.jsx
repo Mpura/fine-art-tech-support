@@ -2552,7 +2552,7 @@ export default function App() {
   const eqCollectionsToday=requests.filter(r=>r.typeId==="equipment"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Cancelled"&&r.status!=="Returned");
   const eqDueToday=requests.filter(r=>r.typeId==="equipment"&&r.dueDate===_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
   const eqOverdue=requests.filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
-  const avSetupToday=requests.filter(r=>r.typeId==="avsetup"&&r.details?.setupDate===_today&&r.status!=="Declined");
+  const avSetupToday=requests.filter(r=>r.typeId==="avsetup"&&r.details?.setupDate===_today&&r.status!=="Declined"&&r.status!=="Done");
 
   // ── TODAY CARD ───────────────────────────────────────────────────
   const TodayCard=({req,actionLabel,actionStatus})=>{
@@ -3822,6 +3822,9 @@ export default function App() {
                         <div style={{fontSize:12,fontWeight:600,color:`${typeColor}99`}}>{typeInfo.icon} {req.type||typeInfo.label}</div>
                         <div style={{fontSize:14,fontWeight:500,color:"#9ca3af"}}>{req.name}{req.studNo&&<span style={{fontWeight:400,fontSize:12,color:"#374151",marginLeft:6}}>#{req.studNo}</span>}</div>
                         {req.schedDate&&<div style={{fontSize:11,color:"#374151",marginTop:2}}>📅 {req.schedDate}</div>}
+                        {req.typeId==="avsetup"&&req.details?.setupDuration&&(
+                          <div style={{fontSize:11,color:"#20B07F",marginTop:2}}>⏱ Setup took {req.details.setupDuration}</div>
+                        )}
                       </div>
                       {pill(req.status)}
                     </div>
