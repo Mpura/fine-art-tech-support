@@ -3570,22 +3570,18 @@ export default function App() {
       {!isDesktop&&<TabBar/>}
       <div style={isDesktop?{flex:1,overflowX:"hidden",padding:"1.5rem 1.25rem"}:{}}>
 
-      {/* Leave toggle */}
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,background:leaveMode.active?"#2a1f0a":"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px"}}>
-        <span style={{fontSize:13,fontWeight:500,color:leaveMode.active?"#d4851a":"#9ca3af",flex:1}}>{leaveMode.active?"🏖️ Leave mode ON — queue frozen":"🟢 Active — accepting requests"}</span>
-        <Btn small onClick={toggleLeave} color={leaveMode.active?TEAL:AMBER}>{leaveMode.active?"Go active":"Go on leave"}</Btn>
+      {/* ── Compact staff control bar ── */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,background:leaveMode.active?"#2a1f0a":"#141720",border:`0.5px solid ${leaveMode.active?"#5a3a0a":"#1e2130"}`,borderRadius:10,padding:"8px 12px"}}>
+        <span style={{fontSize:13,fontWeight:500,color:leaveMode.active?"#d4851a":"#20B07F",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{leaveMode.active?"🏖️ Leave mode ON":"🟢 Active"}</span>
+        <Btn small onClick={toggleLeave} color={leaveMode.active?TEAL:AMBER} style={{flexShrink:0}}>{leaveMode.active?"Go active":"Leave"}</Btn>
+        <button onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");setStaffUnlocked(false);setView("student");}} style={{padding:"5px 10px",borderRadius:7,background:"#0f1117",border:"0.5px solid #1e2130",fontSize:12,color:"#6b7280",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>🔒</button>
+        <button onClick={()=>{setChangingPin(p=>!p);setNewPin("");}} style={{padding:"5px 10px",borderRadius:7,background:changingPin?"#1a1d28":"#0f1117",border:`0.5px solid ${changingPin?"#3b82f6":"#1e2130"}`,fontSize:12,color:changingPin?"#3b82f6":"#6b7280",cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Change PIN">⚙</button>
       </div>
       {leaveMode.active&&(<div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
         <div style={{marginBottom:8}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Return date</label><input type="date" style={ipt} value={leaveMode.returnDate} onChange={e=>setLeaveMode(l=>({...l,returnDate:e.target.value}))}/></div>
         <div style={{marginBottom:8}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Message for students</label><input style={ipt} value={leaveMode.message} onChange={e=>setLeaveMode(l=>({...l,message:e.target.value}))} placeholder="e.g. Back after swot week"/></div>
         <Btn small onClick={saveLeave}>Save</Btn>
       </div>)}
-
-      {/* Lock / Change PIN */}
-      <div style={{display:"flex",gap:8,marginBottom:12}}>
-        <button onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");setStaffUnlocked(false);setView("student");}} style={{flex:1,padding:"8px",borderRadius:8,background:"#141720",border:"0.5px solid #1e2130",fontSize:12,color:"#6b7280",cursor:"pointer",fontFamily:"inherit"}}>🔒 Lock</button>
-        <button onClick={()=>{setChangingPin(p=>!p);setNewPin("");}} style={{flex:1,padding:"8px",borderRadius:8,background:"#141720",border:"0.5px solid #1e2130",fontSize:12,color:"#6b7280",cursor:"pointer",fontFamily:"inherit"}}>🔑 Change PIN</button>
-      </div>
       {changingPin&&(
         <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
           <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Current PIN: <strong style={{color:"#e0e3ea"}}>{localStorage.getItem(KEYS.staffPin)||DEFAULT_PIN}</strong></div>
@@ -3595,13 +3591,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* H&S shortcut */}
-      <div onClick={()=>setDashTab("hs")} style={{display:"flex",alignItems:"center",gap:10,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:16,cursor:"pointer"}}>
-        <span style={{fontSize:18}}>🦺</span>
-        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>H&S / Maintenance</div><div style={{fontSize:12,color:"#4b5563"}}>Maintenance requisitions · Reports</div></div>
-        <span style={{color:"#374151",fontSize:16}}>›</span>
-      </div>
 
       {/* Dash tabs */}
       {!isDesktop&&<div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
