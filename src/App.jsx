@@ -2282,6 +2282,7 @@ export default function App() {
   const [eqCheckImages, setEqCheckImages] = useState({});
   const [queueEqImages, setQueueEqImages] = useState({});
   const [eqIsWalkIn, setEqIsWalkIn] = useState(false);
+  const [eqManualDue, setEqManualDue] = useState("");
   const [pmDueToday, setPmDueToday] = useState([]);
 
   const type = REQUEST_TYPES.find(t=>t.id===selType);
@@ -2541,12 +2542,14 @@ export default function App() {
     });
   }
   async function submitEqRequest(){
-    if(!eqColDate||!eqSlot||selItems.length===0)return;
-    const due=addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
+    if(!eqColDate||(!eqIsWalkIn&&!eqSlot)||selItems.length===0)return;
+    const autoDue=addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
+    const due=eqIsWalkIn&&eqManualDue?eqManualDue:autoDue;
+    const slotLabel=eqIsWalkIn?"Walk-in":(EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot);
+    const initStatus=eqIsWalkIn?"Confirmed":"Pending";
     setEqSubmitting(true);
-    try{await createEquipmentBooking(eqStudent,selItems,eqColDate,eqSlot,due,eqNotes);}catch(e){}
-    const slotLabel=EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot;
-    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,studentEmail:eqStudent.email||null,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:"Pending",staffNote:"",isWalkIn:eqIsWalkIn,createdAt:todayISO(),updatedAt:todayISO()};
+    try{await createEquipmentBooking(eqStudent,selItems,eqColDate,eqSlot||"walkin",due,eqNotes);}catch(e){}
+    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,studentEmail:eqStudent.email||null,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:initStatus,staffNote:"",isWalkIn:eqIsWalkIn,createdAt:todayISO(),updatedAt:todayISO()};
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     setEqScreen("success");setEqSubmitting(false);setEqIsWalkIn(false);
     try{
@@ -2554,10 +2557,9 @@ export default function App() {
       if(result.id){setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));}
       else{console.error("FATS: eq request save failed",result);}
     }catch(e){console.error("FATS: eq request save error",e);}
-    // Send confirmation email to student (non-blocking)
     sendConfirmationEmail(req);
   }
-  function resetEq(){setEqScreen("lookup");setEqStudNo("");setEqStudent(null);setEquipment([]);setSelItems([]);setEqFilter("All");setEqSearch("");setEqColDate("");setEqSlot("");setEqNotes("");setEqTermsAgreed(false);setEqLookupErr("");setEqErr("");}
+  function resetEq(){setEqScreen("lookup");setEqStudNo("");setEqStudent(null);setEquipment([]);setSelItems([]);setEqFilter("All");setEqSearch("");setEqColDate("");setEqSlot("");setEqNotes("");setEqTermsAgreed(false);setEqLookupErr("");setEqErr("");setEqManualDue("");}
 
   const eqTypes=["All",...new Set(equipment.map(e=>e.type).filter(Boolean))];
   const eqFiltered=equipment.filter(e=>(eqFilter==="All"||e.type===eqFilter)&&(!eqSearch||e.name?.toLowerCase().includes(eqSearch.toLowerCase())));
@@ -2992,19 +2994,35 @@ export default function App() {
           ))}
         </div>
         {(()=>{const today=todayDate();const upcoming=[...PUBLIC_HOLIDAYS_2026.filter(h=>h.date>=today).slice(0,2),...RECESS_RANGES.filter(r=>r.end>=today).slice(0,2)];if(!upcoming.length)return null;return(<details style={{marginBottom:14}}><summary style={{fontSize:12,color:"#6b7280",cursor:"pointer",userSelect:"none"}}>📅 Upcoming closures & public holidays</summary><div style={{marginTop:8,background:"#141720",borderRadius:8,padding:"10px 12px"}}>{PUBLIC_HOLIDAYS_2026.filter(h=>h.date>=today).slice(0,4).map(h=><div key={h.date} style={{fontSize:12,color:"#9ca3af",marginBottom:3}}>🔴 {fmtDate(h.date)} — {h.label}</div>)}{RECESS_RANGES.filter(r=>r.end>=today).map(r=><div key={r.start} style={{fontSize:12,color:"#9ca3af",marginBottom:3}}>🔴 {fmtDate(r.start)} – {fmtDate(r.end)} — {r.label}</div>)}{SWOT_RANGES.filter(r=>r.end>=today).slice(0,2).map(r=><div key={r.start} style={{fontSize:12,color:"#60a5fa",marginBottom:3}}>📚 {fmtDate(r.start)} – {fmtDate(r.end)} — {r.label} (open)</div>)}</div></details>);})()}
+        {/* ── Walk-in banner ── */}
+        {eqIsWalkIn&&<div style={{background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#60a5fa"}}>🏃 Walk-in mode — date and return restrictions are bypassed. Set dates manually below.</div>}
         <div style={{marginBottom:14}}>
-          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Collection date *</label>
-          <input type="date" style={ipt} value={eqColDate} min={getEqMinDate()} max={addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)} onChange={e=>{setEqColDate(e.target.value);setEqSlot("");}}/>
-          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Collection days: <strong>Mon, Wed, Fri</strong> only (stockroom hours 11:00–12:30). Book up to {eqSettings.maxAdvanceDays} day{eqSettings.maxAdvanceDays!==1?"s":""} ahead. Bookings close at {eqSettings.collectionDeadlineHour}:00.</div>
-          {eqColDate&&!isEqColDay(eqColDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ That date is not a stockroom day. Please pick a Monday, Wednesday or Friday.</div>}
-          {eqColDate&&isEqColDay(eqColDate)&&(()=>{const ds=getDateStatus(eqColDate);if(!ds)return null;if(ds.type==="blocked")return<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>🚫 {ds.label} — the stockroom is closed on this date. Please choose a different day.</div>;if(ds.type==="swot")return<div style={{fontSize:12,color:"#60a5fa",background:"#0a1e35",borderRadius:8,padding:"8px 10px",marginTop:6}}>📚 {ds.label} — stockroom is open. Good luck with your studies!</div>;return null;})()}
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{eqIsWalkIn?"Collection / checkout date *":"Collection date *"}</label>
+          <input type="date" style={ipt} value={eqColDate}
+            {...(!eqIsWalkIn&&{min:getEqMinDate(),max:addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)})}
+            onChange={e=>{setEqColDate(e.target.value);setEqSlot("");setEqManualDue("");}}/>
+          {!eqIsWalkIn&&<div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Collection days: <strong>Mon, Wed, Fri</strong> only (stockroom hours 11:00–12:30). Book up to {eqSettings.maxAdvanceDays} day{eqSettings.maxAdvanceDays!==1?"s":""} ahead. Bookings close at {eqSettings.collectionDeadlineHour}:00.</div>}
+          {!eqIsWalkIn&&eqColDate&&!isEqColDay(eqColDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ That date is not a stockroom day. Please pick a Monday, Wednesday or Friday.</div>}
+          {!eqIsWalkIn&&eqColDate&&isEqColDay(eqColDate)&&(()=>{const ds=getDateStatus(eqColDate);if(!ds)return null;if(ds.type==="blocked")return<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>🚫 {ds.label} — the stockroom is closed on this date. Please choose a different day.</div>;if(ds.type==="swot")return<div style={{fontSize:12,color:"#60a5fa",background:"#0a1e35",borderRadius:8,padding:"8px 10px",marginTop:6}}>📚 {ds.label} — stockroom is open. Good luck with your studies!</div>;return null;})()}
         </div>
-        {eqColDate&&isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"&&eqDueDate&&(
-          <div style={{background:"#0a2218",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#20B07F"}}>
-            📅 Equipment due back: <strong>{fmtDate(eqDueDate)}</strong> <span style={{fontSize:12,opacity:0.8}}>({getLoanDays(eqStudent?.year)} business days for {YEAR_LABELS[eqStudent?.year]||`Year ${eqStudent?.year}`})</span>
-          </div>
+        {/* Due date — manual for walk-ins, auto-calculated for bookings */}
+        {eqColDate&&(eqIsWalkIn?true:(isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"))&&(
+          eqIsWalkIn?(
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Return / due date * <span style={{fontWeight:400,color:"#4b5563"}}>(set manually)</span></label>
+              <input type="date" style={ipt} value={eqManualDue||eqDueDate}
+                min={eqColDate}
+                onChange={e=>setEqManualDue(e.target.value)}/>
+              {(eqManualDue||eqDueDate)&&<div style={{fontSize:12,color:"#20B07F",marginTop:4}}>↩ Equipment due back: <strong>{fmtDate(eqManualDue||eqDueDate)}</strong></div>}
+            </div>
+          ):(
+            <div style={{background:"#0a2218",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#20B07F"}}>
+              📅 Equipment due back: <strong>{fmtDate(eqDueDate)}</strong> <span style={{fontSize:12,opacity:0.8}}>({getLoanDays(eqStudent?.year)} business days for {YEAR_LABELS[eqStudent?.year]||`Year ${eqStudent?.year}`})</span>
+            </div>
+          )
         )}
-        {eqColDate&&isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"&&(
+        {/* Slot picker — only for regular bookings */}
+        {!eqIsWalkIn&&eqColDate&&isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"&&(
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -3022,8 +3040,9 @@ export default function App() {
           </div>
         </div>
         )}
-        <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Notes (optional)</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={eqNotes} onChange={e=>setEqNotes(e.target.value)} placeholder="e.g. Need camera for location shoot Thursday"/></div>
-        {/* ── BORROWING TERMS ── */}
+        <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Notes (optional)</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={eqNotes} onChange={e=>setEqNotes(e.target.value)} placeholder={eqIsWalkIn?"e.g. Checked out for exam on 2 June — agreed to terms verbally":"e.g. Need camera for location shoot Thursday"}/></div>
+        {/* Borrowing terms — shown for student bookings, skipped for walk-ins */}
+        {!eqIsWalkIn&&(<>
         <div style={{background:"#0d1520",border:"0.5px solid #1e3a5f",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:600,color:"#60a5fa",marginBottom:10}}>🛡 Equipment Borrowing Terms</div>
           <div style={{fontSize:12,color:"#9ca3af",lineHeight:1.7,marginBottom:12}}>
@@ -3042,7 +3061,12 @@ export default function App() {
           </label>
         </div>
         <div style={{background:"#2a1f0a",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#d4851a"}}>⚠️ Do not come to collect until Tech Support confirms. Bring your student card.</div>
-        <Btn onClick={submitEqRequest} disabled={!eqColDate||!isEqColDay(eqColDate)||getDateStatus(eqColDate)?.type==="blocked"||!eqSlot||!eqTermsAgreed||eqSubmitting} full style={{padding:"13px",fontSize:15}}>{eqSubmitting?"Submitting...":"Submit equipment request"}</Btn>
+        </>)}
+        <Btn onClick={submitEqRequest}
+          disabled={eqSubmitting||selItems.length===0||!eqColDate||(eqIsWalkIn?!(eqManualDue||eqDueDate):(!isEqColDay(eqColDate)||getDateStatus(eqColDate)?.type==="blocked"||!eqSlot||!eqTermsAgreed))}
+          full style={{padding:"13px",fontSize:15}}>
+          {eqSubmitting?"Submitting...":(eqIsWalkIn?"✅ Log walk-in checkout":"Submit equipment request")}
+        </Btn>
       </div>
     );
 
