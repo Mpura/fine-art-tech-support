@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>FATS — QR Code Cards</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      padding: 32px;
+      justify-content: center;
+    }
+
+    .card {
+      width: 148mm;   /* A5 width */
+      min-height: 210mm; /* A5 height */
+      background: #0f1117;
+      border-radius: 16px;
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #e0e3ea;
+      page-break-inside: avoid;
+    }
+
+    .dept {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #4b5563;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #e0e3ea;
+      text-align: center;
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #6b7280;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .qr-wrap {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 28px;
+    }
+
+    .qr-wrap img {
+      display: block;
+      width: 180px;
+      height: 180px;
+    }
+
+    .cta {
+      font-size: 15px;
+      font-weight: 600;
+      color: #20B07F;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .instruction {
+      font-size: 12px;
+      color: #6b7280;
+      text-align: center;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    .url {
+      font-size: 11px;
+      color: #374151;
+      background: #141720;
+      border: 1px solid #1e2130;
+      border-radius: 8px;
+      padding: 8px 16px;
+      letter-spacing: 0.02em;
+      text-align: center;
+      margin-bottom: 28px;
+      word-break: break-all;
+    }
+
+    .services {
+      width: 100%;
+      border-top: 1px solid #1e2130;
+      padding-top: 20px;
+    }
+
+    .services-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #4b5563;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .service-item {
+      font-size: 11px;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      line-height: 1.3;
+    }
+
+    .service-item span.icon {
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+        gap: 0;
+      }
+      .card {
+        border-radius: 0;
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Card 1: General poster -->
+  <div class="card">
+    <div class="dept">Rhodes University · Fine Art Department</div>
+    <div class="title">Fine Art<br/>Tech Support</div>
+    <div class="subtitle">Log your request online</div>
+
+    <div class="qr-wrap">
+      <img src="data:image/png;base64,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" alt="QR Code"/>
+    </div>
+
+    <div class="cta">Scan to submit a request</div>
+    <div class="instruction">
+      Scan the code with your phone camera<br/>
+      or type the address below
+    </div>
+
+    <div class="url">fine-art-tech-support.vercel.app</div>
+
+    <div class="services">
+      <div class="services-title">What you can request</div>
+      <div class="services-grid">
+        <div class="service-item"><span class="icon">🖨️</span> Large format printing</div>
+        <div class="service-item"><span class="icon">⚡</span> Laser cutter</div>
+        <div class="service-item"><span class="icon">🧱</span> 3D printing</div>
+        <div class="service-item"><span class="icon">📷</span> Equipment loan</div>
+        <div class="service-item"><span class="icon">💻</span> Software install</div>
+        <div class="service-item"><span class="icon">💡</span> Lighting studio</div>
+        <div class="service-item"><span class="icon">📽️</span> AV / tech setup</div>
+        <div class="service-item"><span class="icon">🖼️</span> Gallery booking</div>
+        <div class="service-item"><span class="icon">💬</span> General query</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: Equipment-focused (for stockroom door) -->
+  <div class="card">
+    <div class="dept">Rhodes University · Fine Art Department</div>
+    <div class="title">Equipment<br/>Bookings</div>
+    <div class="subtitle">Book online before coming to collect</div>
+
+    <div class="qr-wrap">
+      <img src="data:image/png;base64,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" alt="QR Code"/>
+    </div>
+
+    <div class="cta">Scan to book equipment</div>
+    <div class="instruction">
+      Submit your request at least <strong style="color:#e0e3ea">3 days in advance</strong>.<br/>
+      Wait for confirmation before coming to collect.
+    </div>
+
+    <div class="url">fine-art-tech-support.vercel.app</div>
+
+    <div class="services">
+      <div class="services-title">Collection days &amp; times</div>
+      <div class="services-grid">
+        <div class="service-item"><span class="icon">📅</span> Monday</div>
+        <div class="service-item"><span class="icon">📅</span> Wednesday</div>
+        <div class="service-item"><span class="icon">📅</span> Friday</div>
+        <div class="service-item"><span class="icon">🕐</span> 11:00 – 12:30</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
