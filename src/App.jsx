@@ -3806,33 +3806,40 @@ export default function App() {
         })}
         {/* ── ARCHIVE ── */}
         {queueArchive.length>0&&filterStatus==="All"&&(
-          <details style={{marginTop:8,marginBottom:8}}>
-            <summary style={{fontSize:13,color:"#4b5563",cursor:"pointer",padding:"10px 14px",background:"#0f1117",borderRadius:8,border:"0.5px solid #1e2130",listStyle:"none",display:"flex",alignItems:"center",gap:8,userSelect:"none"}}>
-              <span style={{fontSize:11,color:"#4b5563"}}>▶</span>
-              <span>Archive — {queueArchive.length} completed / declined</span>
-            </summary>
-            <div style={{marginTop:8,opacity:0.7}}>
-              {queueArchive.map(req=>{
-                const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
-                const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
-                return(
-                  <div key={req.id} style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:12,padding:"10px 14px",marginBottom:8,borderLeft:`3px solid ${typeColor}55`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
-                      <div style={{minWidth:0}}>
-                        <div style={{fontSize:12,fontWeight:600,color:`${typeColor}99`}}>{typeInfo.icon} {req.type||typeInfo.label}</div>
-                        <div style={{fontSize:14,fontWeight:500,color:"#9ca3af"}}>{req.name}{req.studNo&&<span style={{fontWeight:400,fontSize:12,color:"#374151",marginLeft:6}}>#{req.studNo}</span>}</div>
-                        {req.schedDate&&<div style={{fontSize:11,color:"#374151",marginTop:2}}>📅 {req.schedDate}</div>}
-                        {req.typeId==="avsetup"&&req.details?.setupDuration&&(
-                          <div style={{fontSize:11,color:"#20B07F",marginTop:2}}>⏱ Setup took {req.details.setupDuration}</div>
-                        )}
+          <div style={{marginTop:12}}>
+            <div style={{fontSize:11,color:"#374151",fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",padding:"0 2px",marginBottom:8}}>Archive — {queueArchive.length} completed / declined</div>
+            {REQUEST_TYPES.map(type=>{
+              const group=queueArchive.filter(r=>r.typeId===type.id);
+              if(!group.length)return null;
+              const typeColor=TYPE_COLOR[type.id]||"#6B7280";
+              return(
+                <details key={type.id} style={{marginBottom:6}}>
+                  <summary style={{fontSize:13,color:"#6b7280",cursor:"pointer",padding:"9px 14px",background:"#0f1117",borderRadius:8,border:"0.5px solid #1e2130",borderLeft:`3px solid ${typeColor}55`,listStyle:"none",display:"flex",alignItems:"center",gap:8,userSelect:"none"}}>
+                    <span style={{fontSize:10,color:"#374151"}}>▶</span>
+                    <span>{type.icon}</span>
+                    <span style={{flex:1}}>{type.label}</span>
+                    <span style={{fontSize:11,color:"#4b5563",background:"#1a1d28",borderRadius:6,padding:"2px 8px",border:"0.5px solid #1e2130"}}>{group.length}</span>
+                  </summary>
+                  <div style={{marginTop:6,paddingLeft:4,opacity:0.75}}>
+                    {group.map(req=>(
+                      <div key={req.id} style={{background:"#0f1117",border:"0.5px solid #1e2130",borderRadius:10,padding:"9px 14px",marginBottom:5,borderLeft:`3px solid ${typeColor}44`}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+                          <div style={{minWidth:0}}>
+                            <div style={{fontSize:14,fontWeight:500,color:"#9ca3af"}}>{req.name}{req.studNo&&<span style={{fontWeight:400,fontSize:12,color:"#374151",marginLeft:6}}>#{req.studNo}</span>}</div>
+                            {req.schedDate&&<div style={{fontSize:11,color:"#374151",marginTop:2}}>📅 {req.schedDate}</div>}
+                            {req.typeId==="avsetup"&&req.details?.setupDuration&&(
+                              <div style={{fontSize:11,color:"#20B07F",marginTop:2}}>⏱ Setup took {req.details.setupDuration}</div>
+                            )}
+                          </div>
+                          {pill(req.status)}
+                        </div>
                       </div>
-                      {pill(req.status)}
-                    </div>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          </details>
+                </details>
+              );
+            })}
+          </div>
         )}
       </>)}
 
