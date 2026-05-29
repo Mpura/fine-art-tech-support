@@ -202,6 +202,45 @@ async function atDelete(table, recordId) {
   return res.json();
 }
 
+// ── ARCHIVE SUMMARY ─────────────────────────────────────────────
+function archiveSummary(req){
+  const d=req.details||{};
+  if(req.typeId==="print"){
+    const copies=d.copies?`${d.copies} cop${parseInt(d.copies)===1?"y":"ies"}`:null;
+    return [d.paperSize,d.paperType,copies].filter(Boolean).join(" · ")||null;
+  }
+  if(req.typeId==="laser"){
+    const mat=d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material;
+    return [mat,d.jobType].filter(Boolean).join(" · ")||null;
+  }
+  if(req.typeId==="3d"){
+    return [d.dimensions,d.material3d,d.infill?`${d.infill} infill`:null].filter(Boolean).join(" · ")||null;
+  }
+  if(req.typeId==="software"){
+    return [d.softwareName,d.macLocation].filter(Boolean).join(" · ")||null;
+  }
+  if(req.typeId==="studio"){
+    return d.shootType||null;
+  }
+  if(req.typeId==="gallery"){
+    const dates=d.eventStart&&d.eventEnd?`${d.eventStart} → ${d.eventEnd}`:d.eventStart||null;
+    return [d.eventType,dates].filter(Boolean).join(" · ")||null;
+  }
+  if(req.typeId==="avsetup"){
+    const disp=d.displayType&&d.screenCount&&parseInt(d.screenCount)>1?`${d.displayType} ×${d.screenCount}`:d.displayType;
+    return [d.venue,disp,d.device].filter(Boolean).join(" · ")||null;
+  }
+  if(req.typeId==="equipment"){
+    const names=(d.itemsData||[]).map(i=>i.name).filter(Boolean);
+    return names.length?names.join(", "):(d.items||null);
+  }
+  if(req.typeId==="query"){
+    const n=req.notes||"";
+    return n?n.slice(0,80)+(n.length>80?"…":""):null;
+  }
+  return null;
+}
+
 // ── REQUEST ↔ AIRTABLE CONVERTERS ───────────────────────────────
 function reqToAirtable(req) {
   return {
@@ -3826,6 +3865,7 @@ export default function App() {
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                           <div style={{minWidth:0}}>
                             <div style={{fontSize:14,fontWeight:500,color:"#9ca3af"}}>{req.name}{req.studNo&&<span style={{fontWeight:400,fontSize:12,color:"#374151",marginLeft:6}}>#{req.studNo}</span>}</div>
+                            {archiveSummary(req)&&<div style={{fontSize:11,color:"#4b5563",marginTop:2}}>{archiveSummary(req)}</div>}
                             {req.schedDate&&<div style={{fontSize:11,color:"#374151",marginTop:2}}>📅 {req.schedDate}</div>}
                             {req.typeId==="avsetup"&&req.details?.setupDuration&&(
                               <div style={{fontSize:11,color:"#20B07F",marginTop:2}}>⏱ Setup took {req.details.setupDuration}</div>
