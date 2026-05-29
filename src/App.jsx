@@ -6,15 +6,6 @@ const AMBER = "#d4851a";
 const RED = "#e05a5a";
 const TYPE_COLOR = {equipment:"#20B07F",print:"#3b82f6",laser:"#E65C00","3d":"#8b5cf6",studio:"#f59e0b",gallery:"#ef4444",software:"#06b6d4",avsetup:"#a855f7",query:"#6B7280"};
 
-// ── DARK THEME ───────────────────────────────────────────────────
-const T = {
-  bg:"#0F1117", card:"#141720", surface:"#1a1d28",
-  border:"0.5px solid #1e2130", borderColor:"#1e2130",
-  text:"#e0e3ea", textMuted:"#6b7280", textFaint:"#4b5563",
-  teal:"#20B07F", tealDim:"#0a2218",
-  blue:"#3b82f6", blueDim:"#0a1e35",
-};
-
 // ── CONSTANTS ────────────────────────────────────────────────────
 const BASE_ID = "appUqkCfnsOo2Jf7z";
 const EQ_TABLE = "tblc2MXweiXikz3wo";
@@ -507,13 +498,6 @@ async function createEquipmentBooking(student, items, collectionDate, slot, dueD
   });
 }
 
-async function createCheckIn(req) {
-  const itemIds=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
-  if(!itemIds.length)return;
-  const fields={"Type":"Checking In","Checked Out Gear":itemIds};
-  if(req.studentId)fields["Submitted By"]=[req.studentId];
-  await atPost(CHECKOUT_TABLE,fields);
-}
 
 async function saveFineRecord(fine) {
   return atPost(FINES_TABLE, {
@@ -635,7 +619,6 @@ const FE_2026=[
 ];
 
 function BudgetPanel(){
-  const TEAL="#20B07F";
   const [budTab,setBudTab]=useState("ace"); // ace | fe | it
   const [showProcess,setShowProcess]=useState(false);
   const [expanded,setExpanded]=useState(null);
@@ -2186,6 +2169,7 @@ export default function App() {
   const [expandId, setExpandId] = useState(null);
   const [staffNotes, setStaffNotes] = useState({});
   const [filterStatus, setFilterStatus] = useState("All");
+  const [queueSearch, setQueueSearch] = useState("");
   const [dashTab, setDashTab] = useState("today");
   const [editEq, setEditEq] = useState(null);
 
@@ -2578,10 +2562,12 @@ export default function App() {
   const eqTypes=["All",...new Set(equipment.map(e=>e.type).filter(Boolean))];
   const eqFiltered=equipment.filter(e=>(eqFilter==="All"||e.type===eqFilter)&&(!eqSearch||e.name?.toLowerCase().includes(eqSearch.toLowerCase())));
   const sortedRequests=[...requests].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const filtered=filterStatus==="All"?sortedRequests:sortedRequests.filter(r=>r.status===filterStatus);
+  const statusFiltered=filterStatus==="All"?sortedRequests:sortedRequests.filter(r=>r.status===filterStatus);
+  const filtered=queueSearch.trim()?statusFiltered.filter(r=>r.name?.toLowerCase().includes(queueSearch.toLowerCase())||r.studNo?.toLowerCase().includes(queueSearch.toLowerCase())):statusFiltered;
   const QUEUE_DONE=["Done","Declined","Cancelled","Returned","Uncollected"];
   const queueActive=filtered.filter(r=>!QUEUE_DONE.includes(r.status));
   const queueArchive=filtered.filter(r=>QUEUE_DONE.includes(r.status));
+  const allStatuses=["All",...["Pending","Confirmed","In Progress","Material test required","Ready to cut","Done","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"]];
   const counts=STATUSES.reduce((a,s)=>({...a,[s]:requests.filter(r=>r.status===s).length}),{});
   // ── TODAY FILTERS ────────────────────────────────────────────────
   const _today=todayDate();
@@ -3125,7 +3111,7 @@ export default function App() {
       <div style={{display:"flex",background:"#141720",borderRadius:10,padding:3,gap:2,marginBottom:16}}>
         {[["student","Fine Art student"],["external","External / visitor"]].map(([v,l])=>(
           <button key={v} onClick={()=>{setVisitorType(v);setVerifiedStudent(null);setVerifyErr("");setExtForm({name:"",affiliation:"",contact:""}); setF("studNo","");}}
-            style={{flex:1,padding:"8px",borderRadius:8,background:visitorType===v?"#1a1d28":"transparent",color:visitorType===v?"#e0e3ea":"#9ca3af",fontSize:13,fontWeight:visitorType===v?600:400,border:"none",cursor:"pointer",fontFamily:"inherit",outline:visitorType===v?`1px solid ${T.borderColor}`:"none"}}>{l}</button>
+            style={{flex:1,padding:"8px",borderRadius:8,background:visitorType===v?"#1a1d28":"transparent",color:visitorType===v?"#e0e3ea":"#9ca3af",fontSize:13,fontWeight:visitorType===v?600:400,border:"none",cursor:"pointer",fontFamily:"inherit",outline:visitorType===v?"1px solid #1e2130":"none"}}>{l}</button>
         ))}
       </div>
       {visitorType==="student"&&(!verifiedStudent?(
@@ -3548,14 +3534,14 @@ export default function App() {
   );
 
   // ── DASHBOARD ────────────────────────────────────────────────────
-  if(view==="dashboard"){const desktopTwoCol=false;return(
+  if(view==="dashboard"){return(
     <div style={isDesktop?{display:"flex",minHeight:"100vh",background:"#0F1117",alignItems:"flex-start",margin:"-24px -16px -48px",width:"calc(100% + 32px)"}:{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
       {isDesktop&&(
         <div style={{width:200,background:"#0a0d14",borderRight:"0.5px solid #1e2130",padding:"14px 10px",flexShrink:0,position:"sticky",top:0,height:"100vh",overflowY:"auto",display:"flex",flexDirection:"column"}}>
           <div style={{marginBottom:18}}><div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>FATS</div><div style={{fontSize:10,color:"#4b5563",marginTop:2}}>Fine Art Department</div></div>
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6}}>Views</div>
           {[["today",`📅 Today · ${new Date().getDate()}`],["queue","📋 All requests"]].map(([v,l])=>(
-            <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:desktopTwoCol?"#e0e3ea":"#6b7280",background:desktopTwoCol?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
+            <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
           {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"],["lic","🔑 Licences"],["insurance","🛡 Insurance"],["budget","📊 Budget / ACE"]].map(([v,l])=>(
@@ -3593,16 +3579,16 @@ export default function App() {
       )}
 
       {/* Dash tabs */}
-      {!isDesktop&&<div style={{display:"flex",gap:5,marginBottom:20,flexWrap:"wrap"}}>
-        {[["today",`Today · ${new Date().getDate()}`],["queue","Queue"],["hs","H&S"],["pm","🔧 PM"],["schedule","Schedule"],["blocks","Blocks"],["charges","Charges"],["lic","🔑 Lic"],["insurance","🛡 Insure"],["budget","📊 Budget"]].map(([v,l])=>(
-          <button key={v} onClick={()=>setDashTab(v)} style={{flex:1,minWidth:55,padding:"8px 4px",borderRadius:8,border:"none",background:dashTab===v?TEAL:"#141720",color:dashTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:dashTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
+      {!isDesktop&&<div style={{display:"flex",gap:4,marginBottom:20,flexWrap:"wrap"}}>
+        {[["today",`Today`],["queue","Queue"],["hs","H&S"],["pm","PM"],["schedule","Schedule"],["blocks","Blocks"],["charges","Charges"],["lic","Licences"],["insurance","Insurance"],["budget","Budget"]].map(([v,l])=>(
+          <button key={v} onClick={()=>setDashTab(v)} style={{flex:"1 1 auto",padding:"7px 6px",borderRadius:8,background:dashTab===v?TEAL:"#141720",color:dashTab===v?"#fff":"#6b7280",fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:dashTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
       </div>}
 
-      <div style={desktopTwoCol?{display:"flex",alignItems:"flex-start",gap:0}:{}}>
-      <div style={desktopTwoCol?{flex:1,borderRight:"0.5px solid #1e2130",paddingRight:20}:{}}>
+      <div>
+      <div>
       {/* ── TODAY ── */}
-      {(dashTab==="today"||desktopTwoCol)&&(()=>{
+      {dashTab==="today"&&(()=>{
         const todayHeading=`${DAY_FULL[new Date().getDay()]} ${new Date().getDate()} ${MONTHS[new Date().getMonth()]} ${new Date().getFullYear()}`;
         const Sec=({icon,title,items,sk})=>(
           <div style={{marginBottom:20}}>
@@ -3681,9 +3667,9 @@ export default function App() {
       })()}
 
       </div>
-      <div style={desktopTwoCol?{flex:1,paddingLeft:20}:{}}>
+      <div>
       {/* ── QUEUE ── */}
-      {(dashTab==="queue"||desktopTwoCol)&&(<>
+      {dashTab==="queue"&&(<>
         {(()=>{const uncollected=requests.filter(r=>r.typeId==="equipment"&&["Confirmed","Ready to collect"].includes(r.status)&&r.schedDate&&new Date(r.schedDate.split(" ")[0]+"T"+String(eqSettings.collectionDeadlineHour).padStart(2,"0")+":00")<new Date());return uncollected.length>0&&(<div style={{background:"#2a1500",border:"1px solid #7c3000",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
           <div style={{fontSize:13,fontWeight:600,color:"#fb923c",marginBottom:6}}>⚠ {uncollected.length} booking{uncollected.length>1?"s":""} past collection deadline</div>
           {uncollected.map(r=><div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12,color:"#9a3412",marginBottom:4}}>
@@ -3699,12 +3685,13 @@ export default function App() {
             </div>
           ))}
         </div>
-        <div style={{display:"flex",gap:8,marginBottom:16}}>
-          <Btn outline color={TEAL} onClick={()=>{setScreen("walkin");setSelType(null);setForm(f=>({...f,name:"",studNo:"",year:"",notes:""}));}} style={{flex:1}}>+ Log walk-in</Btn>
-          <select style={{...ipt,flex:1}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}><option>All</option>{STATUSES.map(s=><option key={s}>{s}</option>)}</select>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
+          <Btn outline color={TEAL} onClick={()=>{setScreen("walkin");setSelType(null);setForm(f=>({...f,name:"",studNo:"",year:"",notes:""}));}} style={{flexShrink:0}}>+ Walk-in</Btn>
+          <input style={{...ipt,flex:1}} value={queueSearch} onChange={e=>setQueueSearch(e.target.value)} placeholder="Search name or student no…"/>
+          <select style={{...ipt,flexShrink:0,width:"auto"}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>{allStatuses.map(s=><option key={s}>{s}</option>)}</select>
         </div>
         {!loaded&&<div style={{color:"#6b7280",fontSize:14}}>Loading...</div>}
-        {loaded&&queueActive.length===0&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>No requests yet</div>}
+        {loaded&&queueActive.length===0&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":"No requests yet"}</div>}
         {queueActive.map(req=>{
           const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
           const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
