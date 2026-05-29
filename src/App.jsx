@@ -2395,8 +2395,21 @@ export default function App() {
       const ids=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
       if(ids.length){atPost(CHECKOUT_TABLE,{"Type":"Checking In","Checked Out Gear":ids}).catch(()=>{});}
     }
-    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{Status:status,UpdatedAt:todayISO()}).catch(()=>{});}
-    const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);
+    // AV setup time tracking
+    let detailPatch={};
+    if(req?.typeId==="avsetup"){
+      if(status==="In Progress"){
+        detailPatch={startedAt:new Date().toISOString()};
+      } else if(status==="Done"&&req.details?.startedAt){
+        const mins=Math.round((new Date()-new Date(req.details.startedAt))/60000);
+        const h=Math.floor(mins/60),m=mins%60;
+        detailPatch={completedAt:new Date().toISOString(),setupDuration:h>0?`${h}h ${m}m`:`${m}m`};
+      }
+    }
+    const updatedDetails=Object.keys(detailPatch).length>0?{...req?.details,...detailPatch}:req?.details;
+    const atFields={Status:status,UpdatedAt:todayISO(),...(Object.keys(detailPatch).length>0&&{Details:JSON.stringify(updatedDetails)})};
+    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,atFields).catch(()=>{});}
+    const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails}:r);setRequests(u);persist(KEYS.req,u);
     // Send status update email for key statuses (non-blocking)
     if(req&&["Confirmed","Ready to collect","Declined","Cancelled"].includes(status)){
       sendStatusEmail({...req,status},status);
@@ -2566,6 +2579,12 @@ export default function App() {
                 {req.year&&<span style={{fontWeight:400,fontSize:11,color:"#6b7280",marginLeft:4}}>· Yr{req.year}</span>}
               </div>
               {summary&&<div style={{fontSize:12,color:"#6b7280",marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{summary}</div>}
+              {req.typeId==="avsetup"&&req.status==="In Progress"&&req.details?.startedAt&&(
+                <div style={{fontSize:11,color:"#a855f7",marginTop:3}}>🟣 Started {new Date(req.details.startedAt).toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"})}</div>
+              )}
+              {req.typeId==="avsetup"&&req.details?.setupDuration&&(
+                <div style={{fontSize:11,color:"#20B07F",marginTop:3}}>⏱ Setup took {req.details.setupDuration}</div>
+              )}
               {isOverdue&&<div style={{fontSize:11,color:"#f87171",marginTop:2}}>⚠ Due {fmtDate(req.dueDate)} · {countBizDaysLate(req.dueDate,_today)}d late</div>}
               {req.dueDate&&!isOverdue&&req.typeId==="equipment"&&<div style={{fontSize:11,color:"#6b7280",marginTop:2}}>↩ Due today</div>}
             </div>
@@ -3728,6 +3747,8 @@ export default function App() {
                     {req.details.displayType&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Display</span><span style={{color:"#c9cdd6"}}>{req.details.displayType==="Screen / TV"?"📺":"📽️"} {req.details.displayType}{req.details.screenCount?` × ${req.details.screenCount}`:""}</span></>}
                     {req.details.contentType&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Content</span><span style={{color:"#c9cdd6"}}>🎬 {req.details.contentType}</span></>}
                     {req.details.audio&&req.details.audio!=="none"&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Audio</span><span style={{color:"#c9cdd6"}}>🔊 {req.details.audio}</span></>}
+                    {req.details.setupDuration&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Setup took</span><span style={{color:"#20B07F",fontWeight:600}}>⏱ {req.details.setupDuration}</span></>}
+                    {req.details.startedAt&&!req.details.setupDuration&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Started</span><span style={{color:"#a855f7"}}>🟣 {new Date(req.details.startedAt).toLocaleTimeString("en-ZA",{hour:"2-digit",minute:"2-digit"})}</span></>}
                   </div>
                   {req.details.requirements?.length>0&&(
                     <div style={{borderTop:"0.5px solid #1e2130",paddingTop:8}}>
