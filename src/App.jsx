@@ -104,7 +104,6 @@ function addBusinessDays(dateStr,n){let d=new Date(dateStr+"T00:00:00");let adde
 // Equipment loans count ALL days (weekends included). If due date lands on weekend, push to Monday.
 function addCalendarDays(dateStr,n){let d=new Date(dateStr+"T00:00:00");d.setDate(d.getDate()+n);if(d.getDay()===6)d.setDate(d.getDate()+2);if(d.getDay()===0)d.setDate(d.getDate()+1);return localDateStr(d);}
 function nextEqColDay(fromDateStr){let d=new Date(fromDateStr+"T00:00:00");d.setDate(d.getDate()+1);while(!EQ_COL_DAYS.includes(d.getDay())){d.setDate(d.getDate()+1);}return localDateStr(d);}
-function countDaysLate(dueDateStr,returnDateStr){let due=new Date(dueDateStr+"T00:00:00");let ret=new Date(returnDateStr+"T00:00:00");if(ret<=due)return 0;return Math.round((ret-due)/(1000*60*60*24));}
 function countBizDaysLate(dueDateStr,returnDateStr){let due=new Date(dueDateStr+"T00:00:00");let ret=new Date(returnDateStr+"T00:00:00");if(ret<=due)return 0;let count=0;let d=new Date(due);while(d<ret){d.setDate(d.getDate()+1);if(d.getDay()!==0&&d.getDay()!==6)count++;}return count;}
 
 // Keyword-based replacement cost for individual accessories
@@ -287,7 +286,7 @@ function airtableToReq(rec) {
     studNo:       f.StudNo || "",
     year:         f.Year || "",
     typeId:       f.TypeId || "",
-    type:         f.TypeId || "",
+    type:         REQUEST_TYPES.find(t=>t.id===f.TypeId)?.label || f.TypeId || "",
     status:       f.Status || "Pending",
     notes:        f.Notes || "",
     schedDate:    f.SchedDate || null,
@@ -2500,10 +2499,12 @@ export default function App() {
     const today=todayDate();
     const allItemNames=(req.details?.itemsData||[]).map(i=>i.name);
     const alreadyReturned=req.returnedItems||[];
-    const nowReturning=returningNames.filter(n=>!alreadyReturned.includes(n));
+    // Lost items are ticked as "returning" in the modal UI before being marked lost —
+    // exclude them here so they aren't checked back into stock or listed as returned
+    const nowReturning=returningNames.filter(n=>!alreadyReturned.includes(n)&&!lostItemNames.includes(n));
     const allReturnedAfter=[...alreadyReturned,...nowReturning];
     const allBack=allItemNames.every(n=>allReturnedAfter.includes(n)||lostItemNames.includes(n));
-    const lateDays=allBack&&req.dueDate?countDaysLate(req.dueDate,today):0;
+    const lateDays=allBack&&req.dueDate?countBizDaysLate(req.dueDate,today):0;
     const lateFine=lateDays*eqSettings.dailyRate;
     // Create Checking In records only for items being returned now
     const returningIds=(req.details?.itemsData||[]).filter(i=>nowReturning.includes(i.name)).map(i=>i.id).filter(Boolean);
@@ -4167,7 +4168,7 @@ export default function App() {
         const pendingItems=allItemNames.filter(n=>!alreadyReturned.includes(n));
         const today=todayDate();
         const allBack=ciReturning.length===pendingItems.length&&pendingItems.every(n=>ciReturning.includes(n));
-        const lateDays=allBack&&req.dueDate?countDaysLate(req.dueDate,today):0;
+        const lateDays=allBack&&req.dueDate?countBizDaysLate(req.dueDate,today):0;
         const lateFine=lateDays*eqSettings.dailyRate;
         const lostCosts=ciLost.reduce((s,name)=>{const cost=(req.details?.itemsData||[]).find(i=>i.name===name)?.replacementCost||500;return s+cost;},0)+ciLostAccessories.reduce((s,a)=>s+a.cost,0);
         const totalCharges=lateFine+lostCosts;
