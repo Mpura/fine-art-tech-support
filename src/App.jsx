@@ -111,6 +111,8 @@ function accessoryCost(text){const t=(text||"").toLowerCase();if(t.includes("len
 
 // ── UNIVERSITY CALENDAR ──────────────────────────────────────────
 // Source: Rhodes University Diary 2026 (official). Update each year.
+// CAL_DATA_YEAR drives a staff dashboard warning once this data goes stale.
+const CAL_DATA_YEAR = 2026;
 const PUBLIC_HOLIDAYS_2026 = [
   {date:"2026-01-01",label:"New Year's Day"},
   {date:"2026-03-21",label:"Human Rights Day"},
@@ -375,10 +377,11 @@ async function sendConfirmationEmail(req) {
   const itemsHtml = items.length
     ? `<div style="margin-top:10px"><strong>Equipment:</strong><ul style="margin:6px 0 0;padding-left:18px;color:#c9cdd6">${items.map(i=>`<li>${i.name}</li>`).join("")}</ul></div>`
     : "";
+  const isConfirmed = req.status === "Confirmed";
   const bodyHtml = `
-    <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your <strong>${typeName}</strong> request has been received and is being reviewed.</p>
+    <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your <strong>${typeName}</strong> request has been ${isConfirmed ? "logged and confirmed" : "received and is being reviewed"}.</p>
     <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
-      <p style="margin:0 0 8px"><strong>Status:</strong> Pending</p>
+      <p style="margin:0 0 8px"><strong>Status:</strong> ${req.status || "Pending"}</p>
       ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Scheduled:</strong> ${req.schedDate}</p>` : ""}
       ${req.dueDate ? `<p style="margin:0 0 8px"><strong>Due back:</strong> ${req.dueDate}</p>` : ""}
       ${itemsHtml}
@@ -421,6 +424,26 @@ async function sendStatusEmail(req, status) {
         ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Scheduled:</strong> ${req.schedDate}</p>` : ""}
         ${req.dueDate ? `<p style="margin:0 0 8px"><strong>Due back:</strong> ${req.dueDate}</p>` : ""}
         ${itemsHtml}
+      </div>`;
+  } else if (status === "Material test required") {
+    subject = `🧪 Material test needed for your laser job — FATS`;
+    heading = "Material test required";
+    bodyHtml = `
+      <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, before your laser job can be cut, Tech Support needs to run a short test on your material to confirm the right settings.</p>
+      <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
+        <p style="margin:0 0 8px"><strong>What to do:</strong> come in during your booked slot and bring your material. The test takes about 5–10 minutes.</p>
+        ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Your slot:</strong> ${req.schedDate}</p>` : ""}
+        ${noteHtml}
+      </div>`;
+  } else if (status === "Ready to cut") {
+    subject = `✅ Your laser job is ready to cut — FATS`;
+    heading = "Ready to cut!";
+    bodyHtml = `
+      <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your material test passed — your laser job is ready to cut. Come in at your booked time.</p>
+      <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
+        ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Your slot:</strong> ${req.schedDate}</p>` : ""}
+        <p style="margin:0 0 8px">Remember: you must be present for the full duration of your session.</p>
+        ${noteHtml}
       </div>`;
   } else if (status === "Declined") {
     subject = `❌ ${typeName} request declined — FATS`;
@@ -1095,7 +1118,7 @@ function InsurancePanel({equipment,requests}){
     setLoading(false);
   }
 
-  useState(()=>{fetchAll();},[]);
+  useEffect(()=>{fetchAll();},[]);
 
   function openEdit(item){
     setEditId(item.id);
@@ -1754,12 +1777,14 @@ function HsPanel(){
     setSubmitting(true);
     try{
       const autoStatus=maintForm.universityRef?"Submitted to Estates":"Open";
-      const baseFields={"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||undefined,"Status":autoStatus,"UniversityRef":maintForm.universityRef||undefined,"DateLogged":maintForm.dateLogged||undefined,"DateSubmitted":maintForm.dateSubmitted||undefined,"Notes":maintForm.notes||undefined,"EmailDateTime":maintForm.emailDateTime||undefined};
+      // null (not undefined) so PATCH actually clears emptied fields — JSON drops undefined keys
+      const baseFields={"Description":maintForm.description,"Location":maintForm.location,"ProblemType":maintForm.problemType||null,"Status":autoStatus,"UniversityRef":maintForm.universityRef||null,"DateLogged":maintForm.dateLogged||null,"DateSubmitted":maintForm.dateSubmitted||null,"Notes":maintForm.notes||null,"EmailDateTime":maintForm.emailDateTime||null};
       if(editMaint){
         await atPatch(MAINT_TABLE,editMaint.id,baseFields);
         setMaintReqs(prev=>prev.map(r=>r.id===editMaint.id?{...r,...baseFields}:r));
       } else {
-        const fields={"Name":genId(),...baseFields};
+        // On create, skip empty fields entirely rather than sending nulls
+        const fields={"Name":genId(),...Object.fromEntries(Object.entries(baseFields).filter(([,v])=>v!=null&&v!==""))};
         const res=await atPost(MAINT_TABLE,fields);
         if(res.id) setMaintReqs(prev=>[{id:res.id,...fields},...(prev||[])]);
       }
@@ -1772,8 +1797,8 @@ function HsPanel(){
     setMaintReqs(prev=>prev.filter(r=>r.id!==req.id));
   }
   async function reopenMaintReq(req){
-    await atPatch(MAINT_TABLE,req.id,{Status:"Open",DateResolved:undefined});
-    setMaintReqs(prev=>prev.map(r=>r.id===req.id?{...r,Status:"Open",DateResolved:undefined}:r));
+    await atPatch(MAINT_TABLE,req.id,{Status:"Open",DateResolved:null});
+    setMaintReqs(prev=>prev.map(r=>r.id===req.id?{...r,Status:"Open",DateResolved:null}:r));
   }
   function refreshHs(){
     setHsLoading(true);
@@ -2485,7 +2510,7 @@ export default function App() {
     if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,atFields).catch(()=>{});}
     const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails}:r);setRequests(u);persist(KEYS.req,u);
     // Send status update email for key statuses (non-blocking)
-    if(req&&["Confirmed","Ready to collect","Declined","Cancelled"].includes(status)){
+    if(req&&["Confirmed","Ready to collect","Declined","Cancelled","Material test required","Ready to cut"].includes(status)){
       sendStatusEmail({...req,status},status);
     }
   }
@@ -2546,6 +2571,37 @@ export default function App() {
   function addLicence(){if(!licForm.software.trim())return;const lic={id:genId(),...licForm,seats:Number(licForm.seats)||1,createdAt:todayISO()};const u=[lic,...licences];setLicences(u);persist(KEYS.lic,u);setLicForm({software:"",vendor:"",vendorContact:"",vendorPhone:"",poNumber:"",licenceNo:"",importCode:"",partNo:"",seats:"1",effectiveDate:todayDate(),expiryDate:"",notes:""});setShowLicForm(false);}
   function deleteLicence(id){if(!window.confirm("Delete this licence record?"))return;const u=licences.filter(l=>l.id!==id);setLicences(u);persist(KEYS.lic,u);}
   function licStatus(l){if(!l.expiryDate)return{label:"Perpetual",bg:"#0a2218",color:"#20B07F"};const days=Math.floor((new Date(l.expiryDate+"T00:00:00")-new Date())/86400000);if(days<0)return{label:"Expired",bg:"#2a0f14",color:"#f87171"};if(days<=60)return{label:`Expires in ${days}d`,bg:"#2a1f0a",color:"#d4851a"};return{label:`Active · exp ${fmtDate(l.expiryDate)}`,bg:"#0a2218",color:"#20B07F"};}
+
+  async function runCheckSearch(rawQ){
+    const q=(rawQ||checkStudNo).trim();
+    if(!q)return;
+    localStorage.setItem("fats_last_check",q);
+    setCheckResults(null);setMyFines(null);setMyFinesLoading(true);
+    // Always fetch fresh data from Airtable so status is live
+    let freshReqs=requests;
+    try{
+      const data=await atGet(REQUESTS_TABLE,{maxRecords:500});
+      if(data.records){
+        freshReqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+        setRequests(freshReqs);persist(KEYS.req,freshReqs);
+      }
+    }catch(e){}
+    const lower=q.toLowerCase();
+    const res=freshReqs.filter(r=>r.studNo?.toLowerCase()===lower||r.name?.toLowerCase().includes(lower));
+    setCheckResults(res);
+    try{
+      const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];
+      if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}
+      const f=await fetchFinesForStudent(q);setMyFines(f);
+    }catch(e){setMyFines([]);}
+    setMyFinesLoading(false);
+  }
+  // Auto-fill + re-run the last search when the student opens the check screen
+  useEffect(()=>{
+    if(view!=="student"||screen!=="check")return;
+    const saved=localStorage.getItem("fats_last_check");
+    if(saved&&!checkStudNo&&checkResults===null){setCheckStudNo(saved);runCheckSearch(saved);}
+  },[view,screen]);
 
   async function handleVerifyStudent(){
     if(!form.studNo.trim())return;
@@ -2828,33 +2884,6 @@ export default function App() {
 
   // ── CHECK STATUS ────────────────────────────────────────────────
   if(view==="student"&&screen==="check") {
-    async function runCheckSearch(rawQ){
-      const q=(rawQ||checkStudNo).trim();
-      if(!q)return;
-      localStorage.setItem("fats_last_check",q);
-      setCheckResults(null);setMyFines(null);setMyFinesLoading(true);
-      // Always fetch fresh data from Airtable so status is live
-      let freshReqs=requests;
-      try{
-        const data=await atGet(REQUESTS_TABLE,{maxRecords:500});
-        if(data.records){
-          freshReqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-          setRequests(freshReqs);persist(KEYS.req,freshReqs);
-        }
-      }catch(e){}
-      const lower=q.toLowerCase();
-      const res=freshReqs.filter(r=>r.studNo?.toLowerCase()===lower||r.name?.toLowerCase().includes(lower));
-      setCheckResults(res);
-      try{
-        const ids=[...new Set(res.flatMap(r=>r.details?.itemsData?.map(i=>i.id)||[]).filter(Boolean))];
-        if(ids.length){const imgs=await fetchEqImagesByIds(ids);setEqCheckImages(imgs);}
-        const f=await fetchFinesForStudent(q);setMyFines(f);
-      }catch(e){setMyFines([]);}
-      setMyFinesLoading(false);
-    }
-    // Auto-fill + auto-search from last session
-    const _savedCheck=localStorage.getItem("fats_last_check");
-    if(_savedCheck&&!checkStudNo&&checkResults===null){setCheckStudNo(_savedCheck);setTimeout(()=>runCheckSearch(_savedCheck),0);}
   return(
     <div style={{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
       <TabBar/><Back to="home" extra={()=>{setCheckStudNo("");setCheckResults(null);setMyFines(null);}}/>
@@ -2978,7 +3007,7 @@ export default function App() {
         </div>
         <div style={{marginBottom:16}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Student number or name *</label>
-          <input style={{...ipt,fontSize:16,letterSpacing:"0.05em"}} value={eqStudNo} onChange={e=>setEqStudNo(e.target.value.trim())} onKeyDown={e=>e.key==="Enter"&&handleEqLookup()} placeholder="e.g. g25K7744 or your name" autoFocus/>
+          <input style={{...ipt,fontSize:16,letterSpacing:"0.05em"}} value={eqStudNo} onChange={e=>setEqStudNo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleEqLookup()} placeholder="e.g. g25K7744 or your name" autoFocus/>
           {eqLookupErr&&<div style={{marginTop:8,fontSize:13,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"10px 12px"}}>⚠️ {eqLookupErr}</div>}
         </div>
         <Btn onClick={handleEqLookup} disabled={!eqStudNo.trim()||eqLooking} full style={{padding:"13px",fontSize:15}}>
@@ -3640,6 +3669,11 @@ export default function App() {
         <button onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");setStaffUnlocked(false);setView("student");}} style={{padding:"5px 10px",borderRadius:7,background:"#0f1117",border:"0.5px solid #1e2130",fontSize:12,color:"#6b7280",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>🔒</button>
         <button onClick={()=>{setChangingPin(p=>!p);setNewPin("");}} style={{padding:"5px 10px",borderRadius:7,background:changingPin?"#1a1d28":"#0f1117",border:`0.5px solid ${changingPin?"#3b82f6":"#1e2130"}`,fontSize:12,color:changingPin?"#3b82f6":"#6b7280",cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Change PIN">⚙</button>
       </div>
+      {new Date().getFullYear()>CAL_DATA_YEAR&&(
+        <div style={{background:"#2a0f14",border:"0.5px solid #7f1d1d",borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#f87171"}}>
+          ⚠️ The university calendar (public holidays, recess dates) in this app is for {CAL_DATA_YEAR} — holiday and vacation blocking is no longer applied. Ask your developer to update it from the new Rhodes Diary.
+        </div>
+      )}
       {leaveMode.active&&(<div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
         <div style={{marginBottom:8}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Return date</label><input type="date" style={ipt} value={leaveMode.returnDate} onChange={e=>setLeaveMode(l=>({...l,returnDate:e.target.value}))}/></div>
         <div style={{marginBottom:8}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Message for students</label><input style={ipt} value={leaveMode.message} onChange={e=>setLeaveMode(l=>({...l,message:e.target.value}))} placeholder="e.g. Back after swot week"/></div>
