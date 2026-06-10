@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 
 const TEAL = "#20B07F";
 const BLUE = "#3b82f6";
@@ -1291,7 +1291,7 @@ function InsurancePanel({equipment,requests}){
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
               <div>
                 <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{req.name} <span style={{color:"#6b7280",fontWeight:400}}>· {req.studNo}</span></div>
-                <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Booked: {req.eqColDate||req.createdAt?.slice(0,10)} · Collection: {req.eqSlot||"—"}</div>
+                <div style={{fontSize:12,color:"#6b7280",marginTop:2}}>Collection: {req.schedDate||req.createdAt?.slice(0,10)||"—"}{req.dueDate?` · Due: ${req.dueDate}`:""}</div>
               </div>
               <span style={{fontSize:11,padding:"3px 8px",borderRadius:20,background:"#2a0f14",color:"#f87171",fontWeight:500}}>Lost reported</span>
             </div>
@@ -3515,7 +3515,7 @@ export default function App() {
               <div style={{fontSize:11,color:"#3b82f6",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Your event</div>
               <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"5px 14px"}}>
                 {[["Purpose",PURPOSE_LABELS[avWiz.purpose]||avWiz.purpose],["Venue",VENUE_LABELS[avWiz.venue]],["Event date",avWiz.eventDate?fmtDate(avWiz.eventDate):"Not set"],["Event time",avWiz.eventTime||"Not specified"],["Setup date",avWiz.setupDate?fmtDate(avWiz.setupDate):"Not set"],["Setup time",avWiz.setupTime||"Not specified"],["Duration",avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"Not specified"],["Display",DT_LABELS[avWiz.displayType]||"Not set"],["Count",avWiz.screenCount||"Not set"],["Device",DEV_LABELS[avWiz.device]||avWiz.device]].filter(([,v])=>v&&v!=="Not set"&&v!=="Not specified").map(([k,v])=>(
-                  <><span key={k+"k"} style={{fontSize:12,color:"#4b5563",whiteSpace:"nowrap"}}>{k}</span><span key={k+"v"} style={{fontSize:12,color:"#c9cdd6"}}>{v}</span></>
+                  <Fragment key={k}><span style={{fontSize:12,color:"#4b5563",whiteSpace:"nowrap"}}>{k}</span><span style={{fontSize:12,color:"#c9cdd6"}}>{v}</span></Fragment>
                 ))}
               </div>
             </div>
@@ -3726,15 +3726,21 @@ export default function App() {
             <div style={{fontSize:17,fontWeight:500,color:"#e0e3ea",letterSpacing:"-0.3px"}}>📅 {todayHeading}</div>
             <div style={{fontSize:12,color:"#4b5563",marginTop:3}}>Daily overview — bookings, collections and returns</div>
           </div>
-          {/* Stats summary */}
+          {/* Stats summary — scoped to today's workload, not all-time */}
+          {(()=>{
+            const todayReqs=requests.filter(r=>r.schedDate?.startsWith(_today)||r.details?.setupDate===_today||r.dueDate===_today);
+            const tc=s=>todayReqs.filter(r=>r.status===s).length;
+            return(
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:20}}>
-            {[["Pending",counts["Pending"]||0,"#d4851a","#2a1f0a"],["In Progress",counts["In Progress"]||0,"#60a5fa","#0a1e35"],["Done",counts["Done"]||0,"#20B07F","#0a2218"]].map(([l,n,col,bg])=>(
+            {[["Pending",tc("Pending")+tc("Confirmed"),"#d4851a","#2a1f0a"],["In Progress",tc("In Progress"),"#60a5fa","#0a1e35"],["Done",tc("Done")+tc("Returned")+tc("Collected"),"#20B07F","#0a2218"]].map(([l,n,col,bg])=>(
               <div key={l} style={{background:bg,borderRadius:8,padding:"10px 12px",border:`0.5px solid ${col}22`}}>
                 <div style={{fontSize:22,fontWeight:500,color:col,lineHeight:1}}>{n}</div>
                 <div style={{fontSize:10,color:col,marginTop:3}}>{l}</div>
               </div>
             ))}
           </div>
+            );
+          })()}
           <Sec icon="📽️" title="AV setups today" items={avSetupToday} sk="avsetup"/>
           {pmDueToday.length>0&&(
             <div style={{marginBottom:20}}>
@@ -3955,7 +3961,7 @@ export default function App() {
           );
         })}
         {/* ── ARCHIVE ── */}
-        {queueArchive.length>0&&filterStatus==="All"&&(
+        {queueArchive.length>0&&(
           <div style={{marginTop:12}}>
             <div style={{fontSize:11,color:"#374151",fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",padding:"0 2px",marginBottom:8}}>Archive — {queueArchive.length} completed / declined</div>
             {REQUEST_TYPES.map(type=>{
@@ -4131,7 +4137,7 @@ export default function App() {
           const st=licStatus(lic);
           const expanded=expandLicId===lic.id;
           return(
-            <div key={lic.id} style={{background:"#141720",border:`0.5px solid ${st.label.startsWith("Expir")&&!st.label.startsWith("Expiring in")?"#c05050":st.label==="Expired"?"#c05050":"#1e2130"}`,borderRadius:14,padding:"16px 18px",marginBottom:12}}>
+            <div key={lic.id} style={{background:"#141720",border:`0.5px solid ${st.label==="Expired"?"#c05050":st.label.startsWith("Expires in")?"#7a5a1a":"#1e2130"}`,borderRadius:14,padding:"16px 18px",marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                 <div style={{flex:1,minWidth:0,paddingRight:8}}>
                   <div style={{fontWeight:600,fontSize:15,marginBottom:2}}>{lic.software}</div>
