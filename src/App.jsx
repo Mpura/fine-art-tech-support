@@ -78,7 +78,6 @@ const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:
 
 // Default Corel licence pre-loaded
 const DEFAULT_LICENCES=[{id:"corel_2026_01",software:"CorelDRAW Graphics Suite Education",vendor:"Learning Curve",vendorContact:"Phillip Mokgethi",vendorPhone:"+27 84 424 0772",poNumber:"RP0000122595",licenceNo:"1158587",importCode:"10690273",partNo:"LCCDGSSUBA11",seats:2,effectiveDate:"2026-05-12",expiryDate:"2027-05-11",notes:"365-Day Subscription (Single User). Activate at coreldraw.com/licensemanagement. Keep this certificate for renewal reference.",createdAt:"2026-05-12T09:11:00.000Z"}];
-const DEFAULT_PIN="1234";
 const DEFAULT_EQ_SETTINGS={yr12Days:3,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
 
 // Equipment collection: Mon/Wed/Fri only, three 30-min windows during stockroom hours
@@ -163,11 +162,27 @@ const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false
 // ── AIRTABLE REST API (via secure server proxy) ──────────────────
 // All calls go to /api/airtable — the token never leaves the server.
 
+// Staff PIN entered at unlock — attached to every call so the server can
+// authorise staff-only operations. Empty for students; public ops don't need it.
+function getStaffPin() { try { return sessionStorage.getItem("fats_staff_pin") || ""; } catch (e) { return ""; } }
+
+async function verifyStaffPin(pin) {
+  try {
+    const res = await fetch("/api/airtable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ method: "VERIFY_PIN", pin }),
+    });
+    const data = await res.json();
+    return !!data.ok;
+  } catch (e) { return false; }
+}
+
 async function atGet(table, params = {}) {
   const res = await fetch("/api/airtable", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ table, method: "GET", params }),
+    body: JSON.stringify({ table, method: "GET", params, staffPin: getStaffPin() }),
   });
   return res.json();
 }
@@ -176,7 +191,7 @@ async function atPost(table, fields) {
   const res = await fetch("/api/airtable", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ table, method: "POST", fields }),
+    body: JSON.stringify({ table, method: "POST", fields, staffPin: getStaffPin() }),
   });
   return res.json();
 }
@@ -185,7 +200,7 @@ async function atPatch(table, recordId, fields) {
   const res = await fetch("/api/airtable", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ table, method: "PATCH", recordId, fields }),
+    body: JSON.stringify({ table, method: "PATCH", recordId, fields, staffPin: getStaffPin() }),
   });
   return res.json();
 }
@@ -201,7 +216,7 @@ async function atDelete(table, recordId) {
   const res = await fetch("/api/airtable", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ table, method: "DELETE", recordId }),
+    body: JSON.stringify({ table, method: "DELETE", recordId, staffPin: getStaffPin() }),
   });
   return res.json();
 }
@@ -2298,7 +2313,7 @@ export default function App() {
   const [staffUnlocked, setStaffUnlocked] = useState(()=>sessionStorage.getItem("fats_staff_unlocked")==="1");
   const [pinInput, setPinInput] = useState("");
   const [pinErr, setPinErr] = useState("");
-  const [staffPin, setStaffPin] = useState(()=>localStorage.getItem(KEYS.staffPin)||DEFAULT_PIN);
+  const [pinChecking, setPinChecking] = useState(false);
   const [changingPin, setChangingPin] = useState(false);
   const [isDesktop, setIsDesktop] = useState(typeof window!=="undefined"&&window.innerWidth>=900);
   const [newPin, setNewPin] = useState("");
@@ -2386,7 +2401,7 @@ export default function App() {
         else if(key==="blocks"){setBlocks(val);persist(KEYS.block,val);}
         else if(key==="schedule"){setSchedule(val);persist(KEYS.sched,val);}
         else if(key==="eqSettings"){setEqSettings(val);localStorage.setItem(KEYS.eqSet,JSON.stringify(val));}
-        else if(key==="pin"){setStaffPin(String(val));localStorage.setItem(KEYS.staffPin,String(val));}
+        // "pin" is never returned by the server — verified server-side via VERIFY_PIN
       }
     }).catch(()=>{});
     // Requests come from Airtable so they're visible across all devices
@@ -2603,6 +2618,20 @@ export default function App() {
     if(saved&&!checkStudNo&&checkResults===null){setCheckStudNo(saved);runCheckSearch(saved);}
   },[view,screen]);
 
+  async function tryStaffUnlock(){
+    if(!pinInput||pinChecking)return;
+    setPinChecking(true);setPinErr("");
+    const ok=await verifyStaffPin(pinInput);
+    setPinChecking(false);
+    if(ok){
+      sessionStorage.setItem("fats_staff_unlocked","1");
+      sessionStorage.setItem("fats_staff_pin",pinInput);
+      setStaffUnlocked(true);setView("dashboard");setScreen("home");setPinInput("");
+    } else {
+      setPinErr("Incorrect PIN. Try again.");
+    }
+  }
+
   async function handleVerifyStudent(){
     if(!form.studNo.trim())return;
     setVerifyingStudent(true);setVerifyErr("");
@@ -2813,9 +2842,9 @@ export default function App() {
         <div style={{fontSize:36,marginBottom:12}}>🔒</div>
         <div style={{fontSize:18,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Staff access</div>
         <div style={{fontSize:13,color:"#4b5563",marginBottom:28}}>Enter your PIN to continue</div>
-        <input type="password" inputMode="numeric" maxLength={6} style={{...ipt,textAlign:"center",fontSize:24,letterSpacing:"0.4em",maxWidth:200,margin:"0 auto 16px"}} value={pinInput} onChange={e=>{setPinInput(e.target.value);setPinErr("");}} onKeyDown={e=>e.key==="Enter"&&(()=>{if(pinInput===staffPin){sessionStorage.setItem("fats_staff_unlocked","1");setStaffUnlocked(true);setView("dashboard");setScreen("home");}else{setPinErr("Incorrect PIN. Try again.");}})()}  placeholder="••••" autoFocus/>
+        <input type="password" inputMode="numeric" maxLength={6} style={{...ipt,textAlign:"center",fontSize:24,letterSpacing:"0.4em",maxWidth:200,margin:"0 auto 16px"}} value={pinInput} onChange={e=>{setPinInput(e.target.value);setPinErr("");}} onKeyDown={e=>e.key==="Enter"&&tryStaffUnlock()}  placeholder="••••" autoFocus/>
         {pinErr&&<div style={{fontSize:13,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"10px 12px",marginBottom:16}}>{pinErr}</div>}
-        <Btn full style={{maxWidth:200,margin:"0 auto",display:"block"}} onClick={()=>{if(pinInput===staffPin){sessionStorage.setItem("fats_staff_unlocked","1");setStaffUnlocked(true);setView("dashboard");setScreen("home");}else{setPinErr("Incorrect PIN. Try again.");}}}>Unlock →</Btn>
+        <Btn full style={{maxWidth:200,margin:"0 auto",display:"block"}} onClick={tryStaffUnlock} disabled={pinChecking}>{pinChecking?"Checking…":"Unlock →"}</Btn>
       </div>
     </div>
   );
@@ -3655,7 +3684,7 @@ export default function App() {
           ))}
           <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
             <a href="/laser-staff-guide.html" target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:"#6b7280",textDecoration:"none",marginBottom:4}}>⚡ Laser Operator Guide</a>
-            <div onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");setStaffUnlocked(false);setView("student");}} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:"#6b7280",cursor:"pointer"}}>🔒 Lock</div>
+            <div onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");sessionStorage.removeItem("fats_staff_pin");setStaffUnlocked(false);setView("student");}} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:"#6b7280",cursor:"pointer"}}>🔒 Lock</div>
           </div>
         </div>
       )}
@@ -3666,7 +3695,7 @@ export default function App() {
       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:12,background:leaveMode.active?"#2a1f0a":"#141720",border:`0.5px solid ${leaveMode.active?"#5a3a0a":"#1e2130"}`,borderRadius:10,padding:"8px 12px"}}>
         <span style={{fontSize:13,fontWeight:500,color:leaveMode.active?"#d4851a":"#20B07F",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{leaveMode.active?"🏖️ Leave mode ON":"🟢 Active"}</span>
         <Btn small onClick={toggleLeave} color={leaveMode.active?TEAL:AMBER} style={{flexShrink:0}}>{leaveMode.active?"Go active":"Leave"}</Btn>
-        <button onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");setStaffUnlocked(false);setView("student");}} style={{padding:"5px 10px",borderRadius:7,background:"#0f1117",border:"0.5px solid #1e2130",fontSize:12,color:"#6b7280",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>🔒</button>
+        <button onClick={()=>{sessionStorage.removeItem("fats_staff_unlocked");sessionStorage.removeItem("fats_staff_pin");setStaffUnlocked(false);setView("student");}} style={{padding:"5px 10px",borderRadius:7,background:"#0f1117",border:"0.5px solid #1e2130",fontSize:12,color:"#6b7280",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>🔒</button>
         <button onClick={()=>{setChangingPin(p=>!p);setNewPin("");}} style={{padding:"5px 10px",borderRadius:7,background:changingPin?"#1a1d28":"#0f1117",border:`0.5px solid ${changingPin?"#3b82f6":"#1e2130"}`,fontSize:12,color:changingPin?"#3b82f6":"#6b7280",cursor:"pointer",fontFamily:"inherit",flexShrink:0}} title="Change PIN">⚙</button>
       </div>
       {new Date().getFullYear()>CAL_DATA_YEAR&&(
@@ -3684,7 +3713,7 @@ export default function App() {
           <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Set a new staff PIN (4–6 digits). It applies on all devices.</div>
           <div style={{display:"flex",gap:8}}>
             <input type="password" inputMode="numeric" maxLength={6} style={{...ipt,flex:1,letterSpacing:"0.2em"}} value={newPin} onChange={e=>setNewPin(e.target.value)} placeholder="New PIN"/>
-            <Btn small onClick={()=>{if(newPin.length>=4){setStaffPin(newPin);localStorage.setItem(KEYS.staffPin,newPin);saveSetting("pin",newPin);setChangingPin(false);setNewPin("");}}} disabled={newPin.length<4}>Save</Btn>
+            <Btn small onClick={()=>{if(newPin.length>=4){saveSetting("pin",newPin).then(()=>{sessionStorage.setItem("fats_staff_pin",newPin);});setChangingPin(false);setNewPin("");}}} disabled={newPin.length<4}>Save</Btn>
           </div>
         </div>
       )}

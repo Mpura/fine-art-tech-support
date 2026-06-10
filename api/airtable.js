@@ -1,8 +1,52 @@
 // Vercel serverless function — keeps the Airtable token server-side only.
 // The frontend calls /api/airtable instead of Airtable directly.
+//
+// Access model:
+//  - PUBLIC_OPS: table+method combos students legitimately need — open.
+//  - STAFF_OPS: everything staff-side — requires the staff PIN, which is
+//    verified server-side against the Settings table and never sent to clients.
+//  - Anything else is rejected.
+//  - GETs on the Settings table have the "pin" record stripped from the response.
 
 const BASE_ID = "appUqkCfnsOo2Jf7z";
 const AT_URL = `https://api.airtable.com/v0/${BASE_ID}`;
+
+const REQUESTS = "tblAQE1leKVCRH51d";
+const EQ = "tblc2MXweiXikz3wo";
+const CHECKOUT = "tbl1DvH6ostZs7Jog";
+const FINES = "tbliP9x6KL7EUABWc";
+const MEMBERS = "tbloPfyyjQY79YxQd";
+const MAINT = "tbldZisWbs1WQIr09";
+const PM = "tblHyr7MxWVDIzFtC";
+const SETTINGS = "tblfEH66wD8KPJMl9";
+const PIN_RECORD_ID = "recl1lbt7hHWY8vHr";
+
+// What an unauthenticated visitor (a student) may do
+const PUBLIC_OPS = {
+  [MEMBERS]: ["GET"],            // student number lookup
+  [REQUESTS]: ["GET", "POST"],   // check status, submit requests
+  [EQ]: ["GET"],                 // browse equipment
+  [CHECKOUT]: ["POST"],          // equipment booking creates a checkout record
+  [FINES]: ["GET"],              // view own charges
+  [SETTINGS]: ["GET"],           // leave mode, blocks, schedules (pin stripped)
+};
+
+// What requires the staff PIN
+const STAFF_OPS = {
+  [REQUESTS]: ["PATCH"],
+  [EQ]: ["PATCH"],
+  [FINES]: ["POST"],
+  [MAINT]: ["GET", "POST", "PATCH", "DELETE"],
+  [PM]: ["GET", "POST", "PATCH", "DELETE"],
+  [SETTINGS]: ["PATCH"],
+};
+
+async function fetchStoredPin(headers) {
+  const res = await fetch(`${AT_URL}/${SETTINGS}/${PIN_RECORD_ID}`, { headers });
+  if (!res.ok) return null;
+  const data = await res.json();
+  try { return String(JSON.parse(data.fields?.Value ?? "null")); } catch (e) { return null; }
+}
 
 export default async function handler(req, res) {
   // Only allow POST from the app itself
@@ -15,16 +59,35 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "API token not configured on server" });
   }
 
-  const { table, method, params, recordId, fields } = req.body || {};
+  const headers = {
+    Authorization: `Bearer ${PAT}`,
+    "Content-Type": "application/json",
+  };
+
+  const { table, method, params, recordId, fields, staffPin, pin } = req.body || {};
+
+  // Server-side PIN check — the stored PIN never leaves the server
+  if (method === "VERIFY_PIN") {
+    const stored = await fetchStoredPin(headers);
+    return res.status(200).json({ ok: stored != null && String(pin) === stored });
+  }
 
   if (!table || !method) {
     return res.status(400).json({ error: "Missing table or method" });
   }
 
-  const headers = {
-    Authorization: `Bearer ${PAT}`,
-    "Content-Type": "application/json",
-  };
+  // Authorisation: public op, or staff op with a valid PIN — otherwise reject
+  const isPublic = PUBLIC_OPS[table]?.includes(method);
+  if (!isPublic) {
+    const isStaffOp = STAFF_OPS[table]?.includes(method);
+    if (!isStaffOp) {
+      return res.status(403).json({ error: "Operation not allowed" });
+    }
+    const stored = await fetchStoredPin(headers);
+    if (stored == null || String(staffPin) !== stored) {
+      return res.status(403).json({ error: "Staff PIN required" });
+    }
+  }
 
   let url;
   let options = { headers };
@@ -75,6 +138,12 @@ export default async function handler(req, res) {
 
     const response = await fetch(url, options);
     const data = await response.json();
+
+    // Never expose the PIN record through settings reads
+    if (table === SETTINGS && method === "GET" && Array.isArray(data.records)) {
+      data.records = data.records.filter(r => r.fields?.Name !== "pin");
+    }
+
     return res.status(response.status).json(data);
 
   } catch (e) {
