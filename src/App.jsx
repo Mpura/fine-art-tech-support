@@ -15,6 +15,11 @@ const MEMBERS_TABLE = "tbloPfyyjQY79YxQd";
 const REQUESTS_TABLE = "tblAQE1leKVCRH51d";
 const MAINT_TABLE = "tbldZisWbs1WQIr09";
 const PM_TABLE = "tblHyr7MxWVDIzFtC";
+// Shared app settings — one record per key so leave mode, blocks, schedules,
+// equipment settings and the staff PIN apply on every device, not just the
+// browser where they were changed.
+const SETTINGS_TABLE = "tblfEH66wD8KPJMl9";
+const SETTINGS_RECS = {leave:"recVxEasEt1aNrS3N",blocks:"recKwguxmAdTgtjQH",schedule:"recnV0VmlYGKrH5wx",eqSettings:"recKAlQewn1k7eDcs",pin:"recl1lbt7hHWY8vHr"};
 
 const YEAR_LABELS = {"1":"1st year","2":"2nd year","3":"3rd year","4":"4th year","m":"Masters","s":"Staff","o":"Other"};
 
@@ -182,6 +187,13 @@ async function atPatch(table, recordId, fields) {
     body: JSON.stringify({ table, method: "PATCH", recordId, fields }),
   });
   return res.json();
+}
+
+// Persist a shared setting to Airtable (fire-and-forget; localStorage stays as cache)
+function saveSetting(key, value) {
+  const recId = SETTINGS_RECS[key];
+  if (!recId) return Promise.resolve();
+  return atPatch(SETTINGS_TABLE, recId, { Value: JSON.stringify(value), UpdatedAt: todayISO() }).catch(() => {});
 }
 
 async function atDelete(table, recordId) {
@@ -2262,6 +2274,7 @@ export default function App() {
   const [staffUnlocked, setStaffUnlocked] = useState(()=>sessionStorage.getItem("fats_staff_unlocked")==="1");
   const [pinInput, setPinInput] = useState("");
   const [pinErr, setPinErr] = useState("");
+  const [staffPin, setStaffPin] = useState(()=>localStorage.getItem(KEYS.staffPin)||DEFAULT_PIN);
   const [changingPin, setChangingPin] = useState(false);
   const [isDesktop, setIsDesktop] = useState(typeof window!=="undefined"&&window.innerWidth>=900);
   const [newPin, setNewPin] = useState("");
@@ -2338,6 +2351,20 @@ export default function App() {
       const li=localStorage.getItem(KEYS.lic);if(li)setLicences(JSON.parse(li));
       const sn=localStorage.getItem(KEYS.savedStudNo);if(sn)setForm(f=>({...f,studNo:sn}));
     }catch(e){}
+    // Shared settings come from Airtable so leave mode, blocks, schedules and
+    // the PIN apply on every device (localStorage above is just a fast cache)
+    atGet(SETTINGS_TABLE,{maxRecords:10}).then(d=>{
+      for(const r of d.records||[]){
+        let val;try{val=JSON.parse(r.fields?.Value||"null");}catch(e){continue;}
+        if(val==null)continue;
+        const key=r.fields?.Name;
+        if(key==="leave"){setLeaveMode(val);persist(KEYS.leave,val);}
+        else if(key==="blocks"){setBlocks(val);persist(KEYS.block,val);}
+        else if(key==="schedule"){setSchedule(val);persist(KEYS.sched,val);}
+        else if(key==="eqSettings"){setEqSettings(val);localStorage.setItem(KEYS.eqSet,JSON.stringify(val));}
+        else if(key==="pin"){setStaffPin(String(val));localStorage.setItem(KEYS.staffPin,String(val));}
+      }
+    }).catch(()=>{});
     // Requests come from Airtable so they're visible across all devices
     atGet(REQUESTS_TABLE,{maxRecords:500}).then(data=>{
       if(data.records){
@@ -2410,14 +2437,21 @@ export default function App() {
   }
   async function submitRequest(isWalkIn=false){
     const isExt=visitorType==="external";
-    if(isExt){if(!extForm.name.trim()||!selType)return;}
+    // Walk-ins are logged by staff from typed fields — no verified student session
+    if(isWalkIn){if(!form.name.trim()||!selType)return;}
+    else if(isExt){if(!extForm.name.trim()||!selType)return;}
     else{if(!verifiedStudent||!selType)return;}
     const _schedDate=
       selType==="studio"&&form.studioDate&&form.studioSlot?`${form.studioDate} (${EQ_COL_SLOTS.find(s=>s.id===form.studioSlot)?.label||form.studioSlot})`:
       selType==="3d"&&form.dropOffDate?`Drop-off: ${fmtDate(form.dropOffDate)}`:
       type.bookable&&selDate?`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`:
       form.when==="later"&&!isWalkIn?form.schedDate:null;
-    const req={id:genId(),name:isExt?extForm.name.trim():verifiedStudent.name,studNo:isExt?"":verifiedStudent?.studNo||"",year:isExt?"":verifiedStudent?.year||"",studentEmail:isExt?null:verifiedStudent?.email||null,affiliation:isExt?extForm.affiliation.trim():"",contact:isExt?extForm.contact.trim():"",type:type.label,typeId:selType,when:isWalkIn?"walkin":(type.bookable&&selDate)||(selType==="studio"&&form.studioDate)||(selType==="3d"&&form.dropOffDate)?"booked":form.when,schedDate:_schedDate,notes:form.notes.trim(),details:getDetails(),status:"Pending",staffNote:"",isWalkIn,isExternal:isExt,createdAt:todayISO(),updatedAt:todayISO()};
+    const req={id:genId(),
+      name:isWalkIn?form.name.trim():isExt?extForm.name.trim():verifiedStudent.name,
+      studNo:isWalkIn?form.studNo.trim():isExt?"":verifiedStudent?.studNo||"",
+      year:isWalkIn?form.year||"":isExt?"":verifiedStudent?.year||"",
+      studentEmail:isWalkIn||isExt?null:verifiedStudent?.email||null,
+      affiliation:isExt?extForm.affiliation.trim():"",contact:isExt?extForm.contact.trim():"",type:type.label,typeId:selType,when:isWalkIn?"walkin":(type.bookable&&selDate)||(selType==="studio"&&form.studioDate)||(selType==="3d"&&form.dropOffDate)?"booked":form.when,schedDate:_schedDate,notes:form.notes.trim(),details:getDetails(),status:"Pending",staffNote:"",isWalkIn,isExternal:isExt&&!isWalkIn,createdAt:todayISO(),updatedAt:todayISO()};
     // Show immediately in UI
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     // Save to Airtable so staff can see it from any device
@@ -2501,13 +2535,13 @@ export default function App() {
     if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,{StaffNote:note,UpdatedAt:todayISO()}).catch(()=>{});}
     const u=requests.map(r=>r.id===id?{...r,staffNote:note,updatedAt:todayISO()}:r);setRequests(u);persist(KEYS.req,u);
   }
-  function updateSchedule(eqId,field,val){const u={...schedule,[eqId]:{...schedule[eqId],[field]:val}};setSchedule(u);persist(KEYS.sched,u);}
-  function toggleDay(eqId,day){const curr=schedule[eqId]?.days||[];const u={...schedule,[eqId]:{...schedule[eqId],days:curr.includes(day)?curr.filter(d=>d!==day):[...curr,day].sort()}};setSchedule(u);persist(KEYS.sched,u);}
-  function addBlock(){if(!blockDate||!blockReason.trim())return;const u={...blocks,[blockDate]:{reason:blockReason.trim(),createdAt:todayISO()}};setBlocks(u);persist(KEYS.block,u);setBlockDate("");setBlockReason("");}
-  function removeBlock(k){const u={...blocks};delete u[k];setBlocks(u);persist(KEYS.block,u);}
+  function updateSchedule(eqId,field,val){const u={...schedule,[eqId]:{...schedule[eqId],[field]:val}};setSchedule(u);persist(KEYS.sched,u);saveSetting("schedule",u);}
+  function toggleDay(eqId,day){const curr=schedule[eqId]?.days||[];const u={...schedule,[eqId]:{...schedule[eqId],days:curr.includes(day)?curr.filter(d=>d!==day):[...curr,day].sort()}};setSchedule(u);persist(KEYS.sched,u);saveSetting("schedule",u);}
+  function addBlock(){if(!blockDate||!blockReason.trim())return;const u={...blocks,[blockDate]:{reason:blockReason.trim(),createdAt:todayISO()}};setBlocks(u);persist(KEYS.block,u);saveSetting("blocks",u);setBlockDate("");setBlockReason("");}
+  function removeBlock(k){const u={...blocks};delete u[k];setBlocks(u);persist(KEYS.block,u);saveSetting("blocks",u);}
   function logMaintenance(){if(!maintForm.equipmentId||!maintForm.date)return;const log={id:genId(),...maintForm,createdAt:todayISO()};const u=[log,...maintLogs];setMaintLogs(u);persist(KEYS.maint,u);setMaintForm({equipmentId:"",date:"",notes:"",status:"Done",duration:""});}
-  function toggleLeave(){const u=leaveMode.active?{active:false,returnDate:"",message:""}:{...leaveMode,active:true};setLeaveMode(u);persist(KEYS.leave,u);}
-  function saveLeave(){persist(KEYS.leave,leaveMode);}
+  function toggleLeave(){const u=leaveMode.active?{active:false,returnDate:"",message:""}:{...leaveMode,active:true};setLeaveMode(u);persist(KEYS.leave,u);saveSetting("leave",u);}
+  function saveLeave(){persist(KEYS.leave,leaveMode);saveSetting("leave",leaveMode);}
   function addLicence(){if(!licForm.software.trim())return;const lic={id:genId(),...licForm,seats:Number(licForm.seats)||1,createdAt:todayISO()};const u=[lic,...licences];setLicences(u);persist(KEYS.lic,u);setLicForm({software:"",vendor:"",vendorContact:"",vendorPhone:"",poNumber:"",licenceNo:"",importCode:"",partNo:"",seats:"1",effectiveDate:todayDate(),expiryDate:"",notes:""});setShowLicForm(false);}
   function deleteLicence(id){if(!window.confirm("Delete this licence record?"))return;const u=licences.filter(l=>l.id!==id);setLicences(u);persist(KEYS.lic,u);}
   function licStatus(l){if(!l.expiryDate)return{label:"Perpetual",bg:"#0a2218",color:"#20B07F"};const days=Math.floor((new Date(l.expiryDate+"T00:00:00")-new Date())/86400000);if(days<0)return{label:"Expired",bg:"#2a0f14",color:"#f87171"};if(days<=60)return{label:`Expires in ${days}d`,bg:"#2a1f0a",color:"#d4851a"};return{label:`Active · exp ${fmtDate(l.expiryDate)}`,bg:"#0a2218",color:"#20B07F"};}
@@ -2523,7 +2557,8 @@ export default function App() {
     setVerifyingStudent(false);
   }
 
-  function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"(Morning)":"(Afternoon)")&&r.status!=="Declined"&&r.status!=="Cancelled").length;}
+  // schedDate is stored as "YYYY-MM-DD (Morning 09:00–12:00)" — match on the word, not "(Morning)"
+  function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"Morning":"Afternoon")&&r.status!=="Declined"&&r.status!=="Cancelled").length;}
 
   // Equipment booking handlers
   async function handleEqLookup(){
@@ -2721,9 +2756,9 @@ export default function App() {
         <div style={{fontSize:36,marginBottom:12}}>🔒</div>
         <div style={{fontSize:18,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Staff access</div>
         <div style={{fontSize:13,color:"#4b5563",marginBottom:28}}>Enter your PIN to continue</div>
-        <input type="password" inputMode="numeric" maxLength={6} style={{...ipt,textAlign:"center",fontSize:24,letterSpacing:"0.4em",maxWidth:200,margin:"0 auto 16px"}} value={pinInput} onChange={e=>{setPinInput(e.target.value);setPinErr("");}} onKeyDown={e=>e.key==="Enter"&&(()=>{const stored=localStorage.getItem(KEYS.staffPin)||DEFAULT_PIN;if(pinInput===stored){sessionStorage.setItem("fats_staff_unlocked","1");setStaffUnlocked(true);setView("dashboard");setScreen("home");}else{setPinErr("Incorrect PIN. Try again.");}})()}  placeholder="••••" autoFocus/>
+        <input type="password" inputMode="numeric" maxLength={6} style={{...ipt,textAlign:"center",fontSize:24,letterSpacing:"0.4em",maxWidth:200,margin:"0 auto 16px"}} value={pinInput} onChange={e=>{setPinInput(e.target.value);setPinErr("");}} onKeyDown={e=>e.key==="Enter"&&(()=>{if(pinInput===staffPin){sessionStorage.setItem("fats_staff_unlocked","1");setStaffUnlocked(true);setView("dashboard");setScreen("home");}else{setPinErr("Incorrect PIN. Try again.");}})()}  placeholder="••••" autoFocus/>
         {pinErr&&<div style={{fontSize:13,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"10px 12px",marginBottom:16}}>{pinErr}</div>}
-        <Btn full style={{maxWidth:200,margin:"0 auto",display:"block"}} onClick={()=>{const stored=localStorage.getItem(KEYS.staffPin)||DEFAULT_PIN;if(pinInput===stored){sessionStorage.setItem("fats_staff_unlocked","1");setStaffUnlocked(true);setView("dashboard");setScreen("home");}else{setPinErr("Incorrect PIN. Try again.");}}}>Unlock →</Btn>
+        <Btn full style={{maxWidth:200,margin:"0 auto",display:"block"}} onClick={()=>{if(pinInput===staffPin){sessionStorage.setItem("fats_staff_unlocked","1");setStaffUnlocked(true);setView("dashboard");setScreen("home");}else{setPinErr("Incorrect PIN. Try again.");}}}>Unlock →</Btn>
       </div>
     </div>
   );
@@ -3611,10 +3646,10 @@ export default function App() {
       </div>)}
       {changingPin&&(
         <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Current PIN: <strong style={{color:"#e0e3ea"}}>{localStorage.getItem(KEYS.staffPin)||DEFAULT_PIN}</strong></div>
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:8}}>Set a new staff PIN (4–6 digits). It applies on all devices.</div>
           <div style={{display:"flex",gap:8}}>
             <input type="password" inputMode="numeric" maxLength={6} style={{...ipt,flex:1,letterSpacing:"0.2em"}} value={newPin} onChange={e=>setNewPin(e.target.value)} placeholder="New PIN"/>
-            <Btn small onClick={()=>{if(newPin.length>=4){localStorage.setItem(KEYS.staffPin,newPin);setChangingPin(false);setNewPin("");}}} disabled={newPin.length<4}>Save</Btn>
+            <Btn small onClick={()=>{if(newPin.length>=4){setStaffPin(newPin);localStorage.setItem(KEYS.staffPin,newPin);saveSetting("pin",newPin);setChangingPin(false);setNewPin("");}}} disabled={newPin.length<4}>Save</Btn>
           </div>
         </div>
       )}
@@ -3943,7 +3978,7 @@ export default function App() {
                 <input type="number" style={{...ipt,width:70,flex:"0 0 auto"}} value={eqSettingsForm[key]} onChange={e=>setEqSettingsForm(f=>({...f,[key]:Number(e.target.value)}))}/>
               </div>
             ))}
-            <Btn small onClick={()=>{setEqSettings(eqSettingsForm);localStorage.setItem(KEYS.eqSet,JSON.stringify(eqSettingsForm));setEqSettingsForm(null);}}>Save settings</Btn>
+            <Btn small onClick={()=>{setEqSettings(eqSettingsForm);localStorage.setItem(KEYS.eqSet,JSON.stringify(eqSettingsForm));saveSetting("eqSettings",eqSettingsForm);setEqSettingsForm(null);}}>Save settings</Btn>
           </div>)}
         </div>
         {BOOKABLE.map(t=>{const s=schedule[t.id]||{days:[],morningSlots:1,afternoonSlots:1};const editing=editEq===t.id;return(
