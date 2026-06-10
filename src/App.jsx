@@ -1355,13 +1355,18 @@ function PmPanel(){
 
   function getSection(machine){for(const s of PM_SECTIONS){if(s.match(machine||""))return s;}return PM_SECTIONS[PM_SECTIONS.length-1];}
   function daysUntilPm(d){if(!d)return null;return Math.floor((new Date(d+"T00:00:00")-new Date())/86400000);}
-  function intervalDaysPm(iv){return iv==="Daily"?1:iv==="Weekly"?7:iv==="Monthly"?30:iv==="Per Term"?90:365;}
+  function intervalDaysPm(iv){return iv==="Daily"?1:iv==="Weekly"?7:iv==="Monthly"?30:iv==="Per Term"?90:iv==="Per Use"?0:365;}
   function addDaysFn(dateStr,n){const d=new Date(dateStr+"T00:00:00");d.setDate(d.getDate()+n);return localDateStr(d);}
-  function getTaskStatus(task){if(!task.NextDue)return"not-done";const du=daysUntilPm(task.NextDue);if(du<0)return"overdue";if(du<=7)return"due-soon";return"scheduled";}
+  function getTaskStatus(task){
+    if(task.Interval==="Per Use")return"per-use";
+    if(!task.NextDue)return"not-done";
+    const du=daysUntilPm(task.NextDue);if(du<0)return"overdue";if(du<=7)return"due-soon";return"scheduled";
+  }
   function statusMeta(s){
     if(s==="overdue")return{label:"Overdue",color:"#f87171",bg:"#2a0f14"};
     if(s==="due-soon")return{label:"Due soon",color:"#d4851a",bg:"#2a1f0a"};
     if(s==="scheduled")return{label:"Scheduled",color:"#20B07F",bg:"#0a2218"};
+    if(s==="per-use")return{label:"Per use",color:"#a855f7",bg:"#1a0a2e"};
     return{label:"Not yet done",color:"#6b7280",bg:"#1a1d28"};
   }
   function openLogForm(task){
@@ -1402,10 +1407,15 @@ function PmPanel(){
     const updates={TaskLog:newLog};
     if(outcome==="Done"){
       updates.LastDone=lf.date;
-      updates.NextDue=addDaysFn(lf.date,intervalDaysPm(task.Interval||"Monthly"));
+      // Per Use tasks: just record when it was last done — no fixed next due date
+      if(task.Interval!=="Per Use"){
+        updates.NextDue=addDaysFn(lf.date,intervalDaysPm(task.Interval||"Monthly"));
+      }
     } else if(outcome==="Partial"){
       updates.LastDone=lf.date;
-      updates.NextDue=addDaysFn(lf.date,7);
+      if(task.Interval!=="Per Use"){
+        updates.NextDue=addDaysFn(lf.date,7);
+      }
     }
     // Not done: no date changes — task stays overdue/due
     await atPatch(PM_TABLE,task.id,updates);
@@ -1433,7 +1443,7 @@ function PmPanel(){
   }
 
   const tasks=pmTasks||[];
-  const counts={overdue:0,"due-soon":0,scheduled:0,"not-done":0};
+  const counts={overdue:0,"due-soon":0,scheduled:0,"not-done":0,"per-use":0};
   tasks.forEach(t=>counts[getTaskStatus(t)]++);
   let filtered=tasks;
   if(filterStatus!=="all")filtered=filtered.filter(t=>getTaskStatus(t)===filterStatus);
@@ -1465,6 +1475,7 @@ function PmPanel(){
           ["all","All",tasks.length,"#6b7280","#1a1d28"],
           ["overdue","Overdue",counts.overdue,"#f87171","#2a0f14"],
           ["due-soon","Due soon",counts["due-soon"],"#d4851a","#2a1f0a"],
+          ["per-use","Per Use",counts["per-use"],"#a855f7","#1a0a2e"],
         ].map(([v,l,n,col,bg])=>(
           <button key={v} onClick={()=>setFilterStatus(v)} style={{flex:1,padding:"10px 4px",borderRadius:10,border:filterStatus===v?`1.5px solid ${col}`:"0.5px solid #1e2130",background:filterStatus===v?bg:"#141720",cursor:"pointer",fontFamily:"inherit",textAlign:"center"}}>
             <div style={{fontSize:17,fontWeight:600,color:filterStatus===v?col:"#e0e3ea"}}>{n}</div>
@@ -1475,7 +1486,7 @@ function PmPanel(){
 
       {/* Interval filter */}
       <div style={{display:"flex",gap:5,marginBottom:16,flexWrap:"wrap"}}>
-        {["all","Daily","Weekly","Monthly","Per Term","Annually"].map(v=>(
+        {["all","Per Use","Daily","Weekly","Monthly","Per Term","Annually"].map(v=>(
           <button key={v} onClick={()=>setFilterInterval(v)} style={{padding:"5px 11px",borderRadius:20,border:"none",background:filterInterval===v?TEAL:"#1a1d28",color:filterInterval===v?"#fff":"#9ca3af",fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>{v==="all"?"All":v}</button>
         ))}
       </div>
@@ -1489,7 +1500,7 @@ function PmPanel(){
             <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Machine</label><input style={ipt} value={pmForm.machine} onChange={e=>setPmForm(f=>({...f,machine:e.target.value}))} placeholder="e.g. Laser Cutter"/></div>
           </div>
           <div style={{display:"flex",gap:8,marginBottom:10}}>
-            <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Interval</label><select style={ipt} value={pmForm.interval} onChange={e=>setPmForm(f=>({...f,interval:e.target.value}))}>{["Daily","Weekly","Monthly","Per Term","Annually"].map(t=><option key={t}>{t}</option>)}</select></div>
+            <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Interval</label><select style={ipt} value={pmForm.interval} onChange={e=>setPmForm(f=>({...f,interval:e.target.value}))}>{["Per Use","Daily","Weekly","Monthly","Per Term","Annually"].map(t=><option key={t}>{t}</option>)}</select></div>
             <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Last done</label><input type="date" style={ipt} value={pmForm.lastDone} onChange={e=>setPmForm(f=>({...f,lastDone:e.target.value}))}/></div>
             <div style={{flex:1}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Next due</label><input type="date" style={ipt} value={pmForm.nextDue} onChange={e=>setPmForm(f=>({...f,nextDue:e.target.value}))}/></div>
           </div>
@@ -1629,7 +1640,7 @@ function PmPanel(){
                         <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Machine</label><input style={ipt} value={pmForm.machine} onChange={e=>setPmForm(f=>({...f,machine:e.target.value}))}/></div>
                       </div>
                       <div style={{display:"flex",gap:8,marginBottom:8}}>
-                        <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Interval</label><select style={ipt} value={pmForm.interval} onChange={e=>setPmForm(f=>({...f,interval:e.target.value}))}>{["Daily","Weekly","Monthly","Per Term","Annually"].map(t=><option key={t}>{t}</option>)}</select></div>
+                        <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Interval</label><select style={ipt} value={pmForm.interval} onChange={e=>setPmForm(f=>({...f,interval:e.target.value}))}>{["Per Use","Daily","Weekly","Monthly","Per Term","Annually"].map(t=><option key={t}>{t}</option>)}</select></div>
                         <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Last done</label><input type="date" style={ipt} value={pmForm.lastDone} onChange={e=>setPmForm(f=>({...f,lastDone:e.target.value}))}/></div>
                         <div style={{flex:1}}><label style={{fontSize:11,color:"#9ca3af",display:"block",marginBottom:3}}>Next due</label><input type="date" style={ipt} value={pmForm.nextDue} onChange={e=>setPmForm(f=>({...f,nextDue:e.target.value}))}/></div>
                       </div>
@@ -2284,6 +2295,7 @@ export default function App() {
   const [eqIsWalkIn, setEqIsWalkIn] = useState(false);
   const [eqManualDue, setEqManualDue] = useState("");
   const [pmDueToday, setPmDueToday] = useState([]);
+  const [pmPerUse, setPmPerUse] = useState([]);
 
   const type = REQUEST_TYPES.find(t=>t.id===selType);
   const getLoanDays = (yearStr) => {
@@ -2358,8 +2370,13 @@ export default function App() {
     if(view!=="dashboard")return;
     atGet(PM_TABLE,{maxRecords:200}).then(d=>{
       const today=todayDate();
-      const due=(d.records||[]).map(r=>({id:r.id,...r.fields})).filter(t=>t.NextDue&&t.NextDue<=today);
+      const all=(d.records||[]).map(r=>({id:r.id,...r.fields}));
+      // Date-based: due today or overdue (excludes Per Use — those are shown separately)
+      const due=all.filter(t=>t.Interval!=="Per Use"&&t.NextDue&&t.NextDue<=today);
+      // Per Use: laser checklist tasks — shown whenever there are laser sessions today
+      const perUse=all.filter(t=>t.Interval==="Per Use");
       setPmDueToday(due);
+      setPmPerUse(perUse);
     }).catch(()=>{});
   },[view]);
   // Reset AV wizard whenever user selects a different request type
@@ -3664,6 +3681,30 @@ export default function App() {
                       <div style={{fontSize:11,color:overdue?"#f87171":"#d4851a",fontWeight:600,marginBottom:2}}>{overdue?`${days}d overdue`:"Due today"}</div>
                       <div style={{fontSize:14,fontWeight:500,color:"#e0e3ea"}}>{t.TaskName}</div>
                       <div style={{fontSize:12,color:"#6b7280",marginTop:1}}>{t.Machine}{t.Interval?` · ${t.Interval}`:""}</div>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",padding:"0 12px"}}>
+                      <button onClick={()=>setDashTab("pm")} style={{fontSize:11,padding:"4px 10px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>Log →</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {/* Per Use laser checklist — only shows on days with laser bookings */}
+          {pmPerUse.length>0&&(morningToday.length>0||afternoonToday.length>0)&&(
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#6b7280",marginBottom:8,display:"flex",alignItems:"center",gap:6,borderBottom:"1px solid #1e2130",paddingBottom:6}}>
+                ⚡ Laser checklist <span style={{fontSize:11,fontWeight:400,color:"#a855f7"}}>· per use</span>
+              </div>
+              {pmPerUse.map(t=>{
+                const lastDone=t.LastDone?`Last done: ${fmtDate(t.LastDone)}`:"Never logged";
+                return(
+                  <div key={t.id} style={{display:"flex",alignItems:"stretch",background:"#141720",borderRadius:10,marginBottom:8,overflow:"hidden",border:"0.5px solid #2d1a4a"}}>
+                    <div style={{width:4,flexShrink:0,background:"#a855f7"}}/>
+                    <div style={{flex:1,padding:"10px 12px",minWidth:0}}>
+                      <div style={{fontSize:11,color:"#a855f7",fontWeight:600,marginBottom:2}}>Do before / after each session</div>
+                      <div style={{fontSize:14,fontWeight:500,color:"#e0e3ea"}}>{t.TaskName}</div>
+                      <div style={{fontSize:12,color:"#6b7280",marginTop:1}}>{t.Machine}{t.Notes?` · ${t.Notes}`:""} · <span style={{color:"#4b5563"}}>{lastDone}</span></div>
                     </div>
                     <div style={{display:"flex",alignItems:"center",padding:"0 12px"}}>
                       <button onClick={()=>setDashTab("pm")} style={{fontSize:11,padding:"4px 10px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",color:"#9ca3af",cursor:"pointer",fontFamily:"inherit",fontWeight:500,whiteSpace:"nowrap"}}>Log →</button>
