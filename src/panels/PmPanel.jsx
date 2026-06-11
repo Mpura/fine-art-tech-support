@@ -108,8 +108,10 @@ function PmPanel(){
       await atPatch(PM_TABLE,editTask.id,fields);
       setPmTasks(prev=>prev.map(t=>t.id===editTask.id?{...t,...fields}:t));
     }else{
-      const result=await atPost(PM_TABLE,{Name:genId(),...fields});
+      // PM_Tasks has no "Name" field — TaskName is the primary field
+      const result=await atPost(PM_TABLE,fields);
       if(result.id)setPmTasks(prev=>[...prev,{id:result.id,...fields}]);
+      else console.error("FATS: PM task save failed",result);
     }
     setShowForm(false);setEditTask(null);setEditingInlineId(null);
     setPmForm({taskName:"",machine:"",interval:"Monthly",lastDone:"",nextDue:"",notes:""});
