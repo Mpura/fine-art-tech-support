@@ -32,18 +32,22 @@ function PmPanel(){
   ];
 
   function getSection(machine){for(const s of PM_SECTIONS){if(s.match(machine||""))return s;}return PM_SECTIONS[PM_SECTIONS.length-1];}
-  function daysUntilPm(d){if(!d)return null;return Math.floor((new Date(d+"T00:00:00")-new Date())/86400000);}
+  // Compare against midnight so a task due today reads "today", not "1d overdue"
+  function daysUntilPm(d){if(!d)return null;const today=new Date();today.setHours(0,0,0,0);return Math.round((new Date(d+"T00:00:00")-today)/86400000);}
   function intervalDaysPm(iv){return iv==="Daily"?1:iv==="Weekly"?7:iv==="Monthly"?30:iv==="Per Term"?90:iv==="Per Use"?0:365;}
+  // How close to the due date the amber warning starts — scaled to the interval,
+  // so a freshly-done weekly task goes green instead of instantly "due soon" again
+  function dueSoonWindow(iv){return iv==="Daily"?0:iv==="Weekly"?2:iv==="Monthly"?5:iv==="Per Term"?14:30;}
   function addDaysFn(dateStr,n){const d=new Date(dateStr+"T00:00:00");d.setDate(d.getDate()+n);return localDateStr(d);}
   function getTaskStatus(task){
     if(task.Interval==="Per Use")return"per-use";
     if(!task.NextDue)return"not-done";
-    const du=daysUntilPm(task.NextDue);if(du<0)return"overdue";if(du<=7)return"due-soon";return"scheduled";
+    const du=daysUntilPm(task.NextDue);if(du<0)return"overdue";if(du<=dueSoonWindow(task.Interval))return"due-soon";return"scheduled";
   }
   function statusMeta(s){
     if(s==="overdue")return{label:"Overdue",color:"#f87171",bg:"#2a0f14"};
     if(s==="due-soon")return{label:"Due soon",color:"#d4851a",bg:"#2a1f0a"};
-    if(s==="scheduled")return{label:"Scheduled",color:"#20B07F",bg:"#0a2218"};
+    if(s==="scheduled")return{label:"On track",color:"#20B07F",bg:"#0a2218"};
     if(s==="per-use")return{label:"Per use",color:"#a855f7",bg:"#1a0a2e"};
     return{label:"Not yet done",color:"#6b7280",bg:"#1a1d28"};
   }
@@ -155,6 +159,7 @@ function PmPanel(){
           ["all","All",tasks.length,"#6b7280","#1a1d28"],
           ["overdue","Overdue",counts.overdue,"#f87171","#2a0f14"],
           ["due-soon","Due soon",counts["due-soon"],"#d4851a","#2a1f0a"],
+          ["scheduled","On track",counts.scheduled,"#20B07F","#0a2218"],
           ["per-use","Per Use",counts["per-use"],"#a855f7","#1a0a2e"],
         ].map(([v,l,n,col,bg])=>(
           <button key={v} onClick={()=>setFilterStatus(v)} style={{flex:1,padding:"10px 4px",borderRadius:10,border:filterStatus===v?`1.5px solid ${col}`:"0.5px solid #1e2130",background:filterStatus===v?bg:"#141720",cursor:"pointer",fontFamily:"inherit",textAlign:"center"}}>
