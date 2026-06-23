@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TEAL, Btn } from "../shared.jsx";
 import { ACE_2026, IT_2026, FE_2026 } from "../data/budget.js";
+import { atGet, atPatch } from "../lib/airtable.js";
+
+// ACE approvals live in the shared Capital Requests table so decisions are
+// visible to all staff on every device (localStorage is only an offline cache).
+const CAPITAL_REQUESTS_TABLE = "tblmOy3HOF3QQWd9t";
+const STATUS_TO_AT = { approved: "Approved", rejected: "Rejected" }; // local -> Airtable
+const AT_TO_STATUS = { Approved: "approved", Rejected: "rejected" }; // Airtable -> local
 
 function BudgetPanel(){
   const [budTab,setBudTab]=useState("ace"); // ace | fe | it
@@ -19,15 +26,49 @@ function BudgetPanel(){
     try{return JSON.parse(localStorage.getItem("it2026_approvals")||"{}");}catch{return {};}
   });
 
+  const [aceRecMap,setAceRecMap]=useState({}); // item.no -> Airtable record id
+
+  // Load shared approval status from the Capital Requests table on mount.
+  // Falls back to the localStorage cache above if the portal API isn't
+  // reachable (offline, or not staff-unlocked).
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        const data=await atGet(CAPITAL_REQUESTS_TABLE,{});
+        if(cancelled||!data||!Array.isArray(data.records))return;
+        const recMap={},appr={},amts={};
+        for(const r of data.records){
+          const m=/^FA-\d+-0*(\d+)$/.exec(r.fields?.request_id||"");
+          if(!m)continue;
+          const no=Number(m[1]);
+          recMap[no]=r.id;
+          const st=AT_TO_STATUS[r.fields?.status];
+          if(st)appr[no]=st;
+          if(r.fields?.approved_amount!=null)amts[no]=String(r.fields.approved_amount);
+        }
+        if(cancelled||!Object.keys(recMap).length)return;
+        setAceRecMap(recMap);
+        setApprovals(appr);
+        setApprovedAmounts(amts);
+      }catch(e){/* offline or not staff-unlocked — keep localStorage values */}
+    })();
+    return()=>{cancelled=true;};
+  },[]);
+
   function setApproval(no,status){
     const next={...approvals,[no]:status};
     setApprovals(next);
     localStorage.setItem("ace2026_approvals",JSON.stringify(next));
+    const recId=aceRecMap[no];
+    if(recId)atPatch(CAPITAL_REQUESTS_TABLE,recId,{status:STATUS_TO_AT[status]||"Under Review"}).catch(()=>{});
   }
   function setApprovedAmt(no,val){
     const next={...approvedAmounts,[no]:val};
     setApprovedAmounts(next);
     localStorage.setItem("ace2026_amounts",JSON.stringify(next));
+    const recId=aceRecMap[no];
+    if(recId){const num=parseFloat(val);atPatch(CAPITAL_REQUESTS_TABLE,recId,{approved_amount:isNaN(num)?null:num}).catch(()=>{});}
   }
   function setFeApproval(no,status){
     const next={...feApprovals,[no]:status};
@@ -62,7 +103,7 @@ function BudgetPanel(){
     <div>
       <div style={{fontSize:15,fontWeight:500,marginBottom:2}}>Budget Submissions 2025–2026</div>
       <div style={{fontSize:13,color:"#6b7280",marginBottom:4}}>Prepared by Mpumzi Mpati · Reviewed by Prof Maureen de Jager · Department of Fine Art</div>
-      <div style={{fontSize:11,color:"#4b5563",marginBottom:12}}>Track approval status as decisions are communicated. Saved locally on this device.</div>
+      <div style={{fontSize:11,color:"#4b5563",marginBottom:12}}>Track approval status as decisions are communicated. ACE decisions are saved to the shared portal database; F&amp;E and IT are saved on this device.</div>
 
       {/* Sub-tabs */}
       <div style={{display:"flex",gap:6,marginBottom:20}}>

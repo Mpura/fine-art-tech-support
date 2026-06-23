@@ -19,6 +19,7 @@ const MEMBERS = "tbloPfyyjQY79YxQd";
 const MAINT = "tbldZisWbs1WQIr09";
 const PM = "tblHyr7MxWVDIzFtC";
 const SETTINGS = "tblfEH66wD8KPJMl9";
+const CAPITAL_REQUESTS = "tblmOy3HOF3QQWd9t";
 const PIN_RECORD_ID = "recl1lbt7hHWY8vHr";
 
 // What an unauthenticated visitor (a student) may do
@@ -39,6 +40,7 @@ const STAFF_OPS = {
   [MAINT]: ["GET", "POST", "PATCH", "DELETE"],
   [PM]: ["GET", "POST", "PATCH", "DELETE"],
   [SETTINGS]: ["PATCH"],
+  [CAPITAL_REQUESTS]: ["GET", "PATCH"],
 };
 
 async function fetchStoredPin(headers) {
