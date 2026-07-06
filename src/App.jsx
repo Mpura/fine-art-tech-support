@@ -743,6 +743,11 @@ export default function App() {
         const ARCHIVE_STATUSES=["Returned","Declined","Cancelled","Uncollected","Done"];
         const active=checkResults.filter(r=>!ARCHIVE_STATUSES.includes(r.status));
         const archived=checkResults.filter(r=>ARCHIVE_STATUSES.includes(r.status));
+        function bookAgain(req){
+          const d=req.details||{};
+          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",sessionDuration:d.sessionDuration||"",fileLink:"",firstTime:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
+          setSelType(req.typeId);setPrepOk(false);setSelDate(null);setSelSlot(null);setScreen("prep");
+        }
         const ReqCard=({req})=>(
         <div key={req.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"16px 18px",marginBottom:12}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
@@ -791,6 +796,9 @@ export default function App() {
           )}
           {req.staffNote&&req.status!=="Declined"&&<div style={{fontSize:12,color:"#60a5fa",background:"#0a1e35",borderRadius:8,padding:"6px 10px",marginBottom:6}}>📝 {req.staffNote}</div>}
           <div style={{fontSize:11,color:"#374151",textAlign:"right"}}>Ref: {req.id.slice(0,8).toUpperCase()}</div>
+          {req.status==="Done"&&["laser","print","3d","studio"].includes(req.typeId)&&(
+            <button onClick={()=>bookAgain(req)} style={{marginTop:8,width:"100%",background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:8,padding:"9px 14px",color:"#60a5fa",fontSize:13,fontWeight:500,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>↩ Book again with same details</button>
+          )}
         </div>);
         return(<>
           {active.length===0&&archived.length>0&&<div style={{textAlign:"center",padding:"1.5rem",color:"#374151",fontSize:14}}>No active requests — check your archive below.</div>}
