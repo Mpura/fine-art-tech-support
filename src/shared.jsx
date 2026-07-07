@@ -16,6 +16,7 @@ const MEMBERS_TABLE = "tbloPfyyjQY79YxQd";
 const REQUESTS_TABLE = "tblAQE1leKVCRH51d";
 const MAINT_TABLE = "tbldZisWbs1WQIr09";
 const PM_TABLE = "tblHyr7MxWVDIzFtC";
+const SUPPLIERS_TABLE = "tblhJKtWH4fR04RhQ";
 // Shared app settings — one record per key so leave mode, blocks, schedules,
 // equipment settings and the staff PIN apply on every device, not just the
 // browser where they were changed.
@@ -161,5 +162,5 @@ const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false
 );
 
 export {
-  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_LICENCES, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
+  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_LICENCES, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
 };

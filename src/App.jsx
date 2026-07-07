@@ -19,6 +19,7 @@ import BudgetPanel from "./panels/BudgetPanel.jsx";
 import InsurancePanel from "./panels/InsurancePanel.jsx";
 import PmPanel from "./panels/PmPanel.jsx";
 import HsPanel from "./panels/HsPanel.jsx";
+import SuppliersPanel from "./panels/SuppliersPanel.jsx";
 
 // ── MAIN APP ─────────────────────────────────────────────────────
 export default function App() {
@@ -1500,7 +1501,7 @@ export default function App() {
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{fontSize:10,color:"#4b5563",letterSpacing:"0.06em",textTransform:"uppercase",fontWeight:500,marginBottom:6,paddingLeft:6,marginTop:14}}>Manage</div>
-          {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"],["lic","🔑 Licences"],["insurance","🛡 Insurance"],["budget","📊 Budget / ACE"]].map(([v,l])=>(
+          {[["hs","🦺 H&S / Maintenance"],["pm","🔧 PM Schedule"],["schedule","🗓 Schedule"],["blocks","🚫 Blocks"],["charges","💳 Charges"],["lic","🔑 Licences"],["insurance","🛡 Insurance"],["budget","📊 Budget / ACE"],["suppliers","🏷 Suppliers"]].map(([v,l])=>(
             <div key={v} onClick={()=>setDashTab(v)} style={{display:"flex",alignItems:"center",padding:"7px 8px",borderRadius:7,fontSize:12,color:dashTab===v?"#e0e3ea":"#6b7280",background:dashTab===v?"#141720":"transparent",cursor:"pointer",marginBottom:2}}>{l}</div>
           ))}
           <div style={{marginTop:"auto",paddingTop:16,borderTop:"0.5px solid #1e2130"}}>
@@ -2049,6 +2050,9 @@ export default function App() {
 
       {/* ── BUDGET / ACE ── */}
       {dashTab==="budget"&&<BudgetPanel/>}
+
+      {/* ── SUPPLIERS ── */}
+      {dashTab==="suppliers"&&<SuppliersPanel/>}
 
       {/* ── CHECK-IN MODAL ── */}
       {checkInModal&&(()=>{
