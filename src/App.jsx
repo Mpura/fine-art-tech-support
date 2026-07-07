@@ -778,7 +778,7 @@ export default function App() {
               📅 Due: <strong>{fmtDate(req.dueDate)}</strong>{req.status==="Collected"&&new Date()>new Date(req.dueDate+"T00:00:00")?" — OVERDUE":""}
             </div>
           )}
-          {req.status==="Confirmed"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>⏳ Booking confirmed — your slot is reserved{req.schedDate?` for ${req.schedDate.split(" ")[0]}`:""}.  Wait for a <strong>"Ready to collect"</strong> notification before coming in.</div>}
+          {req.status==="Confirmed"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>{req.typeId==="equipment"?"⏳ Booking confirmed — your slot is reserved. Wait for a \"Ready to collect\" notification before coming in.":`✅ Booking confirmed — your slot is reserved${req.schedDate?` for ${req.schedDate.split(" ")[0]}`:""}.  Come in at your booked time.`}</div>}
           {req.status==="Ready to collect"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>📦 Your equipment is ready to collect. Bring your student card.</div>}
           {req.status==="Done"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>✅ Done — your request has been completed.</div>}
           {req.status==="Declined"&&<div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#f87171",marginBottom:6}}>❌ Declined{req.staffNote?` — ${req.staffNote}`:". Please contact Tech Support for more info."}.</div>}

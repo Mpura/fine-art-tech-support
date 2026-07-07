@@ -47,7 +47,7 @@ const DEFAULT_SCHEDULE = {
 
 const STATUSES = ["Pending","In Progress","Done","Declined"];
 const AV_STATUSES = ["Pending","Confirmed","In Progress","Done","Declined"];
-const LASER_STATUSES = ["Pending","Material test required","Ready to cut","In Progress","Done","Declined"];
+const LASER_STATUSES = ["Pending","Confirmed","Material test required","Ready to cut","In Progress","Done","Declined"];
 const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"];
 
 const statusStyle = {
