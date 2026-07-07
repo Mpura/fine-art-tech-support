@@ -152,6 +152,18 @@ function BudgetPanel(){
               <strong style={{color:"#d4851a"}}>How approval decisions are made:</strong> When total requests exceed the approved budget pool, items are prioritised by <strong style={{color:"#e0e3ea"}}>criticality and urgency</strong> scores. Higher ratings get funded first. Finance prepares a consolidated summary for Deans and Executive Managers to review.
             </div>
 
+            {/* Sourcing quotes / procurement policy */}
+            <div style={{background:"#1a1d28",borderRadius:8,padding:"8px 12px",marginBottom:12,fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
+              <strong style={{color:"#60a5fa"}}>Sourcing quotes (after approval):</strong> Procurement Policy sets how many quotes are needed by <strong style={{color:"#e0e3ea"}}>rand value</strong> — usually around <strong style={{color:"#e0e3ea"}}>3 comparative quotes</strong> from different suppliers for this spend band (small items need fewer; large purchases go to formal tender). Check the policy for the exact thresholds.
+              <div style={{marginTop:6}}>Who sources the quotes:</div>
+              <ul style={{margin:"2px 0 0",paddingLeft:16}}>
+                <li><strong style={{color:"#e0e3ea"}}>IT / AV items</strong> (projectors, PCs, monitors, AV) → route through <strong style={{color:"#e0e3ea"}}>I&amp;TS</strong>: Zelda Plaatjes, IT Buyer (<span style={{fontFamily:"monospace",color:"#60a5fa"}}>z.mahapi@ru.ac.za</span>, ext 8158) — for model approval <em>and</em> quotes.</li>
+                <li><strong style={{color:"#e0e3ea"}}>Non-IT equipment</strong> (cameras, fabrication, furniture) → <strong style={{color:"#e0e3ea"}}>Buyer&#39;s Office</strong>: Rodney Bridger (<span style={{fontFamily:"monospace",color:"#60a5fa"}}>r.bridger@ru.ac.za</span>, ext 8137) — sources the comparative quotes.</li>
+              </ul>
+              <div style={{marginTop:6}}>You define the need and specs; the relevant buyer sources the comparatives.</div>
+              <div style={{marginTop:6}}>Thresholds: over <strong style={{color:"#e0e3ea"}}>R250k</strong> &rarr; open tender; over <strong style={{color:"#e0e3ea"}}>R100k</strong> &rarr; Director: Finance approval for quote exceptions. Full policy: <a href="https://www.ru.ac.za/media/rhodesuniversity/content/institutionalplanning/documents/policies/Procurement_Policy_06.06.2024.pdf" target="_blank" rel="noopener noreferrer" style={{color:"#60a5fa",textDecoration:"underline"}}>Procurement &amp; Purchasing Policy (PDF)</a>.</div>
+            </div>
+
             {/* Finance contacts */}
             <div style={{fontSize:11,fontWeight:500,color:"#9ca3af",marginBottom:6}}>Finance Division contacts</div>
             <div style={{display:"grid",gap:4}}>
