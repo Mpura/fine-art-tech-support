@@ -46,9 +46,9 @@ const DEFAULT_SCHEDULE = {
   studio:{days:[1,2,3,4,5],morningSlots:1,afternoonSlots:2,minAdvanceDays:0},
 };
 
-const STATUSES = ["Pending","In Progress","Done","Declined"];
-const AV_STATUSES = ["Pending","Confirmed","In Progress","Done","Declined"];
-const LASER_STATUSES = ["Pending","Confirmed","Material test required","Ready to cut","In Progress","Done","Declined"];
+const STATUSES = ["Pending","In Progress","Done","Declined","Cancelled"];
+const AV_STATUSES = ["Pending","Confirmed","In Progress","Done","Declined","Cancelled"];
+const LASER_STATUSES = ["Pending","Confirmed","Material test required","Ready to cut","In Progress","Done","Declined","Cancelled"];
 const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"];
 
 const statusStyle = {
