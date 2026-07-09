@@ -339,7 +339,9 @@ export default function App() {
     if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,atFields).catch(()=>{});}
     const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails}:r);setRequests(u);persist(KEYS.req,u);
     // Send status update email for key statuses (non-blocking)
-    if(req&&["Confirmed","Ready to collect","Declined","Cancelled","Material test required","Ready to cut"].includes(status)){
+    const _emailStatuses=["Confirmed","Ready to collect","Declined","Cancelled","Material test required","Ready to cut"];
+    const _doneEmail=status==="Done"&&["query","print","3d"].includes(req?.typeId);
+    if(req&&(_emailStatuses.includes(status)||_doneEmail)){
       sendStatusEmail({...req,status},status);
     }
   }
