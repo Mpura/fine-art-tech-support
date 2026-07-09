@@ -136,6 +136,36 @@ async function sendStatusEmail(req, status) {
         ${returnedHtml}
         ${req.lateFine ? `<p style="margin:10px 0 0;color:#f87171"><strong>Late fine:</strong> R${req.lateFine} (${req.lateDays} day${req.lateDays===1?"":"s"} late)</p>` : ""}
       </div>`;
+  } else if (status === "Done") {
+    if (req.typeId === "query") {
+      subject = `✅ Your query has been resolved — FATS`;
+      heading = "Query resolved";
+      bodyHtml = `
+        <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your query has been looked into and resolved.</p>
+        <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
+          ${noteHtml || `<p style="margin:0;color:#9ca3af">If you have any follow-up questions, feel free to visit Tech Support or submit a new request.</p>`}
+        </div>`;
+    } else if (req.typeId === "print") {
+      subject = `🖨️ Your prints are ready to collect — FATS`;
+      heading = "Prints ready!";
+      bodyHtml = `
+        <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your print job is done — please come collect your prints from Tech Support.</p>
+        <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
+          <p style="margin:0 0 8px">Come during stockroom hours (Monday–Friday, 08:00–16:30).</p>
+          ${noteHtml}
+        </div>`;
+    } else if (req.typeId === "3d") {
+      subject = `🧱 Your 3D print is ready to collect — FATS`;
+      heading = "3D print ready!";
+      bodyHtml = `
+        <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your 3D print is done — please come collect it from Tech Support.</p>
+        <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
+          <p style="margin:0 0 8px">Come during stockroom hours (Monday–Friday, 08:00–16:30).</p>
+          ${noteHtml}
+        </div>`;
+    } else {
+      return;
+    }
   } else {
     return; // no email for other statuses
   }

@@ -525,9 +525,9 @@ export default function App() {
   const counts=STATUSES.reduce((a,s)=>({...a,[s]:requests.filter(r=>r.status===s).length}),{});
   // ── TODAY FILTERS ────────────────────────────────────────────────
   const _today=todayDate();
-  const morningToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Morning")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done");
-  const afternoonToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Afternoon")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done");
-  const studioToday=requests.filter(r=>r.typeId==="studio"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Done");
+  const morningToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Morning")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
+  const afternoonToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Afternoon")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
+  const studioToday=requests.filter(r=>r.typeId==="studio"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
   const eqCollectionsToday=requests.filter(r=>r.typeId==="equipment"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Cancelled"&&r.status!=="Returned");
   const eqDueToday=requests.filter(r=>r.typeId==="equipment"&&r.dueDate===_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
   const eqOverdue=requests.filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
