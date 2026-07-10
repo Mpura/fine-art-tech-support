@@ -166,7 +166,8 @@ export default function App() {
   const type = REQUEST_TYPES.find(t=>t.id===selType);
   const getLoanDays = (yearStr) => {
     const y = String(yearStr);
-    if (["3","4","m","s"].includes(y)) return eqSettings.yr34Days;
+    if (y==="3") return eqSettings.yr3Days??2;
+    if (["4","m","s"].includes(y)) return eqSettings.yr34Days;
     return eqSettings.yr12Days;
   };
   const getItemCap = (yearStr) => {
@@ -1864,9 +1865,9 @@ export default function App() {
             <div style={{fontSize:13,fontWeight:500}}>⚙ Equipment Loan Settings</div>
             <button onClick={()=>setEqSettingsForm(f=>f?null:{...eqSettings})} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer"}}>{eqSettingsForm?"Cancel":"Edit"}</button>
           </div>
-          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr34Days}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Deadline: {eqSettings.collectionDeadlineHour}:00 · Slot cap: {eqSettings.slotCap||2}</div>}
+          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr3Days??2}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Deadline: {eqSettings.collectionDeadlineHour}:00 · Slot cap: {eqSettings.slotCap||2}</div>}
           {eqSettingsForm&&(<div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
-            {[["Year 2 loan (calendar days)","yr12Days"],["Year 3–4 loan (calendar days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Booking deadline (hour, 24h)","collectionDeadlineHour"],["Max students per slot","slotCap"],["Max items — Year 2","yr2Cap"],["Max items — Year 3","yr3Cap"],["Max items — Year 4","yr4Cap"],["Max items — Masters/Staff","mastersCap"]].map(([label,key])=>(
+            {[["Year 2 loan (calendar days)","yr12Days"],["Year 3 loan (calendar days)","yr3Days"],["Year 4+ loan (calendar days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Booking deadline (hour, 24h)","collectionDeadlineHour"],["Max students per slot","slotCap"],["Max items — Year 2","yr2Cap"],["Max items — Year 3","yr3Cap"],["Max items — Year 4","yr4Cap"],["Max items — Masters/Staff","mastersCap"]].map(([label,key])=>(
               <div key={key} style={{display:"flex",alignItems:"center",gap:8}}>
                 <label style={{fontSize:12,color:"#9ca3af",flex:1}}>{label}</label>
                 <input type="number" style={{...ipt,width:70,flex:"0 0 auto"}} value={eqSettingsForm[key]} onChange={e=>setEqSettingsForm(f=>({...f,[key]:Number(e.target.value)}))}/>
