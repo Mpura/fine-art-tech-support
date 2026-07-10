@@ -69,18 +69,18 @@ async function sendStatusEmail(req, status) {
       <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your <strong>${typeName}</strong> request has been confirmed.</p>
       <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
         <p style="margin:0 0 8px"><strong>Status:</strong> Confirmed ✅</p>
-        ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Scheduled:</strong> ${req.schedDate}</p>` : ""}
-        ${req.dueDate ? `<p style="margin:0 0 8px"><strong>Due back:</strong> ${req.dueDate}</p>` : ""}
+        ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Collect:</strong> ${req.schedDate}</p>` : ""}
+        ${req.dueDate ? `<p style="margin:0 0 8px"><strong>Return by:</strong> ${req.dueDate} before 10:00</p>` : ""}
         ${itemsHtml}
       </div>`;
   } else if (status === "Ready to collect") {
     subject = `🎒 Equipment ready to collect — FATS`;
     heading = "Ready to collect!";
     bodyHtml = `
-      <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your equipment is ready to collect. Please come fetch it at your earliest convenience.</p>
+      <p style="margin:0 0 16px;font-size:15px">Hi <strong>${req.name}</strong>, your equipment is ready to collect. Please come fetch it during your booked slot (12:00–13:00).</p>
       <div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">
-        ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Scheduled:</strong> ${req.schedDate}</p>` : ""}
-        ${req.dueDate ? `<p style="margin:0 0 8px"><strong>Due back:</strong> ${req.dueDate}</p>` : ""}
+        ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Collect:</strong> ${req.schedDate}</p>` : ""}
+        ${req.dueDate ? `<p style="margin:0 0 8px"><strong>Return by:</strong> ${req.dueDate} before 10:00</p>` : ""}
         ${itemsHtml}
       </div>`;
   } else if (status === "Material test required") {

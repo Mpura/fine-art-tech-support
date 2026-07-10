@@ -80,14 +80,14 @@ const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:
 
 // Default Corel licence pre-loaded
 const DEFAULT_LICENCES=[{id:"corel_2026_01",software:"CorelDRAW Graphics Suite Education",vendor:"Learning Curve",vendorContact:"Phillip Mokgethi",vendorPhone:"+27 84 424 0772",poNumber:"RP0000122595",licenceNo:"1158587",importCode:"10690273",partNo:"LCCDGSSUBA11",seats:2,effectiveDate:"2026-05-12",expiryDate:"2027-05-11",notes:"365-Day Subscription (Single User). Activate at coreldraw.com/licensemanagement. Keep this certificate for renewal reference.",createdAt:"2026-05-12T09:11:00.000Z"}];
-const DEFAULT_EQ_SETTINGS={yr12Days:3,yr3Days:2,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
+const DEFAULT_EQ_SETTINGS={yr12Days:3,yr3Days:2,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,returnByHour:10,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
 
-// Equipment collection: Mon/Wed/Fri only, three 30-min windows during stockroom hours
+// Equipment collection: Mon/Wed/Fri only, two 30-min windows 12:00–13:00
+// Returns must be in by returnByHour (default 10:00) to allow same-day handover
 const EQ_COL_DAYS=[1,3,5]; // Mon=1, Wed=3, Fri=5
 const EQ_COL_SLOTS=[
-  {id:"s1",label:"11:00–11:30"},
-  {id:"s2",label:"11:30–12:00"},
-  {id:"s3",label:"12:00–12:30"},
+  {id:"s1",label:"12:00–12:30"},
+  {id:"s2",label:"12:30–13:00"},
 ];
 function isEqColDay(dateStr){if(!dateStr)return false;const d=new Date(dateStr+"T00:00:00");return EQ_COL_DAYS.includes(d.getDay());}
 

@@ -779,7 +779,7 @@ export default function App() {
           )}
           {req.typeId==="equipment"&&req.dueDate&&(
             <div style={{fontSize:12,color:req.status==="Collected"&&new Date()>new Date(req.dueDate+"T00:00:00")?"#f87171":"#6b7280",background:req.status==="Collected"&&new Date()>new Date(req.dueDate+"T00:00:00")?"#2a0f14":"#1a1d28",borderRadius:8,padding:"6px 10px",marginBottom:6}}>
-              📅 Due: <strong>{fmtDate(req.dueDate)}</strong>{req.status==="Collected"&&new Date()>new Date(req.dueDate+"T00:00:00")?" — OVERDUE":""}
+              📅 Return by: <strong>{fmtDate(req.dueDate)}</strong> before {eqSettings.returnByHour||10}:00{req.status==="Collected"&&new Date()>new Date(req.dueDate+"T00:00:00")?" — OVERDUE":""}
             </div>
           )}
           {req.status==="Confirmed"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>{req.typeId==="equipment"?"⏳ Booking confirmed — your slot is reserved. Wait for a \"Ready to collect\" notification before coming in.":`✅ Booking confirmed — your slot is reserved${req.schedDate?` for ${req.schedDate.split(" ")[0]}`:""}.  Come in at your booked time.`}</div>}
@@ -1865,9 +1865,9 @@ export default function App() {
             <div style={{fontSize:13,fontWeight:500}}>⚙ Equipment Loan Settings</div>
             <button onClick={()=>setEqSettingsForm(f=>f?null:{...eqSettings})} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer"}}>{eqSettingsForm?"Cancel":"Edit"}</button>
           </div>
-          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr3Days??2}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Deadline: {eqSettings.collectionDeadlineHour}:00 · Slot cap: {eqSettings.slotCap||2}</div>}
+          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr3Days??2}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Return by: {eqSettings.returnByHour||10}:00 · Pickup: 12:00–13:00 · Slot cap: {eqSettings.slotCap||2}</div>}
           {eqSettingsForm&&(<div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
-            {[["Year 2 loan (calendar days)","yr12Days"],["Year 3 loan (calendar days)","yr3Days"],["Year 4+ loan (calendar days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Booking deadline (hour, 24h)","collectionDeadlineHour"],["Max students per slot","slotCap"],["Max items — Year 2","yr2Cap"],["Max items — Year 3","yr3Cap"],["Max items — Year 4","yr4Cap"],["Max items — Masters/Staff","mastersCap"]].map(([label,key])=>(
+            {[["Year 2 loan (calendar days)","yr12Days"],["Year 3 loan (calendar days)","yr3Days"],["Year 4+ loan (calendar days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Booking deadline (hour, 24h)","collectionDeadlineHour"],["Return deadline (hour, 24h)","returnByHour"],["Max students per slot","slotCap"],["Max items — Year 2","yr2Cap"],["Max items — Year 3","yr3Cap"],["Max items — Year 4","yr4Cap"],["Max items — Masters/Staff","mastersCap"]].map(([label,key])=>(
               <div key={key} style={{display:"flex",alignItems:"center",gap:8}}>
                 <label style={{fontSize:12,color:"#9ca3af",flex:1}}>{label}</label>
                 <input type="number" style={{...ipt,width:70,flex:"0 0 auto"}} value={eqSettingsForm[key]} onChange={e=>setEqSettingsForm(f=>({...f,[key]:Number(e.target.value)}))}/>
