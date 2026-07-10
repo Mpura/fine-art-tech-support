@@ -1863,7 +1863,7 @@ export default function App() {
         <div style={{background:"#141720",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:eqSettingsForm?12:0}}>
             <div style={{fontSize:13,fontWeight:500}}>⚙ Equipment Loan Settings</div>
-            <button onClick={()=>setEqSettingsForm(f=>f?null:{...eqSettings})} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer"}}>{eqSettingsForm?"Cancel":"Edit"}</button>
+            <button onClick={()=>setEqSettingsForm(f=>f?null:{...DEFAULT_EQ_SETTINGS,...eqSettings})} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer"}}>{eqSettingsForm?"Cancel":"Edit"}</button>
           </div>
           {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr3Days??2}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Return by: {eqSettings.returnByHour||10}:00 · Pickup: 12:00–13:00 · Slot cap: {eqSettings.slotCap||2}</div>}
           {eqSettingsForm&&(<div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
