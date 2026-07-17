@@ -93,6 +93,38 @@ export default async function handler(req, res) {
     }
   }
 
+  // Personal-data scoping: reads of Requests / Fines / Members return other
+  // people's records. A caller without a valid staff PIN may only fetch rows
+  // scoped to a student identity they supply (publicScope.value) — the server
+  // builds the filter itself so a client can't ask for the whole table, and
+  // staff-only fields are stripped from the response.
+  const SCOPED_TABLES = [REQUESTS, FINES, MEMBERS];
+  let scopedFormula = null;   // overrides any client filterByFormula
+  let stripStaffFields = false;
+  let forceMemberFields = false;
+  if (method === "GET" && SCOPED_TABLES.includes(table)) {
+    const val = String(req.body?.publicScope?.value ?? "").trim();
+    if (val) {
+      const safe = val.replace(/["\\]/g, "");
+      const low = safe.toLowerCase();
+      if (table === REQUESTS) {
+        scopedFormula = `OR(LOWER({StudNo})="${low}",FIND("${low}",LOWER({StudentName}))>0)`;
+        stripStaffFields = true;
+      } else if (table === FINES) {
+        scopedFormula = `{Student No}="${safe}"`;
+      } else if (table === MEMBERS) {
+        scopedFormula = `OR(LOWER(LEFT({Name},${low.length + 1}))="${low} ",FIND("${low}",LOWER({Name}))>0)`;
+        forceMemberFields = true;
+      }
+    } else {
+      // No scope supplied → only a valid staff PIN unlocks the full table
+      const stored = await fetchStoredPin(headers);
+      if (stored == null || String(staffPin) !== stored) {
+        return res.status(403).json({ error: "A student number or staff PIN is required to view this data" });
+      }
+    }
+  }
+
   let url;
   let options = { headers };
 
@@ -116,6 +148,15 @@ export default async function handler(req, res) {
             u.searchParams.set(k, v);
           }
         });
+      }
+      // Server-enforced scoping for public reads of personal data
+      if (scopedFormula) {
+        u.searchParams.set("filterByFormula", scopedFormula);
+        if (forceMemberFields) {
+          u.searchParams.set("maxRecords", "1");
+          u.searchParams.delete("fields[]");
+          ["Name", "Yr", "Email"].forEach(f => u.searchParams.append("fields[]", f));
+        }
       }
       url = u.toString();
       options.method = "GET";
@@ -146,6 +187,13 @@ export default async function handler(req, res) {
     // Never expose the PIN record through settings reads
     if (table === SETTINGS && method === "GET" && Array.isArray(data.records)) {
       data.records = data.records.filter(r => r.fields?.Name !== "pin");
+    }
+
+    // Strip staff-only fields from student-facing request reads
+    if (stripStaffFields && Array.isArray(data.records)) {
+      for (const rec of data.records) {
+        if (rec.fields) { delete rec.fields.StaffNote; delete rec.fields.CheckInNotes; }
+      }
     }
 
     return res.status(response.status).json(data);

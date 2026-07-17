@@ -221,16 +221,21 @@ export default function App() {
         // "pin" is never returned by the server — verified server-side via VERIFY_PIN
       }
     }).catch(()=>{});
-    // Requests come from Airtable so they're visible across all devices
-    atGet(REQUESTS_TABLE,{maxRecords:500}).then(data=>{
-      if(data.records){
-        const reqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-        setRequests(reqs);persist(KEYS.req,reqs);
-      }
-    }).catch(()=>{
-      // Fall back to localStorage cache if Airtable is unreachable
-      try{const r=localStorage.getItem(KEYS.req);if(r)setRequests(JSON.parse(r));}catch(e){}
-    }).finally(()=>setLoaded(true));
+    // The full requests table is staff-only — students reach their own rows
+    // through the scoped "Check my request" search, never a bulk load.
+    if(staffUnlocked){
+      atGet(REQUESTS_TABLE,{maxRecords:500}).then(data=>{
+        if(data.records){
+          const reqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+          setRequests(reqs);persist(KEYS.req,reqs);
+        }
+      }).catch(()=>{
+        // Fall back to localStorage cache if Airtable is unreachable
+        try{const r=localStorage.getItem(KEYS.req);if(r)setRequests(JSON.parse(r));}catch(e){}
+      }).finally(()=>setLoaded(true));
+    }else{
+      setLoaded(true);
+    }
   },[]);
 
   // Refresh requests when staff switches to dashboard — throttled to once per 10 minutes
@@ -429,7 +434,8 @@ export default function App() {
     // Always fetch fresh data from Airtable so status is live
     let freshReqs=requests;
     try{
-      const data=await atGet(REQUESTS_TABLE,{maxRecords:500});
+      // Scoped read — the server returns only this student's rows (staff notes stripped)
+      const data=await atGet(REQUESTS_TABLE,{maxRecords:500},{value:q});
       if(data.records){
         freshReqs=data.records.map(airtableToReq).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
         setRequests(freshReqs);persist(KEYS.req,freshReqs);

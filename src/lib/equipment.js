@@ -78,7 +78,8 @@ async function fetchEqImagesByIds(ids) {
 const fSafe = (v) => String(v ?? "").replace(/["\\]/g, "");
 
 async function fetchFinesForStudent(studNo) {
-  const data = await atGet(FINES_TABLE, { filterByFormula: `{Student No}="${fSafe(studNo)}"`, "sort[0][field]": "Date", "sort[0][direction]": "desc" });
+  // Scoped read — server filters to this student (students have no staff PIN)
+  const data = await atGet(FINES_TABLE, { "sort[0][field]": "Date", "sort[0][direction]": "desc" }, { value: studNo });
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 

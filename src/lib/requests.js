@@ -114,22 +114,13 @@ function parseMemberName(fullName) {
 }
 async function lookupStudent(input) {
   const q = input.trim().replace(/"/g, "").replace(/\\/g, "");
-  const fields = ["Name","Yr","Email"];
-  // 1. Try case-insensitive student number prefix match
-  const snFormula = `LOWER(LEFT({Name},LEN(LOWER("${q}"))+1))=LOWER(CONCATENATE("${q}"," "))`;
-  const snData = await atGet(MEMBERS_TABLE, { filterByFormula: snFormula, "fields[]": fields, maxRecords: 1 });
-  if (snData.records?.length) {
-    const rec = snData.records[0];
-    const { studNo, name } = parseMemberName(rec.fields["Name"] || "");
-    const email = rec.fields["Email"] || (studNo ? `${studNo.toLowerCase()}@campus.ru.ac.za` : null);
-    return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo, email };
-  }
-  // 2. Fallback: search by name (for staff / visitors with no student number)
-  // FIND() returns 0 if not found (safe in filterByFormula), unlike SEARCH() which errors
-  const nameFormula = `FIND(LOWER("${q}"),LOWER({Name}))>0`;
-  const nameData = await atGet(MEMBERS_TABLE, { filterByFormula: nameFormula, "fields[]": fields, maxRecords: 1 });
-  if (nameData.records?.length) {
-    const rec = nameData.records[0];
+  if (!q) return { found: false };
+  // Scoped read — the server builds the match formula (student-number prefix OR
+  // name contains), forces one record and the safe field set. This stops the
+  // whole member roster being pulled without a staff PIN.
+  const data = await atGet(MEMBERS_TABLE, { "fields[]": ["Name","Yr","Email"], maxRecords: 1 }, { value: q });
+  if (data.records?.length) {
+    const rec = data.records[0];
     const { studNo, name } = parseMemberName(rec.fields["Name"] || "");
     const email = rec.fields["Email"] || (studNo ? `${studNo.toLowerCase()}@campus.ru.ac.za` : null);
     return { found: true, studentId: rec.id, name, fullName: rec.fields["Name"] || "", year: String(rec.fields["Yr"] || ""), studNo, email };

@@ -48,13 +48,16 @@ async function atCall(body) {
 
 // Airtable returns at most 100 records per page — follow the offset token so
 // list fetches return everything instead of silently stopping at 100.
-async function atGet(table, params = {}) {
-  let data = await atCall({ table, method: "GET", params });
+// publicScope ({ value }) scopes reads of personal-data tables to one student
+// when the caller has no staff PIN; the server enforces it.
+async function atGet(table, params = {}, publicScope) {
+  const scope = publicScope ? { publicScope } : {};
+  let data = await atCall({ table, method: "GET", params, ...scope });
   if (!data.records || !data.offset) return data;
   const all = [...data.records];
   let guard = 0;
   while (data.offset && guard++ < 50) {
-    data = await atCall({ table, method: "GET", params: { ...params, offset: data.offset } });
+    data = await atCall({ table, method: "GET", params: { ...params, offset: data.offset }, ...scope });
     if (!data.records) break;
     all.push(...data.records);
   }
