@@ -4,14 +4,14 @@ import {
   EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SETTINGS_TABLE, SETTINGS_RECS,
   YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DEFAULT_SCHEDULE,
   STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle,
-  MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_LICENCES, DEFAULT_EQ_SETTINGS,
+  MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS,
   EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE,
   genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr,
   addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost,
   CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, getDateStatus,
   ipt, pill, Btn,
 } from "./shared.jsx";
-import { verifyStaffPin, atGet, atPost, atPatch, atDelete, saveSetting } from "./lib/airtable.js";
+import { verifyStaffPin, atGet, atPost, atPatch, atDelete, saveSetting, getStaffPin } from "./lib/airtable.js";
 import { archiveSummary, reqToAirtable, airtableToReq, lookupStudent } from "./lib/requests.js";
 import { sendConfirmationEmail, sendStatusEmail } from "./lib/email.js";
 import { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine, settleFine } from "./lib/equipment.js";
@@ -34,7 +34,7 @@ export default function App() {
   const [blocks, setBlocks] = useState({});
   const [maintLogs, setMaintLogs] = useState([]);
   const [hsLogs, setHsLogs] = useState([]);
-  const [licences, setLicences] = useState(DEFAULT_LICENCES);
+  const [licences, setLicences] = useState([]); // seed fetched from PIN-gated /api/licences when staff unlocks (kept out of public bundle)
   const [licForm, setLicForm] = useState({software:"",vendor:"",vendorContact:"",vendorPhone:"",poNumber:"",licenceNo:"",importCode:"",partNo:"",seats:"1",effectiveDate:todayDate(),expiryDate:"",notes:""});
   const [showLicForm, setShowLicForm] = useState(false);
   const [expandLicId, setExpandLicId] = useState(null);
@@ -246,6 +246,22 @@ export default function App() {
       setLoaded(true);
     }
   },[]);
+
+  // Licence seed lives server-side (out of the public bundle). Fetch it once
+  // staff unlocks, but only if this device has no saved licences yet.
+  useEffect(()=>{
+    if(!staffUnlocked)return;
+    if(localStorage.getItem(KEYS.lic))return;
+    let cancelled=false;
+    (async()=>{
+      try{
+        const res=await fetch("/api/licences",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({staffPin:getStaffPin()})});
+        const data=await res.json();
+        if(!cancelled&&res.ok&&Array.isArray(data.licences)&&data.licences.length){setLicences(data.licences);persist(KEYS.lic,data.licences);}
+      }catch(e){/* offline — licences panel just starts empty */}
+    })();
+    return()=>{cancelled=true;};
+  },[staffUnlocked]);
 
   // Refresh requests when staff switches to dashboard — throttled to once per 10 minutes
   const lastDashFetch = useRef(0);
@@ -2138,11 +2154,11 @@ export default function App() {
             <div style={{fontSize:13,fontWeight:500,marginBottom:14,color:TEAL}}>New licence record</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
               <div style={{gridColumn:"1/-1"}}><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Software name *</label><input style={ipt} value={licForm.software} onChange={e=>setLicForm(f=>({...f,software:e.target.value}))} placeholder="e.g. CorelDRAW Graphics Suite Education"/></div>
-              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Vendor / Supplier</label><input style={ipt} value={licForm.vendor} onChange={e=>setLicForm(f=>({...f,vendor:e.target.value}))} placeholder="e.g. Learning Curve"/></div>
-              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>PO Number</label><input style={ipt} value={licForm.poNumber} onChange={e=>setLicForm(f=>({...f,poNumber:e.target.value}))} placeholder="e.g. RP0000122595"/></div>
-              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Licence / Certificate No.</label><input style={ipt} value={licForm.licenceNo} onChange={e=>setLicForm(f=>({...f,licenceNo:e.target.value}))} placeholder="e.g. 1158587"/></div>
-              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Import / Activation Code</label><input style={ipt} value={licForm.importCode} onChange={e=>setLicForm(f=>({...f,importCode:e.target.value}))} placeholder="e.g. 10690273"/></div>
-              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Part Number</label><input style={ipt} value={licForm.partNo} onChange={e=>setLicForm(f=>({...f,partNo:e.target.value}))} placeholder="e.g. LCCDGSSUBA11"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Vendor / Supplier</label><input style={ipt} value={licForm.vendor} onChange={e=>setLicForm(f=>({...f,vendor:e.target.value}))} placeholder="e.g. software reseller"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>PO Number</label><input style={ipt} value={licForm.poNumber} onChange={e=>setLicForm(f=>({...f,poNumber:e.target.value}))} placeholder="e.g. RP0000000000"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Licence / Certificate No.</label><input style={ipt} value={licForm.licenceNo} onChange={e=>setLicForm(f=>({...f,licenceNo:e.target.value}))} placeholder="e.g. 1234567"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Import / Activation Code</label><input style={ipt} value={licForm.importCode} onChange={e=>setLicForm(f=>({...f,importCode:e.target.value}))} placeholder="e.g. 00000000"/></div>
+              <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Part Number</label><input style={ipt} value={licForm.partNo} onChange={e=>setLicForm(f=>({...f,partNo:e.target.value}))} placeholder="e.g. ABC123"/></div>
               <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>No. of seats / copies</label><input type="number" min="1" style={ipt} value={licForm.seats} onChange={e=>setLicForm(f=>({...f,seats:e.target.value}))}/></div>
               <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Effective date</label><input type="date" style={ipt} value={licForm.effectiveDate} onChange={e=>setLicForm(f=>({...f,effectiveDate:e.target.value}))}/></div>
               <div><label style={{fontSize:12,color:"#9ca3af",display:"block",marginBottom:4}}>Expiry date <span style={{color:"#4b5563"}}>(leave blank if perpetual)</span></label><input type="date" style={ipt} value={licForm.expiryDate} onChange={e=>setLicForm(f=>({...f,expiryDate:e.target.value}))}/></div>

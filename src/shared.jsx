@@ -78,8 +78,8 @@ const DAY_FULL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Sat
 
 const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1",lic:"fats_lic_v1"};
 
-// Default Corel licence pre-loaded
-const DEFAULT_LICENCES=[{id:"corel_2026_01",software:"CorelDRAW Graphics Suite Education",vendor:"Learning Curve",vendorContact:"Phillip Mokgethi",vendorPhone:"+27 84 424 0772",poNumber:"RP0000122595",licenceNo:"1158587",importCode:"10690273",partNo:"LCCDGSSUBA11",seats:2,effectiveDate:"2026-05-12",expiryDate:"2027-05-11",notes:"365-Day Subscription (Single User). Activate at coreldraw.com/licensemanagement. Keep this certificate for renewal reference.",createdAt:"2026-05-12T09:11:00.000Z"}];
+// Licence seed moved server-side (api/_licence-data.js, served via /api/licences)
+// so vendor contacts / PO / licence numbers aren't in the public client bundle.
 const DEFAULT_EQ_SETTINGS={yr12Days:3,yr3Days:2,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,returnByHour:10,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
 
 // Equipment collection: Mon/Wed/Fri only, two 30-min windows 12:00–13:00
@@ -162,5 +162,5 @@ const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false
 );
 
 export {
-  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_LICENCES, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
+  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
 };
