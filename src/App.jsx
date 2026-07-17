@@ -1996,7 +1996,18 @@ export default function App() {
                     <span style={{color:f["Type"]==="Late Return"?"#c2410c":"#b91c1c"}}>{f["Type"]}</span>
                     <span>{f["Item Name"]}</span>
                     <span style={{textAlign:"right",fontWeight:600,paddingRight:12}}>R{f["Amount (R)"]||0}</span>
-                    <button onClick={async()=>{if(!f.id)return;await settleFine(f.id);setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));}} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #374151",background:"#1a1d28",color:"#6b7280",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>✓ Mark paid</button>
+                    <div style={{display:"flex",gap:4}}>
+                      {f["Type"]==="Lost Item"&&(
+                        <button onClick={async()=>{
+                          if(!f.id)return;
+                          const req=requests.find(r=>r.id===f["Request ID"]);
+                          if(req)await markItemFound(req,f["Item Name"]);
+                          else await settleFine(f.id);
+                          setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));
+                        }} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #20B07F",background:"#0a2218",color:"#20B07F",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>↩ Item returned</button>
+                      )}
+                      <button onClick={async()=>{if(!f.id)return;await settleFine(f.id);setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));}} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #374151",background:"#1a1d28",color:"#6b7280",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>✓ Mark paid</button>
+                    </div>
                   </div>
                 ))}
               </div>
