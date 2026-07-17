@@ -45,6 +45,7 @@ export default function App() {
   const [expandId, setExpandId] = useState(null);
   const [staffNotes, setStaffNotes] = useState({});
   const [filterStatus, setFilterStatus] = useState("All");
+  const [queueTab, setQueueTab] = useState("pending");
   const [queueSearch, setQueueSearch] = useState("");
   const [dashTab, setDashTab] = useState("today");
   const [editEq, setEditEq] = useState(null);
@@ -73,7 +74,7 @@ export default function App() {
   function avWizStepOk(step){
     if(step===0)return !!avWiz.purpose;
     if(step===1)return !!avWiz.venue&&(avWiz.venue!=="other"||!!avWiz.venueOther.trim());
-    if(step===2)return !!avWiz.eventDate&&!!avWiz.setupDate&&!!avWiz.setupTime;
+    if(step===2)return avWiz.purpose==="test"?!!avWiz.setupDate&&!!avWiz.setupTime:!!avWiz.eventDate&&!!avWiz.setupDate&&!!avWiz.setupTime;
     if(step===3)return !!avWiz.device;
     if(step===4)return !!avWiz.contentType;
     if(step===5)return !!avWiz.displayType&&!!avWiz.screenCount&&parseInt(avWiz.screenCount)>0;
@@ -285,7 +286,8 @@ export default function App() {
       const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
       const DEV_LABELS={"mediaplayer":"Dept media player (USB)","laptop":"Own laptop","phone":"Phone / tablet","unknown":"TBC"};
       const DT_LABELS={"projector":"Projector","screen":"Screen / TV","both":"Projector + Screen"};
-      return{purpose:avWiz.purpose,venue:VENUE_LABELS[avWiz.venue]||avWiz.venue,eventDate:avWiz.eventDate,eventTime:avWiz.eventTime,setupDate:avWiz.setupDate,setupTime:avWiz.setupTime,duration:avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"",device:DEV_LABELS[avWiz.device]||avWiz.device,displayType:DT_LABELS[avWiz.displayType]||avWiz.displayType,screenCount:avWiz.screenCount,contentType:avWiz.contentType,audio:avWiz.audio,requirements:deriveAVRequirements(avWiz).map(r=>r.label)};
+      const PURPOSE_LABELS={"exam":"Assessment / degree show","gallery":"Gallery / exhibition","class":"In-class presentation","performance":"Performance / screening","workshop":"Workshop","test":"Equipment test — same-day return","other":"Other"};
+      return{purpose:PURPOSE_LABELS[avWiz.purpose]||avWiz.purpose,sameDayReturn:avWiz.purpose==="test",venue:VENUE_LABELS[avWiz.venue]||avWiz.venue,eventDate:avWiz.eventDate,eventTime:avWiz.eventTime,setupDate:avWiz.setupDate,setupTime:avWiz.setupTime,duration:avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"",device:DEV_LABELS[avWiz.device]||avWiz.device,displayType:DT_LABELS[avWiz.displayType]||avWiz.displayType,screenCount:avWiz.screenCount,contentType:avWiz.contentType,audio:avWiz.audio,requirements:deriveAVRequirements(avWiz).map(r=>r.label)};
     }
     return{};
   }
@@ -529,13 +531,14 @@ export default function App() {
   const eqTypes=["All",...new Set(equipment.map(e=>e.type).filter(Boolean))];
   const eqFiltered=equipment.filter(e=>(eqFilter==="All"||e.type===eqFilter)&&(!eqSearch||e.name?.toLowerCase().includes(eqSearch.toLowerCase())));
   const sortedRequests=[...requests].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
-  const statusFiltered=filterStatus==="All"?sortedRequests:sortedRequests.filter(r=>r.status===filterStatus);
-  const filtered=queueSearch.trim()?statusFiltered.filter(r=>r.name?.toLowerCase().includes(queueSearch.toLowerCase())||r.studNo?.toLowerCase().includes(queueSearch.toLowerCase())):statusFiltered;
   const QUEUE_DONE=["Done","Declined","Cancelled","Returned","Uncollected"];
-  const queueActive=filtered.filter(r=>!QUEUE_DONE.includes(r.status));
-  const queueArchive=filtered.filter(r=>QUEUE_DONE.includes(r.status));
-  const allStatuses=["All",...["Pending","Confirmed","In Progress","Material test required","Ready to cut","Done","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"]];
-  const counts=STATUSES.reduce((a,s)=>({...a,[s]:requests.filter(r=>r.status===s).length}),{});
+  const ACTIVE_STATUSES=["Confirmed","In Progress","Ready to collect","Ready to cut","Material test required","Collected","Partially Returned"];
+  const searchFiltered=queueSearch.trim()?sortedRequests.filter(r=>r.name?.toLowerCase().includes(queueSearch.toLowerCase())||r.studNo?.toLowerCase().includes(queueSearch.toLowerCase())):sortedRequests;
+  const queuePending=searchFiltered.filter(r=>r.status==="Pending");
+  const queueActive=searchFiltered.filter(r=>ACTIVE_STATUSES.includes(r.status));
+  const queueArchive=searchFiltered.filter(r=>QUEUE_DONE.includes(r.status));
+  const pendingCount=requests.filter(r=>r.status==="Pending").length;
+  const activeCount=requests.filter(r=>ACTIVE_STATUSES.includes(r.status)).length;
   // ── TODAY FILTERS ────────────────────────────────────────────────
   const _today=todayDate();
   const morningToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Morning")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
@@ -1246,7 +1249,7 @@ export default function App() {
       </>)}
       {type.id==="avsetup"&&(()=>{
         const STEP_LABELS=["Purpose","Venue","Date & time","Content source","Content","Display","Audio","Review"];
-        const PURPOSE_OPTS=[["exam","🎓","Assessment or degree show","Mid-year, end-of-year, or degree show"],["gallery","🖼️","Gallery or exhibition install","Looping video, immersive projection"],["class","📚","In-class or lecture presentation","Slides, demo or tutorial"],["performance","🎭","Performance or screening","Film screening, live performance"],["workshop","🔧","Workshop or demonstration","Practical session, live demo"],["other","💬","Other / not sure","Describe in notes at the end"]];
+        const PURPOSE_OPTS=[["exam","🎓","Assessment or degree show","Mid-year, end-of-year, or degree show"],["gallery","🖼️","Gallery or exhibition install","Looping video, immersive projection"],["class","📚","In-class or lecture presentation","Slides, demo or tutorial"],["performance","🎭","Performance or screening","Film screening, live performance"],["workshop","🔧","Workshop or demonstration","Practical session, live demo"],["test","🧪","Equipment test / trial run","Borrow AV gear to test it yourself — bring it back the same day"],["other","💬","Other / not sure","Describe in notes at the end"]];
         const VENUE_OPTS=[["sculpture","🗿","Sculpture studio",""],["painting","🎨","Painting studio",""],["da","💻","DA studio","Digital Arts"],["print","🖨️","Print studio",""],["year1","1️⃣","1st year studio","Main Fine Art building"],["year2","2️⃣","2nd year studio","Main Fine Art building"],["gallery","🖼️","Main gallery","Main Fine Art building"],["seminar","📐","Seminar room","Main Fine Art building"],["outdoor","🌳","Outdoor space","Cables and power may be limited"],["other","📍","Other — describe below",""]];
         const DEVICE_OPTS=[["mediaplayer","📺","Department media player","Content played from USB stick via dept player","Bring content on USB"],["laptop","💻","My own laptop","MacBook, Windows, or other — bring your laptop","Adapter may be needed"],["phone","📱","Phone or tablet","iPhone, Android, iPad","Adapter likely needed"],["unknown","🤔","Not sure yet","Tech Support will advise when reviewing your request","To confirm at collection"]];
         const CONTENT_OPTS=[["slides","🖥️","Slideshow or presentation","PowerPoint, Keynote, Google Slides"],["video","🎬","Video or film","MP4, MOV, looping video work"],["images","🖼️","Still images or artwork","JPEG, PNG, digital portfolio"],["website","🌐","Website or live demo","Browser, live stream, interactive content"],["mixed","🔀","Multiple / mixed content","Combination of slides, video, images"]];
@@ -1270,7 +1273,7 @@ export default function App() {
           </div>
         );
         const reqs=deriveAVRequirements(avWiz);
-        const PURPOSE_LABELS={"exam":"Assessment / degree show","gallery":"Gallery/exhibition","class":"In-class presentation","performance":"Performance/screening","workshop":"Workshop","other":"Other"};
+        const PURPOSE_LABELS={"exam":"Assessment / degree show","gallery":"Gallery/exhibition","class":"In-class presentation","performance":"Performance/screening","workshop":"Workshop","test":"Equipment test — same-day return","other":"Other"};
         const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
         const DEV_LABELS={"mediaplayer":"Dept media player (USB)","laptop":"Own laptop","phone":"Phone / tablet","unknown":"TBC"};
         const DT_LABELS={"projector":"Projector","screen":"Screen / TV","both":"Projector + Screen"};
@@ -1298,8 +1301,28 @@ export default function App() {
             {avWiz.venue==="other"&&<input style={{...ipt,marginTop:4,marginBottom:4}} value={avWiz.venueOther} onChange={e=>setAv("venueOther",e.target.value)} placeholder="Describe the venue or space" autoFocus/>}
           </>)}
 
+          {/* Step 2 (test path): single day, collection time, same-day return */}
+          {avStep===2&&avWiz.purpose==="test"&&(<>
+            <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>When do you want to test?</div>
+            <div style={{fontSize:12,color:"#6b7280",marginBottom:16}}>Pick a day and a collection time. Test gear goes out and comes back the same day.</div>
+            <div style={{background:"#111827",border:"0.5px solid #1f2937",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+              <div style={{fontSize:12,color:"#a855f7",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Test day</div>
+              <div style={{marginBottom:10}}>
+                <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Date *</label>
+                <input type="date" style={ipt} value={avWiz.setupDate} min={todayDate()} onChange={e=>setAv("setupDate",e.target.value)}/>
+                {avWiz.setupDate&&<div style={{fontSize:12,color:"#4b5563",marginTop:4}}>📅 {fmtDate(avWiz.setupDate)}</div>}
+              </div>
+              <div>
+                <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection time *</label>
+                <input type="time" style={ipt} value={avWiz.setupTime} onChange={e=>setAv("setupTime",e.target.value)}/>
+                <div style={{fontSize:11,color:"#4b5563",marginTop:4}}>When you'll collect the gear from Tech Support.</div>
+              </div>
+            </div>
+            <div style={{background:"#2a1f0a",border:"0.5px solid #d4851a55",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#d4851a"}}>↩ Same-day return — everything must be back at Tech Support by 16:30 the same day.</div>
+          </>)}
+
           {/* Step 2: Date & time */}
-          {avStep===2&&(<>
+          {avStep===2&&avWiz.purpose!=="test"&&(<>
             <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>Dates for your event</div>
             <div style={{fontSize:12,color:"#6b7280",marginBottom:RUSH_MODE?8:16}}>We need both dates to book equipment and plan the setup.{!RUSH_MODE&&" Minimum 5 business days before your event date."}</div>
             {RUSH_MODE&&<div style={{background:"#2a1a00",border:"0.5px solid #d4851a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#d4851a",marginBottom:14}}>⚡ Rush request — date restrictions lifted. Please coordinate setup times directly with Tech Support.</div>}
@@ -1398,9 +1421,9 @@ export default function App() {
             <div style={{fontSize:15,fontWeight:600,color:"#e0e3ea",marginBottom:4}}>Your setup summary</div>
             <div style={{fontSize:12,color:"#6b7280",marginBottom:16}}>Based on your answers. Tech Support will review this, confirm what's available, and contact you to plan setup days.</div>
             <div style={{background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"12px 14px",marginBottom:10}}>
-              <div style={{fontSize:11,color:"#3b82f6",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>Your event</div>
+              <div style={{fontSize:11,color:"#3b82f6",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:10}}>{avWiz.purpose==="test"?"Your test":"Your event"}</div>
               <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:"5px 14px"}}>
-                {[["Purpose",PURPOSE_LABELS[avWiz.purpose]||avWiz.purpose],["Venue",VENUE_LABELS[avWiz.venue]],["Event date",avWiz.eventDate?fmtDate(avWiz.eventDate):"Not set"],["Event time",avWiz.eventTime||"Not specified"],["Setup date",avWiz.setupDate?fmtDate(avWiz.setupDate):"Not set"],["Setup time",avWiz.setupTime||"Not specified"],["Duration",avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"Not specified"],["Display",DT_LABELS[avWiz.displayType]||"Not set"],["Count",avWiz.screenCount||"Not set"],["Device",DEV_LABELS[avWiz.device]||avWiz.device]].filter(([,v])=>v&&v!=="Not set"&&v!=="Not specified").map(([k,v])=>(
+                {[["Purpose",PURPOSE_LABELS[avWiz.purpose]||avWiz.purpose],["Venue",VENUE_LABELS[avWiz.venue]],["Event date",avWiz.eventDate?fmtDate(avWiz.eventDate):"Not set"],["Event time",avWiz.eventTime||"Not specified"],[avWiz.purpose==="test"?"Test day":"Setup date",avWiz.setupDate?fmtDate(avWiz.setupDate):"Not set"],[avWiz.purpose==="test"?"Collect at":"Setup time",avWiz.setupTime||"Not specified"],...(avWiz.purpose==="test"?[["Return","Same day before 16:30"]]:[]),["Duration",avWiz.duration&&!avWiz.duration.startsWith("Select")?avWiz.duration:"Not specified"],["Display",DT_LABELS[avWiz.displayType]||"Not set"],["Count",avWiz.screenCount||"Not set"],["Device",DEV_LABELS[avWiz.device]||avWiz.device]].filter(([,v])=>v&&v!=="Not set"&&v!=="Not specified").map(([k,v])=>(
                   <Fragment key={k}><span style={{fontSize:12,color:"#4b5563",whiteSpace:"nowrap"}}>{k}</span><span style={{fontSize:12,color:"#c9cdd6"}}>{v}</span></Fragment>
                 ))}
               </div>
@@ -1413,7 +1436,7 @@ export default function App() {
                   <span style={{fontSize:13,color:r.warn?"#d4851a":"#c9cdd6",lineHeight:1.4}}>{r.label}</span>
                 </div>
               ))}
-              <div style={{fontSize:11,color:"#4b5563",marginTop:8,borderTop:"0.5px solid #1e3a1e",paddingTop:8}}>Availability and exact setup plan confirmed by Tech Support after review. Setup may require 1–2 days before your event.</div>
+              <div style={{fontSize:11,color:"#4b5563",marginTop:8,borderTop:"0.5px solid #1e3a1e",paddingTop:8}}>{avWiz.purpose==="test"?"Availability confirmed by Tech Support after review. Everything must be back the same day by 16:30.":"Availability and exact setup plan confirmed by Tech Support after review. Setup may require 1–2 days before your event."}</div>
             </div>
           </>)}
 
@@ -1704,27 +1727,33 @@ export default function App() {
             <button onClick={()=>updateStatus(r.id,"Uncollected")} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:"none",background:"#c2410c",color:"#fff",cursor:"pointer",fontFamily:"inherit"}}>Mark Uncollected</button>
           </div>)}
         </div>);})()}
-        <div style={{display:"flex",gap:8,marginBottom:16}}>
-          {[["Pending","#2a1f0a","#d4851a"],["In Progress","#0a1e35","#60a5fa"],["Done","#0a2218","#20B07F"]].map(([s,bg,col])=>(
-            <div key={s} style={{flex:1,background:bg,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
-              <div style={{fontSize:20,fontWeight:500,color:col}}>{counts[s]||0}</div>
-              <div style={{fontSize:11,color:col}}>{s}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{display:"flex",gap:8,marginBottom:8}}>
+        <div style={{display:"flex",gap:8,marginBottom:12}}>
           <Btn outline color={TEAL} onClick={()=>{setScreen("walkin");setSelType(null);setForm(f=>({...f,name:"",studNo:"",year:"",notes:""}));}} style={{flexShrink:0}}>+ Walk-in</Btn>
           <input style={{...ipt,flex:1}} value={queueSearch} onChange={e=>setQueueSearch(e.target.value)} placeholder="Search name or student no…"/>
-          <select style={{...ipt,flexShrink:0,width:"auto"}} value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>{allStatuses.map(s=><option key={s}>{s}</option>)}</select>
+        </div>
+        <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"0.5px solid #1e2130"}}>
+          {[{id:"pending",label:"New",count:pendingCount,col:"#d4851a"},{id:"active",label:"Active",count:activeCount,col:"#20B07F"},{id:"archive",label:"Archive",count:queueArchive.length,col:"#6b7280"}].map(t=>(
+            <button key={t.id} onClick={()=>setQueueTab(t.id)} style={{padding:"9px 16px",border:"none",borderBottom:queueTab===t.id?`2px solid ${t.col}`:"2px solid transparent",background:"transparent",color:queueTab===t.id?t.col:"#4b5563",fontSize:13,fontWeight:queueTab===t.id?600:400,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:6,marginBottom:-1}}>
+              {t.label}
+              {t.count>0&&<span style={{background:queueTab===t.id?t.col+"22":"#1a1d28",color:queueTab===t.id?t.col:"#4b5563",borderRadius:10,padding:"1px 7px",fontSize:11,fontWeight:600}}>{t.count}</span>}
+            </button>
+          ))}
         </div>
         {!loaded&&<div style={{color:"#6b7280",fontSize:14}}>Loading...</div>}
-        {loaded&&queueActive.length===0&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":"No requests yet"}</div>}
-        {queueActive.map(req=>{
+        {loaded&&queueTab!=="archive"&&(()=>{
+          const _list=queueTab==="pending"?queuePending:queueActive;
+          const _ORDER=["Ready to collect","Material test required","Ready to cut","Confirmed","In Progress","Collected","Partially Returned"];
+          const _sorted=queueTab==="active"?[..._list].sort((a,b)=>(_ORDER.indexOf(a.status)-_ORDER.indexOf(b.status))||new Date(b.createdAt)-new Date(a.createdAt)):_list;
+          if(_sorted.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":queueTab==="pending"?"No new requests — all clear ✓":"Nothing active right now"}</div>;
+          return _sorted.map((req,_idx,_arr)=>{
+          const _showHeader=queueTab==="active"&&(_idx===0||_arr[_idx-1].status!==req.status);
           const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
           const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
           const hasItems=req.typeId==="equipment"&&req.details?.itemsData?.length>0;
           return(
-            <div key={req.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",marginBottom:12,borderLeft:`3px solid ${typeColor}`}}>
+            <div key={req.id}>
+            {_showHeader&&<div style={{fontSize:11,color:"#6b7280",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"10px 2px 6px",marginTop:_idx>0?4:0}}>{req.status} · {_arr.filter(r=>r.status===req.status).length}</div>}
+            <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",marginBottom:12,borderLeft:`3px solid ${typeColor}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:3}}>
@@ -1756,18 +1785,25 @@ export default function App() {
               )}
               {hasItems&&(
                 <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-                  {req.details.itemsData.map((item,i)=>(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:7,background:"#1a1d28",borderRadius:10,padding:"6px 10px 6px 6px",minWidth:0}}>
+                  {req.details.itemsData.map((item,i)=>{
+                    const _back=(req.returnedItems||[]).includes(item.name);
+                    const _lost=(req.lostItems||[]).includes(item.name);
+                    const _stillOut=!_back&&!_lost&&req.status==="Partially Returned";
+                    return(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:7,background:"#1a1d28",borderRadius:10,padding:"6px 10px 6px 6px",minWidth:0,opacity:_back?0.55:1,border:_lost?"0.5px solid #7f1d1d":_stillOut?"0.5px solid #d4851a66":"0.5px solid transparent"}}>
                       {(queueEqImages[item.id]||item.image)
-                        ?<img src={queueEqImages[item.id]||item.image} alt={item.name} style={{width:40,height:40,objectFit:"cover",borderRadius:7,flexShrink:0}} onError={e=>{e.target.style.display="none";}}/>
+                        ?<img src={queueEqImages[item.id]||item.image} alt={item.name} style={{width:40,height:40,objectFit:"cover",borderRadius:7,flexShrink:0,filter:_back?"grayscale(0.7)":"none"}} onError={e=>{e.target.style.display="none";}}/>
                         :<div style={{width:40,height:40,background:"#1e2130",borderRadius:7,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>📷</div>
                       }
                       <div>
-                        <div style={{fontSize:12,fontWeight:500,color:"#e0e3ea",lineHeight:1.3}}>{item.name}</div>
-                        {item.type&&<div style={{fontSize:11,color:"#4b5563"}}>{item.type}</div>}
+                        <div style={{fontSize:12,fontWeight:500,color:_back?"#6b7280":"#e0e3ea",lineHeight:1.3,textDecoration:_back?"line-through":"none"}}>{item.name}</div>
+                        {_back?<div style={{fontSize:11,color:"#20B07F",fontWeight:600}}>✓ returned</div>
+                          :_lost?<div style={{fontSize:11,color:"#f87171",fontWeight:600}}>❌ lost</div>
+                          :_stillOut?<div style={{fontSize:11,color:"#d4851a",fontWeight:600}}>⏳ still out</div>
+                          :item.type?<div style={{fontSize:11,color:"#4b5563"}}>{item.type}</div>:null}
                       </div>
                     </div>
-                  ))}
+                  );})}
                   {req.dueDate&&<div style={{display:"flex",alignItems:"center",fontSize:12,color:"#9ca3af",padding:"0 4px"}}>↩ Due {fmtDate(req.dueDate)}</div>}
                 </div>
               )}
@@ -1783,7 +1819,8 @@ export default function App() {
                     {req.details.purpose&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Purpose</span><span style={{color:"#c9cdd6"}}>🎯 {req.details.purpose}</span></>}
                     {req.details.venue&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Venue</span><span style={{color:"#c9cdd6"}}>📍 {req.details.venue}</span></>}
                     {req.details.eventDate&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Event</span><span style={{color:"#c9cdd6"}}>📅 {fmtDate(req.details.eventDate)}{req.details.eventTime?` · ${req.details.eventTime}`:""}</span></>}
-                    {req.details.setupDate&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Setup</span><span style={{color:"#c9cdd6"}}>🔧 {fmtDate(req.details.setupDate)}{req.details.setupTime?` · ${req.details.setupTime}`:""}</span></>}
+                    {req.details.setupDate&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>{req.details.sameDayReturn?"Collect":"Setup"}</span><span style={{color:"#c9cdd6"}}>🔧 {fmtDate(req.details.setupDate)}{req.details.setupTime?` · ${req.details.setupTime}`:""}</span></>}
+                    {req.details.sameDayReturn&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Return</span><span style={{color:"#d4851a",fontWeight:600}}>↩ Same day before 16:30</span></>}
                     {req.details.duration&&!String(req.details.duration).startsWith("Select")&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Duration</span><span style={{color:"#c9cdd6"}}>⏱ {req.details.duration}</span></>}
                     {req.details.device&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Device</span><span style={{color:"#c9cdd6"}}>💻 {req.details.device}</span></>}
                     {req.details.displayType&&<><span style={{color:"#4b5563",whiteSpace:"nowrap"}}>Display</span><span style={{color:"#c9cdd6"}}>{req.details.displayType==="Screen / TV"?"📺":"📽️"} {req.details.displayType}{req.details.screenCount?` × ${req.details.screenCount}`:""}</span></>}
@@ -1855,10 +1892,13 @@ export default function App() {
                 <Btn onClick={()=>{saveNote(req.id);setExpandId(null);}} color={BLUE} style={{marginTop:6,fontSize:13}}>Save note</Btn>
               </div>)}
             </div>
+            </div>
           );
-        })}
+          });
+          })()}
         {/* ── ARCHIVE ── */}
-        {queueArchive.length>0&&(
+        {loaded&&queueTab==="archive"&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>No archived requests yet</div>}
+        {queueTab==="archive"&&queueArchive.length>0&&(
           <div style={{marginTop:12}}>
             <div style={{fontSize:11,color:"#374151",fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",padding:"0 2px",marginBottom:8}}>Archive — {queueArchive.length} completed / declined</div>
             {REQUEST_TYPES.map(type=>{
