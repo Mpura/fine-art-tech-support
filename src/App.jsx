@@ -313,11 +313,13 @@ export default function App() {
     // Save to Airtable so staff can see it from any device
     try{
       const result=await atPost(REQUESTS_TABLE,reqToAirtable(req));
-      if(result.id){setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));}
+      if(result.id){
+        setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));
+        // Send confirmation email (non-blocking) — server builds it from the saved record
+        sendConfirmationEmail(result.id);
+      }
       else{console.error("FATS: request save failed",result);}
     }catch(e){console.error("FATS: request save error",e);}
-    // Send confirmation email to student (non-blocking)
-    sendConfirmationEmail(req);
     return req;
   }
   function updateStatus(id,status){
@@ -339,20 +341,22 @@ export default function App() {
     }
     const updatedDetails=Object.keys(detailPatch).length>0?{...req?.details,...detailPatch}:req?.details;
     const atFields={Status:status,UpdatedAt:todayISO(),...(Object.keys(detailPatch).length>0&&{Details:JSON.stringify(updatedDetails)})};
-    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,atFields).catch(()=>{});}
+    const _patched=req?.airtableId?atPatch(REQUESTS_TABLE,req.airtableId,atFields).catch(()=>null):Promise.resolve(null);
     const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails}:r);setRequests(u);persist(KEYS.req,u);
-    // Send status update email for key statuses (non-blocking)
+    // Send status update email for key statuses (non-blocking) — after the
+    // patch lands, since the email server reads the record from Airtable
     const _emailStatuses=["Confirmed","Ready to collect","Declined","Cancelled","Material test required","Ready to cut"];
     const _doneEmail=status==="Done"&&["query","print","3d"].includes(req?.typeId);
     if(req&&(_emailStatuses.includes(status)||_doneEmail)){
-      sendStatusEmail({...req,status},status);
+      _patched.then(()=>sendStatusEmail(req,status));
     }
   }
   function updateReq(id,fields){
     const req=requests.find(r=>r.id===id);
     const updated={...req,...fields,updatedAt:todayISO()};
-    if(req?.airtableId){atPatch(REQUESTS_TABLE,req.airtableId,reqToAirtable(updated)).catch(()=>{});}
+    const p=req?.airtableId?atPatch(REQUESTS_TABLE,req.airtableId,reqToAirtable(updated)).catch(()=>null):Promise.resolve(null);
     const u=requests.map(r=>r.id===id?updated:r);setRequests(u);persist(KEYS.req,u);
+    return p;
   }
   async function confirmCheckIn(req,returningNames,lostItemNames,notes){
     const today=todayDate();
@@ -384,9 +388,10 @@ export default function App() {
     }catch(e){}
     const newStatus=allBack?"Returned":"Partially Returned";
     const updatedReq={...req,status:newStatus,returnedAt:allBack?today:req.returnedAt,returnedItems:allReturnedAfter,lateDays,lateFine};
-    updateReq(req.id,{status:newStatus,returnedAt:allBack?today:req.returnedAt,returnedItems:allReturnedAfter,checkInNotes:notes,lostItems:[...(req.lostItems||[]),...lostItemNames],lateDays,lateFine});
-    // Send return receipt email when fully returned
-    if(allBack) sendStatusEmail(updatedReq,"Returned");
+    const _saved=updateReq(req.id,{status:newStatus,returnedAt:allBack?today:req.returnedAt,returnedItems:allReturnedAfter,checkInNotes:notes,lostItems:[...(req.lostItems||[]),...lostItemNames],lateDays,lateFine});
+    // Send return receipt email when fully returned — after the patch lands,
+    // since the email server reads returned items / fines from the record
+    if(allBack) _saved.then(()=>sendStatusEmail(updatedReq,"Returned"));
     setCheckInModal(null);setCiReturning([]);setCiLost([]);setCiNotes("");setCiLostAccessories([]);
   }
   async function markItemFound(req, itemName) {
@@ -521,10 +526,12 @@ export default function App() {
     setEqScreen("success");setEqSubmitting(false);setEqIsWalkIn(false);
     try{
       const result=await atPost(REQUESTS_TABLE,reqToAirtable(req));
-      if(result.id){setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));}
+      if(result.id){
+        setRequests(prev=>prev.map(r=>r.id===req.id?{...r,airtableId:result.id}:r));
+        sendConfirmationEmail(result.id);
+      }
       else{console.error("FATS: eq request save failed",result);}
     }catch(e){console.error("FATS: eq request save error",e);}
-    sendConfirmationEmail(req);
   }
   function resetEq(){setEqScreen("lookup");setEqStudNo("");setEqStudent(null);setEquipment([]);setSelItems([]);setEqFilter("All");setEqSearch("");setEqColDate("");setEqSlot("");setEqNotes("");setEqTermsAgreed(false);setEqLookupErr("");setEqErr("");setEqManualDue("");}
 
