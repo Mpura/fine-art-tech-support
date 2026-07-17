@@ -146,6 +146,7 @@ export default function App() {
   const [fines, setFines] = useState([]);
   const [finesLoading, setFinesLoading] = useState(false);
   const [checkInModal, setCheckInModal] = useState(null);
+  const [toasts, setToasts] = useState([]); // [{id,msg,type}] — type: error(sticky) | success | info
   const [ciLost, setCiLost] = useState([]);
   const [ciReturning, setCiReturning] = useState([]);
   const [ciNotes, setCiNotes] = useState("");
@@ -195,6 +196,14 @@ export default function App() {
   };
   const eqDueDate = eqColDate && eqStudent ? addCalendarDays(eqColDate, getLoanDays(eqStudent.year)) : "";
   const persist=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch(e){}};
+  const dismissToast=(id)=>setToasts(t=>t.filter(x=>x.id!==id));
+  // Errors stay until dismissed (staff must see money/sync failures); others auto-clear
+  function pushToast(msg,type="info"){
+    const id=Math.random().toString(36).slice(2);
+    setToasts(t=>[...t,{id,msg,type}]);
+    if(type!=="error")setTimeout(()=>dismissToast(id),5000);
+    return id;
+  }
 
   useEffect(()=>{
     // Staff-device settings stay in localStorage (schedule, blocks, etc.)
@@ -346,7 +355,11 @@ export default function App() {
     }
     const updatedDetails=Object.keys(detailPatch).length>0?{...req?.details,...detailPatch}:req?.details;
     const atFields={Status:status,UpdatedAt:todayISO(),...(Object.keys(detailPatch).length>0&&{Details:JSON.stringify(updatedDetails)})};
-    const _patched=req?.airtableId?atPatch(REQUESTS_TABLE,req.airtableId,atFields).catch(()=>null):Promise.resolve(null);
+    const _patched=req?.airtableId
+      ? atPatch(REQUESTS_TABLE,req.airtableId,atFields)
+          .then(r=>{if(!r||r.error||!r.id){pushToast(`⚠ "${status}" saved on this device but didn't sync — refresh to confirm.`,"error");return null;}return r;})
+          .catch(()=>{pushToast(`⚠ "${status}" didn't sync (network) — saved on this device only.`,"error");return null;})
+      : Promise.resolve(null);
     const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails}:r);setRequests(u);persist(KEYS.req,u);
     // Send status update email for key statuses (non-blocking) — after the
     // patch lands, since the email server reads the record from Airtable
@@ -359,7 +372,11 @@ export default function App() {
   function updateReq(id,fields){
     const req=requests.find(r=>r.id===id);
     const updated={...req,...fields,updatedAt:todayISO()};
-    const p=req?.airtableId?atPatch(REQUESTS_TABLE,req.airtableId,reqToAirtable(updated)).catch(()=>null):Promise.resolve(null);
+    const p=req?.airtableId
+      ? atPatch(REQUESTS_TABLE,req.airtableId,reqToAirtable(updated))
+          .then(r=>{if(!r||r.error||!r.id){pushToast("⚠ Change saved on this device but didn't sync to Airtable — check your connection and refresh.","error");return null;}return r;})
+          .catch(()=>{pushToast("⚠ Change didn't sync (network) — saved on this device only.","error");return null;})
+      : Promise.resolve(null);
     const u=requests.map(r=>r.id===id?updated:r);setRequests(u);persist(KEYS.req,u);
     return p;
   }
@@ -376,21 +393,26 @@ export default function App() {
     const lateFine=lateDays*eqSettings.dailyRate;
     // Create Checking In records only for items being returned now
     const returningIds=(req.details?.itemsData||[]).filter(i=>nowReturning.includes(i.name)).map(i=>i.id).filter(Boolean);
-    try{
-      if(returningIds.length){
-        const fields={"Type":"Checking In","Checked Out Gear":returningIds};
-        if(req.studentId)fields["Submitted By"]=[req.studentId];
-        await atPost(CHECKOUT_TABLE,fields);
-      }
-      if(allBack&&lateDays>0)await saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"late_return",itemName:"Equipment booking",amount:lateFine,days:lateDays,date:today,month:today.slice(0,7),notes});
-      for(const item of lostItemNames){
-        const cost=(req.details?.itemsData||[]).find(i=>i.name===item)?.replacementCost||500;
-        await saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"lost_item",itemName:item,amount:cost,days:0,date:today,month:today.slice(0,7),notes});
-      }
-      for(const a of ciLostAccessories){
-        await saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"lost_item",itemName:`${a.itemName} — ${a.accessory}`,amount:a.cost,days:0,date:today,month:today.slice(0,7),notes});
-      }
-    }catch(e){}
+    // Each write is tracked — a swallowed failure here means money owed is never
+    // recorded, so any failure is surfaced to staff instead of disappearing.
+    const failed=[];
+    const saveOrFail=async(label,fn)=>{
+      try{const r=await fn();if(!r||r.error||(!r.id&&!r.records))failed.push(label);}
+      catch(e){failed.push(label);}
+    };
+    if(returningIds.length){
+      const fields={"Type":"Checking In","Checked Out Gear":returningIds};
+      if(req.studentId)fields["Submitted By"]=[req.studentId];
+      await saveOrFail("equipment check-in record",()=>atPost(CHECKOUT_TABLE,fields));
+    }
+    if(allBack&&lateDays>0)await saveOrFail(`late fine R${lateFine}`,()=>saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"late_return",itemName:"Equipment booking",amount:lateFine,days:lateDays,date:today,month:today.slice(0,7),notes}));
+    for(const item of lostItemNames){
+      const cost=(req.details?.itemsData||[]).find(i=>i.name===item)?.replacementCost||500;
+      await saveOrFail(`lost-item charge for ${item} (R${cost})`,()=>saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"lost_item",itemName:item,amount:cost,days:0,date:today,month:today.slice(0,7),notes}));
+    }
+    for(const a of ciLostAccessories){
+      await saveOrFail(`charge for missing ${a.accessory} on ${a.itemName} (R${a.cost})`,()=>saveFineRecord({studNo:req.studNo,studentName:req.name,reqId:req.id,type:"lost_item",itemName:`${a.itemName} — ${a.accessory}`,amount:a.cost,days:0,date:today,month:today.slice(0,7),notes}));
+    }
     const newStatus=allBack?"Returned":"Partially Returned";
     const updatedReq={...req,status:newStatus,returnedAt:allBack?today:req.returnedAt,returnedItems:allReturnedAfter,lateDays,lateFine};
     const _saved=updateReq(req.id,{status:newStatus,returnedAt:allBack?today:req.returnedAt,returnedItems:allReturnedAfter,checkInNotes:notes,lostItems:[...(req.lostItems||[]),...lostItemNames],lateDays,lateFine});
@@ -398,6 +420,13 @@ export default function App() {
     // since the email server reads returned items / fines from the record
     if(allBack) _saved.then(()=>sendStatusEmail(updatedReq,"Returned"));
     setCheckInModal(null);setCiReturning([]);setCiLost([]);setCiNotes("");setCiLostAccessories([]);
+    if(failed.length){
+      pushToast(`⚠ Check-in saved, but these did NOT record in Airtable — add them manually: ${failed.join("; ")}.`,"error");
+    }else{
+      const lostTotal=lostItemNames.reduce((s,n)=>s+((req.details?.itemsData||[]).find(i=>i.name===n)?.replacementCost||500),0)+ciLostAccessories.reduce((s,a)=>s+a.cost,0);
+      const charged=lateFine+lostTotal;
+      pushToast(`✓ Check-in recorded for ${req.name}${charged>0?` · R${charged} charged`:""}`,"success");
+    }
   }
   async function markItemFound(req, itemName) {
     const today = todayDate();
@@ -2273,6 +2302,20 @@ export default function App() {
           </div>
         );
       })()}
+
+      {toasts.length>0&&(
+        <div style={{position:"fixed",left:"50%",bottom:20,transform:"translateX(-50%)",zIndex:300,display:"flex",flexDirection:"column",gap:8,width:"min(440px,calc(100vw - 32px))"}}>
+          {toasts.map(t=>{
+            const c=t.type==="error"?{bg:"#2a0f14",bd:"#f87171",fg:"#fecaca"}:t.type==="success"?{bg:"#0a2218",bd:"#20B07F",fg:"#a7f3d0"}:{bg:"#141720",bd:"#2a2d3e",fg:"#e0e3ea"};
+            return(
+              <div key={t.id} style={{background:c.bg,border:`0.5px solid ${c.bd}`,borderRadius:10,padding:"11px 14px",display:"flex",alignItems:"flex-start",gap:10,boxShadow:"0 4px 16px rgba(0,0,0,0.4)"}}>
+                <div style={{flex:1,fontSize:13,color:c.fg,lineHeight:1.45}}>{t.msg}</div>
+                <button onClick={()=>dismissToast(t.id)} style={{background:"none",border:"none",color:c.fg,opacity:0.6,cursor:"pointer",fontSize:16,lineHeight:1,padding:0,fontFamily:"inherit"}}>×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       </div>
     </div>
