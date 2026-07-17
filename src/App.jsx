@@ -821,28 +821,51 @@ export default function App() {
         </>);
       })()}
       {/* Outstanding charges */}
-      {(myFinesLoading||myFines!==null)&&(
+      {(myFinesLoading||myFines!==null)&&(()=>{
+        const today=todayDate();
+        const accruing=(checkResults||[]).filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<today&&["Collected","Partially Returned"].includes(r.status)).map(r=>({req:r,days:countBizDaysLate(r.dueDate,today),fine:countBizDaysLate(r.dueDate,today)*(eqSettings.dailyRate||50)})).filter(a=>a.days>0);
+        return(
         <div style={{marginTop:8}}>
           <div style={{fontSize:15,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>💳 Your outstanding charges</div>
           {myFinesLoading&&<div style={{textAlign:"center",padding:"1rem",color:"#6b7280",fontSize:13}}>Loading charges...</div>}
           {!myFinesLoading&&myFines!==null&&(()=>{
             const unsettled=myFines.filter(f=>!f["Settled"]);
-            const total=unsettled.reduce((s,f)=>s+(f["Amount (R)"]||0),0);
-            if(unsettled.length===0)return<div style={{background:"#0a2218",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#20B07F"}}>✅ No outstanding charges — keep it up!</div>;
+            const savedTotal=unsettled.reduce((s,f)=>s+(f["Amount (R)"]||0),0);
+            const accruingTotal=accruing.reduce((s,a)=>s+a.fine,0);
+            const grandTotal=savedTotal+accruingTotal;
+            if(unsettled.length===0&&accruing.length===0)return<div style={{background:"#0a2218",borderRadius:10,padding:"12px 14px",fontSize:13,color:"#20B07F"}}>✅ No outstanding charges — keep it up!</div>;
             return(<>
-              <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,overflow:"hidden",marginBottom:8}}>
-                {unsettled.map((f,i)=>(
-                  <div key={f.id||i} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,fontSize:12,color:"#e0e3ea",padding:"10px 12px",borderTop:i>0?"0.5px solid #1e2130":"none",alignItems:"center"}}>
-                    <div><div style={{color:f["Type"]==="Late Return"?"#c2410c":"#b91c1c",fontWeight:500}}>{f["Type"]}</div><div style={{color:"#6b7280",fontSize:11}}>{f["Item Name"]} · {f["Date"]||""}</div></div>
-                    <span style={{fontWeight:600}}>R{f["Amount (R)"]||0}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{background:"#2a0f14",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#f87171",fontWeight:600,marginBottom:6}}>Total owed: R{total}</div>
+              {accruing.length>0&&(
+                <div style={{background:"#1a1200",border:"0.5px solid #d4851a",borderRadius:10,overflow:"hidden",marginBottom:8}}>
+                  <div style={{fontSize:11,color:"#d4851a",fontWeight:600,padding:"6px 12px",background:"#2a1f0a",letterSpacing:"0.05em",textTransform:"uppercase"}}>⏳ Accruing — +R{eqSettings.dailyRate||50}/day until returned</div>
+                  {accruing.map((a,i)=>(
+                    <div key={a.req.id} style={{display:"grid",gridTemplateColumns:"1fr auto",gap:8,fontSize:12,color:"#e0e3ea",padding:"10px 12px",borderTop:i>0?"0.5px solid #2a2000":"none",alignItems:"center"}}>
+                      <div>
+                        <div style={{color:"#d4851a",fontWeight:500}}>Late return — {a.days} day{a.days!==1?"s":""} overdue</div>
+                        <div style={{color:"#6b7280",fontSize:11}}>Due {fmtDate(a.req.dueDate)} · {(a.req.details?.itemsData||[]).map(i=>i.name).join(", ")||"Equipment"}</div>
+                      </div>
+                      <span style={{fontWeight:600,color:"#d4851a",whiteSpace:"nowrap"}}>R{a.fine}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {unsettled.length>0&&(
+                <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,overflow:"hidden",marginBottom:8}}>
+                  {unsettled.map((f,i)=>(
+                    <div key={f.id||i} style={{display:"grid",gridTemplateColumns:"1fr auto auto",gap:8,fontSize:12,color:"#e0e3ea",padding:"10px 12px",borderTop:i>0?"0.5px solid #1e2130":"none",alignItems:"center"}}>
+                      <div><div style={{color:f["Type"]==="Late Return"?"#c2410c":"#b91c1c",fontWeight:500}}>{f["Type"]}</div><div style={{color:"#6b7280",fontSize:11}}>{f["Item Name"]} · {f["Date"]||""}</div></div>
+                      <span style={{fontWeight:600}}>R{f["Amount (R)"]||0}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{background:"#2a0f14",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#f87171",fontWeight:600,marginBottom:6}}>Total owed: R{grandTotal}</div>
               <div style={{fontSize:12,color:"#374151"}}>Charges are added to your student account by the department at month end.</div>
             </>);
           })()}
         </div>
+        );
+      })()}
       )}
     </div>
   );}
@@ -1900,6 +1923,35 @@ export default function App() {
       {dashTab==="charges"&&(<>
         <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>Student charges</div>
         <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Late return fees and lost item charges — added to student accounts at month end</div>
+        {(()=>{
+          const today=todayDate();
+          const overdue=requests.filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<today&&["Collected","Partially Returned"].includes(r.status));
+          if(overdue.length===0)return null;
+          const total=overdue.reduce((s,r)=>s+countBizDaysLate(r.dueDate,today)*(eqSettings.dailyRate||50),0);
+          return(
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#d4851a",marginBottom:8}}>⏳ Currently accruing</div>
+              <div style={{background:"#141720",border:"0.5px solid #d4851a",borderRadius:12,overflow:"hidden",marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:0,fontSize:11,color:"#6b7280",background:"#1a1d28",padding:"8px 12px",fontWeight:500}}>
+                  <span>Student</span><span>Equipment</span><span>Overdue</span><span style={{textAlign:"right"}}>Running fine</span>
+                </div>
+                {overdue.map((r,i)=>{
+                  const days=countBizDaysLate(r.dueDate,today);
+                  const fine=days*(eqSettings.dailyRate||50);
+                  return(
+                    <div key={r.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr auto",gap:0,fontSize:12,color:"#e0e3ea",padding:"10px 12px",borderTop:i>0?"0.5px solid #1e2130":"none",alignItems:"center"}}>
+                      <div><div style={{fontWeight:500}}>{r.name}</div><div style={{fontSize:11,color:"#6b7280"}}>{r.studNo}</div></div>
+                      <span style={{fontSize:11,color:"#9ca3af"}}>{(r.details?.itemsData||[]).map(i=>i.name).join(", ")||"—"}</span>
+                      <span style={{color:"#f87171"}}>{days}d · due {fmtDate(r.dueDate)}</span>
+                      <span style={{textAlign:"right",fontWeight:600,color:"#d4851a",whiteSpace:"nowrap",paddingLeft:8}}>R{fine}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{background:"#2a1f0a",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#d4851a",fontWeight:600}}>Total accruing: R{total}</div>
+            </div>
+          );
+        })()}
         <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
           <input type="month" style={{...ipt,flex:"0 0 auto",width:"auto"}} value={chargesMonth} onChange={e=>{setChargesMonth(e.target.value);setFines([]);}}/>
           <input style={{...ipt,flex:1}} value={chargesStudNo} onChange={e=>setChargesStudNo(e.target.value)} placeholder="Filter by student no..."/>
