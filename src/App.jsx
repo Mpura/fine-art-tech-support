@@ -73,7 +73,7 @@ export default function App() {
   function avWizStepOk(step){
     if(step===0)return !!avWiz.purpose;
     if(step===1)return !!avWiz.venue&&(avWiz.venue!=="other"||!!avWiz.venueOther.trim());
-    if(step===2)return !!avWiz.eventDate&&!!avWiz.setupDate;
+    if(step===2)return !!avWiz.eventDate&&!!avWiz.setupDate&&!!avWiz.setupTime;
     if(step===3)return !!avWiz.device;
     if(step===4)return !!avWiz.contentType;
     if(step===5)return !!avWiz.displayType&&!!avWiz.screenCount&&parseInt(avWiz.screenCount)>0;
@@ -1303,7 +1303,7 @@ export default function App() {
                 {avWiz.setupDate&&<div style={{fontSize:12,color:"#4b5563",marginTop:4}}>📅 {fmtDate(avWiz.setupDate)}</div>}
               </div>
               <div>
-                <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Preferred setup / arrival time</label>
+                <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Preferred setup / arrival time *</label>
                 <input type="time" style={ipt} value={avWiz.setupTime} onChange={e=>setAv("setupTime",e.target.value)}/>
                 <div style={{fontSize:11,color:"#4b5563",marginTop:4}}>This is when Tech Support should arrive to install and test. Equipment is also collected after your event.</div>
               </div>
