@@ -14,7 +14,7 @@ import {
 import { verifyStaffPin, atGet, atPost, atPatch, atDelete, saveSetting } from "./lib/airtable.js";
 import { archiveSummary, reqToAirtable, airtableToReq, lookupStudent } from "./lib/requests.js";
 import { sendConfirmationEmail, sendStatusEmail } from "./lib/email.js";
-import { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine } from "./lib/equipment.js";
+import { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine, settleFine } from "./lib/equipment.js";
 import BudgetPanel from "./panels/BudgetPanel.jsx";
 import InsurancePanel from "./panels/InsurancePanel.jsx";
 import PmPanel from "./panels/PmPanel.jsx";
@@ -1980,23 +1980,24 @@ export default function App() {
         </div>
         {finesLoading&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>Loading charges...</div>}
         {!finesLoading&&(()=>{
-          const filtered=fines.filter(f=>!chargesStudNo||(f["Student No"]||"").toLowerCase().includes(chargesStudNo.toLowerCase()));
+          const filtered=fines.filter(f=>!f["Settled"]&&(!chargesStudNo||(f["Student No"]||"").toLowerCase().includes(chargesStudNo.toLowerCase())));
           const total=filtered.reduce((s,f)=>s+(f["Amount (R)"]||0),0);
           return(<>
-            {filtered.length===0&&fines.length>0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>No charges matching that student number.</div>}
+            {filtered.length===0&&fines.length>0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>No unsettled charges{chargesStudNo?" matching that student number":""} for this month.</div>}
             {filtered.length===0&&fines.length===0&&<div style={{textAlign:"center",padding:"2rem",color:"#6b7280",fontSize:14}}>Click Load to fetch charges for this month.</div>}
             {filtered.length>0&&(<>
               <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,overflow:"hidden",marginBottom:12}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr auto",gap:0,fontSize:11,color:"#6b7280",background:"#1a1d28",padding:"8px 12px",fontWeight:500}}>
-                  <span>Student</span><span>Date</span><span>Type</span><span>Item</span><span style={{textAlign:"right"}}>Amount</span>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr auto auto",gap:0,fontSize:11,color:"#6b7280",background:"#1a1d28",padding:"8px 12px",fontWeight:500}}>
+                  <span>Student</span><span>Date</span><span>Type</span><span>Item</span><span style={{textAlign:"right"}}>Amount</span><span/>
                 </div>
                 {filtered.map((f,i)=>(
-                  <div key={f.id||i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr auto",gap:0,fontSize:12,color:"#e0e3ea",padding:"10px 12px",borderTop:"0.5px solid #1e2130",alignItems:"center"}}>
+                  <div key={f.id||i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr auto auto",gap:0,fontSize:12,color:"#e0e3ea",padding:"10px 12px",borderTop:"0.5px solid #1e2130",alignItems:"center"}}>
                     <div><div style={{fontWeight:500}}>{f["Student Name"]}</div><div style={{fontSize:11,color:"#6b7280"}}>{f["Student No"]}</div></div>
                     <span>{f["Date"]||""}</span>
                     <span style={{color:f["Type"]==="Late Return"?"#c2410c":"#b91c1c"}}>{f["Type"]}</span>
                     <span>{f["Item Name"]}</span>
-                    <span style={{textAlign:"right",fontWeight:600}}>R{f["Amount (R)"]||0}</span>
+                    <span style={{textAlign:"right",fontWeight:600,paddingRight:12}}>R{f["Amount (R)"]||0}</span>
+                    <button onClick={async()=>{if(!f.id)return;await settleFine(f.id);setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));}} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #374151",background:"#1a1d28",color:"#6b7280",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>✓ Settle</button>
                   </div>
                 ))}
               </div>

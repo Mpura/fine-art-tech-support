@@ -84,6 +84,10 @@ async function fetchFinesForMonth(month) {
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 
+async function settleFine(fineId) {
+  return atPatch(FINES_TABLE, fineId, { Settled: true });
+}
+
 async function settleLostItemFine(reqId, itemName) {
   const formula = `AND({Request ID}="${reqId}",{Type}="Lost Item",{Item Name}="${itemName}",{Settled}=FALSE())`;
   const data = await atGet(FINES_TABLE, { filterByFormula: formula });
@@ -92,4 +96,4 @@ async function settleLostItemFine(reqId, itemName) {
   }
 }
 
-export { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine };
+export { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine, settleFine };
