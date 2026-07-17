@@ -7,6 +7,8 @@ import { SETTINGS_TABLE, SETTINGS_RECS, todayISO } from "../shared.jsx";
 // authorise staff-only operations. Empty for students; public ops don't need it.
 function getStaffPin() { try { return sessionStorage.getItem("fats_staff_pin") || ""; } catch (e) { return ""; } }
 
+// Returns { ok, locked, retryAfter } so callers can distinguish a wrong PIN
+// from a brute-force lockout.
 async function verifyStaffPin(pin) {
   try {
     const res = await fetch("/api/airtable", {
@@ -15,8 +17,8 @@ async function verifyStaffPin(pin) {
       body: JSON.stringify({ method: "VERIFY_PIN", pin }),
     });
     const data = await res.json();
-    return !!data.ok;
-  } catch (e) { return false; }
+    return { ok: !!data.ok, locked: !!data.locked, retryAfter: data.retryAfter || 0 };
+  } catch (e) { return { ok: false, locked: false, retryAfter: 0 }; }
 }
 
 // Shared response handler. If a staff session's PIN is stale (changed elsewhere,

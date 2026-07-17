@@ -2,7 +2,7 @@
 // Called from the portal after manually sending the Estates follow-up email.
 // This resets the days counter so those records won't be chased again for 14 days.
 
-import { verifyStaffPin } from "./_auth.js";
+import { verifyStaffPin, getClientIp } from "./_auth.js";
 
 const BASE_ID        = "appUqkCfnsOo2Jf7z";
 const MAINT_TABLE    = "tbldZisWbs1WQIr09";
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const PAT = process.env.AIRTABLE_PAT;
   if (!PAT) return res.status(500).json({ error: "Missing AIRTABLE_PAT" });
 
-  if (!(await verifyStaffPin(req.body?.staffPin, PAT))) {
+  if (!(await verifyStaffPin(req.body?.staffPin, PAT, getClientIp(req)))) {
     return res.status(401).json({ error: "Staff PIN required" });
   }
 

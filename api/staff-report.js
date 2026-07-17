@@ -9,7 +9,7 @@
 
 import nodemailer from "nodemailer";
 import { createGmailDraft } from "./draft.js";
-import { verifyStaffPin } from "./_auth.js";
+import { verifyStaffPin, getClientIp } from "./_auth.js";
 
 const BASE_ID     = "appUqkCfnsOo2Jf7z";
 const MAINT_TABLE = "tbldZisWbs1WQIr09";
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
   if (req.method === "GET" && secret && req.headers.authorization !== `Bearer ${secret}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
-  if (req.method === "POST" && !(await verifyStaffPin(req.body?.staffPin, PAT))) {
+  if (req.method === "POST" && !(await verifyStaffPin(req.body?.staffPin, PAT, getClientIp(req)))) {
     return res.status(401).json({ error: "Staff PIN required" });
   }
 

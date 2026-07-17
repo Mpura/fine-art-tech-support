@@ -461,12 +461,15 @@ export default function App() {
   async function tryStaffUnlock(){
     if(!pinInput||pinChecking)return;
     setPinChecking(true);setPinErr("");
-    const ok=await verifyStaffPin(pinInput);
+    const {ok,locked,retryAfter}=await verifyStaffPin(pinInput);
     setPinChecking(false);
     if(ok){
       sessionStorage.setItem("fats_staff_unlocked","1");
       sessionStorage.setItem("fats_staff_pin",pinInput);
       setStaffUnlocked(true);setView("dashboard");setScreen("home");setPinInput("");
+    } else if(locked){
+      const mins=Math.max(1,Math.ceil((retryAfter||900)/60));
+      setPinErr(`Too many attempts. Locked for ~${mins} min.`);
     } else {
       setPinErr("Incorrect PIN. Try again.");
     }

@@ -6,7 +6,10 @@
 //  - STAFF_OPS: everything staff-side — requires the staff PIN, which is
 //    verified server-side against the Settings table and never sent to clients.
 //  - Anything else is rejected.
-//  - GETs on the Settings table have the "pin" record stripped from the response.
+//  - GETs on the Settings table have the "pin"/"ratelimit" records stripped.
+//  - Failed PIN checks are rate-limited per IP (see _auth.js) to stop brute force.
+
+import { getClientIp, getPinContext, notePinResult } from "./_auth.js";
 
 const BASE_ID = "appUqkCfnsOo2Jf7z";
 const AT_URL = `https://api.airtable.com/v0/${BASE_ID}`;
@@ -21,7 +24,6 @@ const PM = "tblHyr7MxWVDIzFtC";
 const SETTINGS = "tblfEH66wD8KPJMl9";
 const CAPITAL_REQUESTS = "tblmOy3HOF3QQWd9t";
 const SUPPLIERS = "tblhJKtWH4fR04RhQ";
-const PIN_RECORD_ID = "recl1lbt7hHWY8vHr";
 
 // What an unauthenticated visitor (a student) may do
 const PUBLIC_OPS = {
@@ -45,12 +47,6 @@ const STAFF_OPS = {
   [SUPPLIERS]: ["GET"],
 };
 
-async function fetchStoredPin(headers) {
-  const res = await fetch(`${AT_URL}/${SETTINGS}/${PIN_RECORD_ID}`, { headers });
-  if (!res.ok) return null;
-  const data = await res.json();
-  try { return String(JSON.parse(data.fields?.Value ?? "null")); } catch (e) { return null; }
-}
 
 export default async function handler(req, res) {
   // Only allow POST from the app itself
@@ -69,11 +65,16 @@ export default async function handler(req, res) {
   };
 
   const { table, method, params, recordId, fields, staffPin, pin } = req.body || {};
+  const ip = getClientIp(req);
 
-  // Server-side PIN check — the stored PIN never leaves the server
+  // Server-side PIN check — the stored PIN never leaves the server. Failed
+  // attempts are counted per IP and locked out after too many (brute-force guard).
   if (method === "VERIFY_PIN") {
-    const stored = await fetchStoredPin(headers);
-    return res.status(200).json({ ok: stored != null && String(pin) === stored });
+    const ctx = await getPinContext(PAT, ip);
+    if (ctx.locked) return res.status(429).json({ ok: false, locked: true, retryAfter: ctx.retryAfter });
+    const ok = ctx.stored != null && ctx.stored !== "null" && String(pin) === ctx.stored;
+    const note = await notePinResult(PAT, ctx, ip, ok);
+    return res.status(ok ? 200 : (note.justLocked ? 429 : 200)).json({ ok, ...(note.justLocked ? { locked: true, retryAfter: note.retryAfter } : {}) });
   }
 
   if (!table || !method) {
@@ -87,10 +88,11 @@ export default async function handler(req, res) {
     if (!isStaffOp) {
       return res.status(403).json({ error: "Operation not allowed" });
     }
-    const stored = await fetchStoredPin(headers);
-    if (stored == null || String(staffPin) !== stored) {
-      return res.status(403).json({ error: "Staff PIN required" });
-    }
+    const ctx = await getPinContext(PAT, ip);
+    if (ctx.locked) return res.status(429).json({ error: "Too many attempts. Try again later.", retryAfter: ctx.retryAfter });
+    const ok = ctx.stored != null && ctx.stored !== "null" && String(staffPin) === ctx.stored;
+    await notePinResult(PAT, ctx, ip, ok);
+    if (!ok) return res.status(403).json({ error: "Staff PIN required" });
   }
 
   // Personal-data scoping: reads of Requests / Fines / Members return other
@@ -118,10 +120,12 @@ export default async function handler(req, res) {
       }
     } else {
       // No scope supplied → only a valid staff PIN unlocks the full table
-      const stored = await fetchStoredPin(headers);
-      if (stored == null || String(staffPin) !== stored) {
-        return res.status(403).json({ error: "A student number or staff PIN is required to view this data" });
-      }
+      // (these tables are always public ops, so no PIN was checked above)
+      const ctx = await getPinContext(PAT, ip);
+      if (ctx.locked) return res.status(429).json({ error: "Too many attempts. Try again later.", retryAfter: ctx.retryAfter });
+      const ok = ctx.stored != null && ctx.stored !== "null" && String(staffPin) === ctx.stored;
+      await notePinResult(PAT, ctx, ip, ok);
+      if (!ok) return res.status(403).json({ error: "A student number or staff PIN is required to view this data" });
     }
   }
 
@@ -184,9 +188,9 @@ export default async function handler(req, res) {
     const response = await fetch(url, options);
     const data = await response.json();
 
-    // Never expose the PIN record through settings reads
+    // Never expose the PIN or rate-limit records through settings reads
     if (table === SETTINGS && method === "GET" && Array.isArray(data.records)) {
-      data.records = data.records.filter(r => r.fields?.Name !== "pin");
+      data.records = data.records.filter(r => r.fields?.Name !== "pin" && r.fields?.Name !== "ratelimit");
     }
 
     // Strip staff-only fields from student-facing request reads
