@@ -46,7 +46,20 @@ async function atCall(body) {
   return handleResp(res);
 }
 
-const atGet = (table, params = {}) => atCall({ table, method: "GET", params });
+// Airtable returns at most 100 records per page — follow the offset token so
+// list fetches return everything instead of silently stopping at 100.
+async function atGet(table, params = {}) {
+  let data = await atCall({ table, method: "GET", params });
+  if (!data.records || !data.offset) return data;
+  const all = [...data.records];
+  let guard = 0;
+  while (data.offset && guard++ < 50) {
+    data = await atCall({ table, method: "GET", params: { ...params, offset: data.offset } });
+    if (!data.records) break;
+    all.push(...data.records);
+  }
+  return { ...data, records: all };
+}
 const atPost = (table, fields) => atCall({ table, method: "POST", fields });
 const atPatch = (table, recordId, fields) => atCall({ table, method: "PATCH", recordId, fields });
 const atDelete = (table, recordId) => atCall({ table, method: "DELETE", recordId });

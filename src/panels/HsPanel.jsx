@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { TEAL, MAINT_TABLE, statusStyle, fmtDate, todayDate, genId, ipt, Btn } from "../shared.jsx";
-import { atGet, atPost, atPatch, atDelete } from "../lib/airtable.js";
+import { atGet, atPost, atPatch, atDelete, getStaffPin } from "../lib/airtable.js";
+
+// Staff-only API endpoints verify the PIN server-side
+const staffPost = (url) => fetch(url, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ staffPin: getStaffPin() }),
+});
 
 // ── H&S PANEL COMPONENT ──────────────────────────────────────────
 function HsPanel(){
@@ -338,7 +345,7 @@ function HsPanel(){
             <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
               <button onClick={async()=>{
                 try{
-                  const r=await fetch("/api/staff-report?preview=true",{method:"POST"});
+                  const r=await staffPost("/api/staff-report?preview=true");
                   const d=await r.json();
                   if(d.html){
                     const w=window.open("","_blank");
@@ -371,7 +378,7 @@ function HsPanel(){
             <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
               <button onClick={async()=>{
                 try{
-                  const r=await fetch("/api/cron-followup?preview=true",{method:"POST"});
+                  const r=await staffPost("/api/cron-followup?preview=true");
                   const d=await r.json();
                   if(d.html){const w=window.open("","_blank");w.document.write(d.html);w.document.close();}
                   else alert("No stale requests to preview.");
@@ -388,7 +395,7 @@ function HsPanel(){
                       setLastFollowUp(log);
                     }else{
                       try{
-                        const r=await fetch("/api/log-followup",{method:"POST"});
+                        const r=await staffPost("/api/log-followup");
                         const d=await r.json();
                         if(d.ok){
                           const log={date:today,count:d.updated,ticket:ticketInput.trim()||null};

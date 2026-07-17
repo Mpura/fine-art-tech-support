@@ -9,6 +9,7 @@
 
 import nodemailer from "nodemailer";
 import { createGmailDraft } from "./draft.js";
+import { verifyStaffPin } from "./_auth.js";
 
 const BASE_ID     = "appUqkCfnsOo2Jf7z";
 const MAINT_TABLE = "tbldZisWbs1WQIr09";
@@ -38,18 +39,22 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Cron GET requests must carry the secret; POST from the app is always allowed
-  const secret = process.env.CRON_SECRET;
-  if (req.method === "GET" && secret && req.headers.authorization !== `Bearer ${secret}`) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-
   const PAT       = process.env.AIRTABLE_PAT;
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_PASS;
 
   if (!PAT || !gmailUser || !gmailPass) {
     return res.status(500).json({ error: "Missing env vars" });
+  }
+
+  // Cron GET requests must carry the secret; POSTs from the portal must carry
+  // a valid staff PIN — otherwise anyone could trigger emails to all staff
+  const secret = process.env.CRON_SECRET;
+  if (req.method === "GET" && secret && req.headers.authorization !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (req.method === "POST" && !(await verifyStaffPin(req.body?.staffPin, PAT))) {
+    return res.status(401).json({ error: "Staff PIN required" });
   }
 
   const isWarn    = req.query?.warn === "true";

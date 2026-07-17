@@ -8,6 +8,7 @@
 
 import nodemailer from "nodemailer";
 import { createGmailDraft } from "./draft.js";
+import { verifyStaffPin } from "./_auth.js";
 
 const BASE_ID          = "appUqkCfnsOo2Jf7z";
 const MAINT_TABLE      = "tbldZisWbs1WQIr09";
@@ -18,10 +19,8 @@ const TO  = "facilitieshelpdesk@ru.ac.za";
 const CCS = ["m.mpati@ru.ac.za", "h.smith@ru.ac.za", "j.nell@ru.ac.za", "lois.anguria@ru.ac.za"];
 
 export default async function handler(req, res) {
-  // Vercel cron sends GET with Authorization header; allow POST from app too
-  const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.authorization !== `Bearer ${secret}` && req.method !== "POST") {
-    return res.status(401).json({ error: "Unauthorized" });
+  if (req.method !== "POST" && req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const PAT       = process.env.AIRTABLE_PAT;
@@ -30,6 +29,15 @@ export default async function handler(req, res) {
 
   if (!PAT || !gmailUser || !gmailPass) {
     return res.status(500).json({ error: "Missing env vars: AIRTABLE_PAT, GMAIL_USER, GMAIL_PASS" });
+  }
+
+  // Vercel cron sends GET with the secret; POSTs from the portal need the staff PIN
+  const secret = process.env.CRON_SECRET;
+  if (req.method === "GET" && secret && req.headers.authorization !== `Bearer ${secret}`) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  if (req.method === "POST" && !(await verifyStaffPin(req.body?.staffPin, PAT))) {
+    return res.status(401).json({ error: "Staff PIN required" });
   }
 
   // Fetch all records

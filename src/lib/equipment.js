@@ -74,13 +74,16 @@ async function fetchEqImagesByIds(ids) {
   return map;
 }
 
+// Strip characters that would break out of an Airtable formula string
+const fSafe = (v) => String(v ?? "").replace(/["\\]/g, "");
+
 async function fetchFinesForStudent(studNo) {
-  const data = await atGet(FINES_TABLE, { filterByFormula: `{Student No}="${studNo}"`, "sort[0][field]": "Date", "sort[0][direction]": "desc" });
+  const data = await atGet(FINES_TABLE, { filterByFormula: `{Student No}="${fSafe(studNo)}"`, "sort[0][field]": "Date", "sort[0][direction]": "desc" });
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 
 async function fetchFinesForMonth(month) {
-  const data = await atGet(FINES_TABLE, { filterByFormula: `{Month}="${month}"`, "sort[0][field]": "Date", "sort[0][direction]": "desc" });
+  const data = await atGet(FINES_TABLE, { filterByFormula: `{Month}="${fSafe(month)}"`, "sort[0][field]": "Date", "sort[0][direction]": "desc" });
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 
@@ -89,7 +92,7 @@ async function settleFine(fineId) {
 }
 
 async function settleLostItemFine(reqId, itemName) {
-  const formula = `AND({Request ID}="${reqId}",{Type}="Lost Item",{Item Name}="${itemName}",{Settled}=FALSE())`;
+  const formula = `AND({Request ID}="${fSafe(reqId)}",{Type}="Lost Item",{Item Name}="${fSafe(itemName)}",{Settled}=FALSE())`;
   const data = await atGet(FINES_TABLE, { filterByFormula: formula });
   for (const rec of data.records || []) {
     await atPatch(FINES_TABLE, rec.id, { Settled: true, "Staff Notes": "Item found and returned" });
