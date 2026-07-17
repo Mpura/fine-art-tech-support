@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { TEAL, Btn } from "../shared.jsx";
-import { ACE_2026, IT_2026, FE_2026 } from "../data/budget.js";
-import { atGet, atPatch } from "../lib/airtable.js";
+import { atGet, atPatch, getStaffPin } from "../lib/airtable.js";
+
+// Empty shapes so the panel renders safely before the budget data loads
+const EMPTY_IT = { current: [], monitors: [], towers: [], software: [], summary: [] };
 
 // ACE approvals live in the shared Capital Requests table so decisions are
 // visible to all staff on every device (localStorage is only an offline cache).
@@ -27,6 +29,26 @@ function BudgetPanel(){
   });
 
   const [aceRecMap,setAceRecMap]=useState({}); // item.no -> Airtable record id
+  // Budget line items now come from a staff-only endpoint (kept out of the
+  // public client bundle). null = loading; {} shape once fetched.
+  const [budgetData,setBudgetData]=useState(null);
+  const [budgetErr,setBudgetErr]=useState(false);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        const res=await fetch("/api/budget",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({staffPin:getStaffPin()})});
+        const data=await res.json();
+        if(cancelled)return;
+        if(res.ok&&data.ACE_2026)setBudgetData(data);
+        else setBudgetErr(true);
+      }catch(e){if(!cancelled)setBudgetErr(true);}
+    })();
+    return()=>{cancelled=true;};
+  },[]);
+  const ACE_2026=budgetData?.ACE_2026||[];
+  const FE_2026=budgetData?.FE_2026||[];
+  const IT_2026=budgetData?.IT_2026||EMPTY_IT;
 
   // Load shared approval status from the Capital Requests table on mount.
   // Falls back to the localStorage cache above if the portal API isn't
@@ -111,6 +133,13 @@ function BudgetPanel(){
           <button key={v} onClick={()=>{setBudTab(v);setExpanded(null);}} style={{padding:"7px 14px",borderRadius:8,background:budTab===v?TEAL:"#141720",color:budTab===v?"#fff":"#6b7280",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:"inherit",border:budTab===v?"none":"0.5px solid #1e2130"}}>{l}</button>
         ))}
       </div>
+
+      {!budgetData&&(
+        <div style={{textAlign:"center",padding:"3rem 1rem",color:budgetErr?"#f87171":"#6b7280",fontSize:14}}>
+          {budgetErr?"⚠ Couldn't load budget data — check your connection and reopen this tab.":"Loading budget…"}
+        </div>
+      )}
+      {budgetData&&(<>
 
       {/* ── PROCESS & CONTACTS ── */}
       <div style={{marginBottom:16}}>
@@ -482,6 +511,7 @@ function BudgetPanel(){
         </>);
       })()}
 
+      </>)}
     </div>
   );
 }
