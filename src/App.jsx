@@ -14,7 +14,7 @@ import {
 import { verifyStaffPin, atGet, atPost, atPatch, atDelete, saveSetting } from "./lib/airtable.js";
 import { archiveSummary, reqToAirtable, airtableToReq, lookupStudent } from "./lib/requests.js";
 import { sendConfirmationEmail, sendStatusEmail } from "./lib/email.js";
-import { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth } from "./lib/equipment.js";
+import { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine } from "./lib/equipment.js";
 import BudgetPanel from "./panels/BudgetPanel.jsx";
 import InsurancePanel from "./panels/InsurancePanel.jsx";
 import PmPanel from "./panels/PmPanel.jsx";
@@ -386,6 +386,16 @@ export default function App() {
     // Send return receipt email when fully returned
     if(allBack) sendStatusEmail(updatedReq,"Returned");
     setCheckInModal(null);setCiReturning([]);setCiLost([]);setCiNotes("");setCiLostAccessories([]);
+  }
+  async function markItemFound(req, itemName) {
+    const today = todayDate();
+    const newLostItems = (req.lostItems||[]).filter(n=>n!==itemName);
+    const newReturnedItems = [...(req.returnedItems||[]), itemName];
+    const allItemNames = (req.details?.itemsData||[]).map(i=>i.name);
+    const allBack = allItemNames.every(n=>newReturnedItems.includes(n));
+    const newStatus = allBack ? "Returned" : req.status;
+    updateReq(req.id, {status:newStatus, returnedItems:newReturnedItems, lostItems:newLostItems, ...(allBack&&!req.returnedAt?{returnedAt:today}:{})});
+    try { await settleLostItemFine(req.id, itemName); } catch(e) {}
   }
   function saveNote(id){
     const note=staffNotes[id]||"";
@@ -1829,6 +1839,17 @@ export default function App() {
                   }} style={{padding:"5px 11px",borderRadius:8,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",color:"#9ca3af",fontSize:12,fontFamily:"inherit"}}>→ {s}</button>
                 ))}
               </div>
+              {req.lostItems?.length>0&&(
+                <div style={{marginTop:8,background:"#1a0a00",border:"0.5px solid #d4851a",borderRadius:8,padding:"8px 12px"}}>
+                  <div style={{fontSize:11,color:"#d4851a",fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",marginBottom:6}}>Lost items</div>
+                  {req.lostItems.map(name=>(
+                    <div key={name} style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                      <span style={{color:"#e0e3ea"}}>❌ {name}</span>
+                      <button onClick={()=>markItemFound(req,name)} style={{padding:"3px 10px",borderRadius:6,border:"0.5px solid #20B07F",background:"#0a2218",color:"#20B07F",fontSize:11,cursor:"pointer",fontFamily:"inherit",fontWeight:500}}>✓ Found &amp; returned</button>
+                    </div>
+                  ))}
+                </div>
+              )}
               <button onClick={()=>setExpandId(expandId===req.id?null:req.id)} style={{fontSize:12,color:"#3b82f6",background:"none",border:"none",cursor:"pointer",padding:0}}>{expandId===req.id?"Hide note ▲":"Add / edit note ▼"}</button>
               {expandId===req.id&&(<div style={{marginTop:8,background:"#1a1d28",borderRadius:8,padding:"10px"}}>
                 <textarea rows={2} placeholder="e.g. Files not ready — told to come back Thursday" defaultValue={req.staffNote} onChange={e=>setStaffNotes(n=>({...n,[req.id]:e.target.value}))} style={{...ipt,resize:"vertical",fontSize:13}}/>

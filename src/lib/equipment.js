@@ -84,4 +84,12 @@ async function fetchFinesForMonth(month) {
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 
-export { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth };
+async function settleLostItemFine(reqId, itemName) {
+  const formula = `AND({Request ID}="${reqId}",{Type}="Lost Item",{Item Name}="${itemName}",{Settled}=FALSE())`;
+  const data = await atGet(FINES_TABLE, { filterByFormula: formula });
+  for (const rec of data.records || []) {
+    await atPatch(FINES_TABLE, rec.id, { Settled: true, "Staff Notes": "Item found and returned" });
+  }
+}
+
+export { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine };
