@@ -27,3 +27,4 @@ dist-ssr
 # Local-only files — reset.txt contains the Airtable token
 reset.txt
 Screenshot *.png
+pm-backup-*.json
