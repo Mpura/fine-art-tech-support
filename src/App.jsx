@@ -1806,15 +1806,17 @@ export default function App() {
           const _ORDER=["Ready to collect","Material test required","Ready to cut","Confirmed","In Progress","Collected","Partially Returned"];
           const _sorted=queueTab==="active"?[..._list].sort((a,b)=>(_ORDER.indexOf(a.status)-_ORDER.indexOf(b.status))||new Date(b.createdAt)-new Date(a.createdAt)):_list;
           if(_sorted.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":queueTab==="pending"?"No new requests — all clear ✓":"Nothing active right now"}</div>;
-          return _sorted.map((req,_idx,_arr)=>{
+          return(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,430px),1fr))",gap:12,alignItems:"start"}}>
+          {_sorted.map((req,_idx,_arr)=>{
           const _showHeader=queueTab==="active"&&(_idx===0||_arr[_idx-1].status!==req.status);
           const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
           const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
           const hasItems=req.typeId==="equipment"&&req.details?.itemsData?.length>0;
           return(
-            <div key={req.id}>
-            {_showHeader&&<div style={{fontSize:11,color:"#6b7280",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"10px 2px 6px",marginTop:_idx>0?4:0}}>{req.status} · {_arr.filter(r=>r.status===req.status).length}</div>}
-            <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",marginBottom:12,borderLeft:`3px solid ${typeColor}`}}>
+            <Fragment key={req.id}>
+            {_showHeader&&<div style={{gridColumn:"1/-1",fontSize:11,color:"#6b7280",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"10px 2px 6px",marginTop:_idx>0?4:0}}>{req.status} · {_arr.filter(r=>r.status===req.status).length}</div>}
+            <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",borderLeft:`3px solid ${typeColor}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:3}}>
@@ -1953,9 +1955,11 @@ export default function App() {
                 <Btn onClick={()=>{saveNote(req.id);setExpandId(null);}} color={BLUE} style={{marginTop:6,fontSize:13}}>Save note</Btn>
               </div>)}
             </div>
-            </div>
+            </Fragment>
           );
-          });
+          })}
+          </div>
+          );
           })()}
         {/* ── ARCHIVE ── */}
         {loaded&&queueTab==="archive"&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>No archived requests yet</div>}
