@@ -65,7 +65,7 @@ export default function App() {
   const [maintForm, setMaintForm] = useState({equipmentId:"",date:"",notes:"",status:"Done",duration:""});
 
   // Student request form
-  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",sessionDuration:"",fileLink:"",firstTime:false,needsDesignHelp:false});
+  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",startTime:"",fileLink:"",firstTime:false,needsDesignHelp:false});
 
   // AV setup wizard state
   const [avStep, setAvStep] = useState(0);
@@ -307,7 +307,7 @@ export default function App() {
 
   function getDetails(){
     if(selType==="print") return{paperSize:form.paperSize,paperType:form.paperType,colour:form.colour,copies:form.copies,printPresent:form.printPresent};
-    if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,sessionDuration:form.sessionDuration,fileLink:form.needsDesignHelp?"":form.fileLink,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
+    if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,startTime:form.startTime,fileLink:form.needsDesignHelp?"":form.fileLink,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
     if(selType==="3d") return{dimensions:form.dimensions,material3d:form.material3d,infill:form.infill,dropOffDate:form.dropOffDate};
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
     if(selType==="studio") return{shootType:form.shootType};
@@ -330,7 +330,7 @@ export default function App() {
     const _schedDate=
       selType==="studio"&&form.studioDate&&form.studioSlot?`${form.studioDate} (${EQ_COL_SLOTS.find(s=>s.id===form.studioSlot)?.label||form.studioSlot})`:
       selType==="3d"&&form.dropOffDate?`Drop-off: ${fmtDate(form.dropOffDate)}`:
-      type.bookable&&selDate?(selType==="laser"?`${selDate} (Full day)`:`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`):
+      type.bookable&&selDate?(selType==="laser"?`${selDate} (Full day${form.startTime?` · ${form.startTime}`:""})`:`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`):
       form.when==="later"&&!isWalkIn?form.schedDate:null;
     const req={id:genId(),
       name:isWalkIn?form.name.trim():isExt?extForm.name.trim():verifiedStudent.name,
@@ -643,7 +643,7 @@ export default function App() {
     const d=req.details||{};
     let summary="";
     if(req.typeId==="print"){summary=[d.paperSize,d.paperType,d.colour,d.copies&&`×${d.copies}`].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
-    else if(req.typeId==="laser"){summary=[d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material,d.dimensions,d.jobType,d.sessionDuration,d.firstTime?"⭐ First time":null].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
+    else if(req.typeId==="laser"){summary=[d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material,d.dimensions,d.jobType,d.startTime?`Start ${d.startTime}`:null,d.firstTime?"⭐ First time":null].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
     else if(req.typeId==="studio"){const sm=req.schedDate?.match(/\((.+?)\)/);summary=(d.shootType&&!d.shootType.startsWith("Select")?d.shootType+" · ":"")+(sm?sm[1]:"");}
     else if(req.typeId==="equipment"){summary=d.items||(d.itemsData||[]).map(i=>i.name).join(", ")||"Equipment";}
     else if(req.typeId==="avsetup"){summary=[d.venue,d.displayType&&d.screenCount?`${d.displayType} × ${d.screenCount}`:d.displayType,d.setupTime?`Setup ${d.setupTime}`:"",d.eventDate?`Event ${fmtDate(d.eventDate)}`:""].filter(v=>v&&v!=="TBC").join(" · ");}
@@ -864,7 +864,7 @@ export default function App() {
         const archived=checkResults.filter(r=>ARCHIVE_STATUSES.includes(r.status));
         function bookAgain(req){
           const d=req.details||{};
-          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",sessionDuration:d.sessionDuration||"",fileLink:"",firstTime:false,needsDesignHelp:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
+          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",startTime:d.startTime||"",fileLink:"",firstTime:false,needsDesignHelp:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
           setSelType(req.typeId);setPrepOk(false);setSelDate(null);setSelSlot(null);setScreen("prep");
         }
         const ReqCard=({req})=>(
@@ -1267,10 +1267,14 @@ export default function App() {
           <div style={{flex:2}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Material type *</label><input style={ipt} value={form.material} onChange={e=>setF("material",e.target.value)} placeholder="e.g. plywood, acrylic, cardboard"/></div>
           <div style={{flex:1}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Thickness (mm) *</label><input style={ipt} type="number" min="1" max="12" value={form.materialThickness} onChange={e=>setF("materialThickness",e.target.value)} placeholder="e.g. 3"/></div>
         </div>
-        {form.materialThickness&&Number(form.materialThickness)>12&&(
-          <div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#f87171",marginBottom:14}}>⚠️ Maximum cut depth is 12mm. This material may not cut through fully — Tech Support will advise.</div>
+        {form.materialThickness&&Number(form.materialThickness)>=12&&(
+          <div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#f87171",marginBottom:14}}>⚠️ 12mm is the maximum cut depth — not recommended. This thickness may not cut through fully or cleanly; Tech Support will advise.</div>
         )}
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Dimensions (W × H mm)</label><input style={ipt} value={form.dimensions} onChange={e=>setF("dimensions",e.target.value)} placeholder="e.g. 300 × 200mm"/></div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Dimensions (W × H mm)</label>
+          <input style={ipt} value={form.dimensions} onChange={e=>setF("dimensions",e.target.value)} placeholder="e.g. 300 × 200mm"/>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Bed size is 1000×600mm, but the usable cutting area is smaller — keep your design at least 10mm from every edge (≈980×580mm usable). Larger pieces can sometimes be trimmed on a band saw first — ask Tech Support.</div>
+        </div>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Job type *</label>
           <div style={{display:"flex",gap:8}}>{["Cut","Engrave","Both"].map(j=><button key={j} onClick={()=>setF("jobType",j)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.jobType===j?TEAL:"#1a1d28",color:form.jobType===j?"#fff":"#e0e3ea",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{j}</button>)}</div>
@@ -1278,7 +1282,11 @@ export default function App() {
             <div style={{background:"#2a1f0a",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#d4851a",marginTop:8}}>⏱ Raster engraving takes significantly longer than cutting. A 2-hour session is recommended for jobs that include engraving.</div>
           )}
         </div>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Session duration *</label><div style={{display:"flex",gap:8}}>{["1 hour","2 hours"].map(d=><button key={d} onClick={()=>setF("sessionDuration",d)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.sessionDuration===d?TEAL:"#1a1d28",color:form.sessionDuration===d?"#fff":"#e0e3ea",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{d}</button>)}</div></div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Arrival / start time *</label>
+          <input type="time" style={ipt} min="08:00" max="16:30" value={form.startTime} onChange={e=>setF("startTime",e.target.value)}/>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>The laser has your whole day booked — this is just what time to expect you. Department hours: 08:00–16:30.</div>
+        </div>
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Design file link (Google Drive or WeTransfer) {!form.needsDesignHelp&&"*"}</label>
           <input style={{...ipt,opacity:form.needsDesignHelp?0.5:1}} value={form.fileLink} disabled={form.needsDesignHelp} onChange={e=>setF("fileLink",e.target.value)} placeholder="https://drive.google.com/..."/>
@@ -1566,7 +1574,7 @@ export default function App() {
         </>}
       </div>}
       {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
-      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.sessionDuration||(!form.needsDesignHelp&&!form.fileLink.trim())))||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileLink.trim())))||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 
@@ -1964,7 +1972,7 @@ export default function App() {
                   {req.details.material&&<span style={{marginRight:10}}>🪵 {req.details.material}{req.details.materialThickness?` · ${req.details.materialThickness}mm`:""}</span>}
                   {req.details.dimensions&&<span style={{marginRight:10}}>📏 {req.details.dimensions}</span>}
                   {req.details.jobType&&req.typeId==="laser"&&<span style={{marginRight:10}}>⚡ {req.details.jobType}</span>}
-                  {req.details.sessionDuration&&<span style={{marginRight:10}}>⏱ {req.details.sessionDuration}</span>}
+                  {req.details.startTime&&req.typeId==="laser"&&<span style={{marginRight:10}}>🕐 Start {req.details.startTime}</span>}
                   {req.details.firstTime&&<span style={{marginRight:10,background:"#2a1f0a",color:"#d4851a",borderRadius:6,padding:"2px 7px",fontWeight:600}}>⭐ FIRST TIME</span>}
                   {req.details.fileLink&&<a href={req.details.fileLink} target="_blank" rel="noreferrer" style={{marginRight:10,color:"#60a5fa",textDecoration:"none"}}>📎 File link</a>}
                   {req.details.softwareName&&<span style={{marginRight:10}}>💻 {req.details.softwareName}</span>}

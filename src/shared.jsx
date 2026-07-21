@@ -42,7 +42,7 @@ const LAB_IDS = ["print","laser","3d","studio"];
 const DEFAULT_SCHEDULE = {
   // Laser is a whole-day, single-booking resource (see LAB_EXCLUSIVE_TYPES in
   // App.jsx) — morningSlots/afternoonSlots no longer apply to it.
-  laser:{days:[1,2,3,4,5],minAdvanceDays:3},
+  laser:{days:[1,2,3,4,5],minAdvanceDays:1},
   "3d":{days:[1,3],morningSlots:2,afternoonSlots:2,minAdvanceDays:5},
   print:{days:[1,2,3,4,5],morningSlots:2,afternoonSlots:2,minAdvanceDays:2},
   studio:{days:[1,2,3,4,5],morningSlots:1,afternoonSlots:2,minAdvanceDays:0},
