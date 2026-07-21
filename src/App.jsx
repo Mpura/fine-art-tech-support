@@ -1803,19 +1803,22 @@ export default function App() {
         {!loaded&&<div style={{color:"#6b7280",fontSize:14}}>Loading...</div>}
         {loaded&&queueTab!=="archive"&&(()=>{
           const _list=queueTab==="pending"?queuePending:queueActive;
-          const _ORDER=["Ready to collect","Material test required","Ready to cut","Confirmed","In Progress","Collected","Partially Returned"];
-          const _sorted=queueTab==="active"?[..._list].sort((a,b)=>(_ORDER.indexOf(a.status)-_ORDER.indexOf(b.status))||new Date(b.createdAt)-new Date(a.createdAt)):_list;
+          const _ORDER=["Overdue","Ready to collect","Material test required","Ready to cut","Confirmed","In Progress","Collected","Partially Returned"];
+          // Overdue equipment (collected / partially returned, past due date) gets its own group
+          const _grp=(r)=>(r.typeId==="equipment"&&r.dueDate&&r.dueDate<todayDate()&&["Collected","Partially Returned"].includes(r.status))?"Overdue":r.status;
+          const _sorted=queueTab==="active"?[..._list].sort((a,b)=>(_ORDER.indexOf(_grp(a))-_ORDER.indexOf(_grp(b)))||new Date(b.createdAt)-new Date(a.createdAt)):_list;
           if(_sorted.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":queueTab==="pending"?"No new requests — all clear ✓":"Nothing active right now"}</div>;
           return(
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,430px),1fr))",gap:12,alignItems:"start"}}>
           {_sorted.map((req,_idx,_arr)=>{
-          const _showHeader=queueTab==="active"&&(_idx===0||_arr[_idx-1].status!==req.status);
+          const _g=_grp(req);
+          const _showHeader=queueTab==="active"&&(_idx===0||_grp(_arr[_idx-1])!==_g);
           const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
           const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
           const hasItems=req.typeId==="equipment"&&req.details?.itemsData?.length>0;
           return(
             <Fragment key={req.id}>
-            {_showHeader&&<div style={{gridColumn:"1/-1",fontSize:11,color:"#6b7280",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"10px 2px 6px",marginTop:_idx>0?4:0}}>{req.status} · {_arr.filter(r=>r.status===req.status).length}</div>}
+            {_showHeader&&<div style={{gridColumn:"1/-1",fontSize:11,color:_g==="Overdue"?"#f87171":"#6b7280",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"10px 2px 6px",marginTop:_idx>0?4:0}}>{_g==="Overdue"?"⚠ ":""}{_g} · {_arr.filter(r=>_grp(r)===_g).length}</div>}
             <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",borderLeft:`3px solid ${typeColor}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
                 <div style={{flex:1,minWidth:0}}>
