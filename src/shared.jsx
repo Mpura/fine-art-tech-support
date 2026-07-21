@@ -27,7 +27,7 @@ const YEAR_LABELS = {"1":"1st year","2":"2nd year","3":"3rd year","4":"4th year"
 
 const REQUEST_TYPES = [
   {id:"print",label:"Large format & photographic printing",icon:"🖨️",booking:"advance booking only",bookable:true,needsFiles:true,prep:["File must be PDF, JPEG or TIFF","Colour profile must be sRGB or CMYK","Know your paper size (A4 → A0)","Decide paper type: normal, glossy, newsprint or photographic","Know how many copies you need","⚠️ Minimum 2 business days advance booking required","⚠️ Test print may be needed — same-day completion is NOT guaranteed"]},
-  {id:"laser",label:"Laser cutter & engraving",icon:"⚡",booking:"advance booking only",bookable:true,needsFiles:true,prep:["Design in CorelDRAW, export as .AI for vector jobs (or .BMP for photo engraving)","Convert all text to curves before exporting: select text → Ctrl+Q","Use different colours for different operations (e.g. one colour for cut lines, another for engrave areas)","Check your design in Wireframe view (View → Wireframe) — what you see is what the laser cuts","Know your exact material type and thickness in mm","Bring your own tape if securing lightweight materials to the bed","Bring your file on a USB stick — must be under 1 GB, formatted as FAT","⚠️ Banned materials: PVC, polycarbonate, rubber, fibreglass, foam, galvanised metal, MDF — see guide","⚠️ You MUST be present for the full duration of your session — no drop-off jobs","⚠️ First-time users: a material test cut is required before your main job","⚠️ Minimum 3 business days advance — no same-day or next-day bookings"]},
+  {id:"laser",label:"Laser cutter & engraving",icon:"⚡",booking:"advance booking only",bookable:true,needsFiles:true,prep:["Design in CorelDRAW, export as .AI for vector jobs (or .BMP for photo engraving)","Convert all text to curves before exporting: select text → Ctrl+Q","Use different colours for different operations (e.g. one colour for cut lines, another for engrave areas)","Check your design in Wireframe view (View → Wireframe) — what you see is what the laser cuts","Know your exact material type and thickness in mm","Bring your own tape if securing lightweight materials to the bed","Upload your file to your named folder in the FATS Laser Drive folder before your session (see link below)","⚠️ Banned materials: PVC, polycarbonate, rubber, fibreglass, foam, galvanised metal, MDF — see guide","⚠️ You MUST be present for the full duration of your session — no drop-off jobs","⚠️ First-time users: a material test cut is required before your main job","⚠️ Minimum 1 business day advance — no same-day bookings"]},
   {id:"3d",label:"3D printing",icon:"🧱",booking:"advance booking only",bookable:false,needsFiles:true,prep:["File must be STL or OBJ","Know your dimensions and scale","Decide material preference","Decide infill density","⚠️ Minimum 5 business days advance — prints take hours to complete","⚠️ Drop-off service: you will be notified when your print is ready to collect"]},
   {id:"software",label:"Software install",icon:"💻",booking:"walk-in",bookable:false,needsFiles:false,prep:["Know the exact software name","Have the download URL ready","Know which Mac number and lab room"]},
   {id:"studio",label:"Lighting studio",icon:"💡",booking:"advance booking only",bookable:false,needsFiles:false,prep:["Studio orientation required before first use — speak to Tech Support","Keys must be returned same day by 17:00","Bring your student card when collecting","⚠️ Studio is for photography students only"]},
@@ -39,6 +39,14 @@ const REQUEST_TYPES = [
 
 const BOOKABLE = REQUEST_TYPES.filter(t=>t.bookable);
 const LAB_IDS = ["print","laser","3d","studio"];
+
+// Students drop their files here instead of pasting a link — create a folder
+// with your name inside the relevant one. Shared as "anyone with the link".
+const DRIVE_FOLDERS = {
+  laser: "https://drive.google.com/drive/folders/12NGMq_tuPgEy5QDJEfUyxt9I3usVKEbZ",
+  print: "https://drive.google.com/drive/folders/1R8Pr3KTeY6dRYyHHwc3VRqUgXRyJkngN",
+  "3d": "https://drive.google.com/drive/folders/1T3anx-by52g6ygEKU6OvKF8ToLa6Fhwt",
+};
 const DEFAULT_SCHEDULE = {
   // Laser is a whole-day, single-booking resource (see LAB_EXCLUSIVE_TYPES in
   // App.jsx) — morningSlots/afternoonSlots no longer apply to it.
@@ -164,5 +172,5 @@ const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false
 );
 
 export {
-  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
+  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
 };

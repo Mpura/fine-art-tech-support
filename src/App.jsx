@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment } from "react";
 import {
   TEAL, BLUE, AMBER, RED, TYPE_COLOR,
   EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SETTINGS_TABLE, SETTINGS_RECS,
-  YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DEFAULT_SCHEDULE,
+  YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE,
   STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle,
   MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS,
   EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE,
@@ -65,7 +65,7 @@ export default function App() {
   const [maintForm, setMaintForm] = useState({equipmentId:"",date:"",notes:"",status:"Done",duration:""});
 
   // Student request form
-  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",startTime:"",fileLink:"",firstTime:false,needsDesignHelp:false});
+  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",startTime:"",fileUploaded:false,firstTime:false,needsDesignHelp:false});
 
   // AV setup wizard state
   const [avStep, setAvStep] = useState(0);
@@ -307,7 +307,7 @@ export default function App() {
 
   function getDetails(){
     if(selType==="print") return{paperSize:form.paperSize,paperType:form.paperType,colour:form.colour,copies:form.copies,printPresent:form.printPresent};
-    if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,startTime:form.startTime,fileLink:form.needsDesignHelp?"":form.fileLink,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
+    if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,startTime:form.startTime,fileUploaded:form.needsDesignHelp?false:form.fileUploaded,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
     if(selType==="3d") return{dimensions:form.dimensions,material3d:form.material3d,infill:form.infill,dropOffDate:form.dropOffDate};
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
     if(selType==="studio") return{shootType:form.shootType};
@@ -864,7 +864,7 @@ export default function App() {
         const archived=checkResults.filter(r=>ARCHIVE_STATUSES.includes(r.status));
         function bookAgain(req){
           const d=req.details||{};
-          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",startTime:d.startTime||"",fileLink:"",firstTime:false,needsDesignHelp:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
+          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",startTime:d.startTime||"",fileUploaded:false,firstTime:false,needsDesignHelp:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
           setSelType(req.typeId);setPrepOk(false);setSelDate(null);setSelSlot(null);setScreen("prep");
         }
         const ReqCard=({req})=>(
@@ -1179,6 +1179,16 @@ export default function App() {
           <span style={{marginLeft:"auto",color:"#374151",fontSize:14}}>↗</span>
         </a>
       )}
+      {type.needsFiles&&DRIVE_FOLDERS[type.id]&&(
+        <a href={DRIVE_FOLDERS[type.id]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,background:"#0a2218",border:"0.5px solid #14532d",borderRadius:10,padding:"12px 14px",marginBottom:16,textDecoration:"none"}}>
+          <span style={{fontSize:20}}>📁</span>
+          <div>
+            <div style={{fontSize:13,fontWeight:500,color:"#20B07F"}}>Upload your file — FATS {type.label} Drive folder</div>
+            <div style={{fontSize:12,color:"#4b5563"}}>Open the folder, create one with your full name inside, and drop your file(s) there</div>
+          </div>
+          <span style={{marginLeft:"auto",color:"#374151",fontSize:14}}>↗</span>
+        </a>
+      )}
       {type.needsFiles&&<label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:20,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px"}}>
         <input type="checkbox" checked={prepOk} onChange={e=>setPrepOk(e.target.checked)} style={{marginTop:2,width:16,height:16,flexShrink:0}}/>
         <span style={{fontSize:14,color:"#e0e3ea"}}>I have everything ready and understand the requirements</span>
@@ -1288,9 +1298,20 @@ export default function App() {
           <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>The laser has your whole day booked — this is just what time to expect you. Department hours: 08:00–16:30.</div>
         </div>
         <div style={{marginBottom:14}}>
-          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Design file link (Google Drive or WeTransfer) {!form.needsDesignHelp&&"*"}</label>
-          <input style={{...ipt,opacity:form.needsDesignHelp?0.5:1}} value={form.fileLink} disabled={form.needsDesignHelp} onChange={e=>setF("fileLink",e.target.value)} placeholder="https://drive.google.com/..."/>
-          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Required so Tech Support can review your design and set up cut/engrave settings before your session.</div>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Design file {!form.needsDesignHelp&&"*"}</label>
+          <a href={DRIVE_FOLDERS.laser} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,background:form.needsDesignHelp?"#1a1d28":"#0a2218",border:`0.5px solid ${form.needsDesignHelp?"#1e2130":"#14532d"}`,borderRadius:8,padding:"10px 12px",marginBottom:8,textDecoration:"none",opacity:form.needsDesignHelp?0.5:1}}>
+            <span style={{fontSize:16}}>📁</span>
+            <div>
+              <div style={{fontSize:13,fontWeight:500,color:form.needsDesignHelp?"#6b7280":"#20B07F"}}>Open the FATS Laser Drive folder</div>
+              <div style={{fontSize:11,color:"#4b5563"}}>Create a folder with your full name, drop your file(s) in it</div>
+            </div>
+            <span style={{marginLeft:"auto",color:"#374151",fontSize:14}}>↗</span>
+          </a>
+          <label style={{display:"flex",alignItems:"flex-start",gap:8,cursor:form.needsDesignHelp?"default":"pointer",opacity:form.needsDesignHelp?0.5:1}}>
+            <input type="checkbox" checked={form.fileUploaded} disabled={form.needsDesignHelp} onChange={e=>setF("fileUploaded",e.target.checked)} style={{marginTop:2,width:15,height:15,flexShrink:0}}/>
+            <span style={{fontSize:13,color:"#e0e3ea"}}>I've created my named folder and added my design file(s)</span>
+          </label>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:6}}>Required so Tech Support can review your design and set up cut/engrave settings before your session.</div>
           <label style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",marginTop:10,background:form.needsDesignHelp?"#2a1f0a":"#141720",border:"0.5px solid #1e2130",borderRadius:8,padding:"10px 12px"}}>
             <input type="checkbox" checked={form.needsDesignHelp} onChange={e=>setF("needsDesignHelp",e.target.checked)} style={{marginTop:2,width:15,height:15,flexShrink:0}}/>
             <span style={{fontSize:13,color:form.needsDesignHelp?"#d4851a":"#e0e3ea"}}>My design isn't ready — I need a working session with Tech Support to design and set up the job</span>
@@ -1574,7 +1595,7 @@ export default function App() {
         </>}
       </div>}
       {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
-      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileLink.trim())))||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileUploaded)))||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 
@@ -1974,7 +1995,8 @@ export default function App() {
                   {req.details.jobType&&req.typeId==="laser"&&<span style={{marginRight:10}}>⚡ {req.details.jobType}</span>}
                   {req.details.startTime&&req.typeId==="laser"&&<span style={{marginRight:10}}>🕐 Start {req.details.startTime}</span>}
                   {req.details.firstTime&&<span style={{marginRight:10,background:"#2a1f0a",color:"#d4851a",borderRadius:6,padding:"2px 7px",fontWeight:600}}>⭐ FIRST TIME</span>}
-                  {req.details.fileLink&&<a href={req.details.fileLink} target="_blank" rel="noreferrer" style={{marginRight:10,color:"#60a5fa",textDecoration:"none"}}>📎 File link</a>}
+                  {req.typeId==="laser"&&req.details.fileUploaded&&<span style={{marginRight:10,color:"#20B07F"}}>✅ File uploaded</span>}
+                  {req.typeId==="laser"&&<a href={DRIVE_FOLDERS.laser} target="_blank" rel="noreferrer" style={{marginRight:10,color:"#60a5fa",textDecoration:"none"}}>📁 Open Drive folder</a>}
                   {req.details.softwareName&&<span style={{marginRight:10}}>💻 {req.details.softwareName}</span>}
                   {req.details.macLocation&&<span style={{marginRight:10}}>🖥️ {req.details.macLocation}</span>}
                   {req.details.shootType&&!req.details.shootType.startsWith("Select")&&<span style={{marginRight:10}}>💡 {req.details.shootType}</span>}
