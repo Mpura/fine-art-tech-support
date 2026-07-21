@@ -330,7 +330,7 @@ export default function App() {
     const _schedDate=
       selType==="studio"&&form.studioDate&&form.studioSlot?`${form.studioDate} (${EQ_COL_SLOTS.find(s=>s.id===form.studioSlot)?.label||form.studioSlot})`:
       selType==="3d"&&form.dropOffDate?`Drop-off: ${fmtDate(form.dropOffDate)}`:
-      type.bookable&&selDate?`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`:
+      type.bookable&&selDate?(selType==="laser"?`${selDate} (Full day)`:`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`):
       form.when==="later"&&!isWalkIn?form.schedDate:null;
     const req={id:genId(),
       name:isWalkIn?form.name.trim():isExt?extForm.name.trim():verifiedStudent.name,
@@ -350,9 +350,22 @@ export default function App() {
       }
       else{console.error("FATS: request save failed",result);}
     }catch(e){console.error("FATS: request save error",e);}
+    // Laser takes the whole day — auto-cancel any print/studio/3d bookings that
+    // already exist for the same date (safety net; the calendar already blocks
+    // new clashing bookings, this only fires for pre-existing/legacy overlaps)
+    if(req.typeId==="laser"&&req.schedDate){
+      const dateKey=req.schedDate.split(" ")[0];
+      const clashing=requests.filter(r=>["print","studio","3d"].includes(r.typeId)&&!["Declined","Cancelled"].includes(r.status)&&labDateKey(r)===dateKey);
+      if(clashing.length){
+        for(const c of clashing){
+          updateStatus(c.id,"Cancelled",{StaffNote:`Cancelled — the laser cutter was booked for the full day on ${fmtDate(dateKey)}.`});
+        }
+        pushToast(`⚠ Laser booked the full day on ${fmtDate(dateKey)} — auto-cancelled ${clashing.length} clashing booking${clashing.length>1?"s":""}: ${clashing.map(c=>c.name).join(", ")}.`,"error");
+      }
+    }
     return req;
   }
-  function updateStatus(id,status){
+  function updateStatus(id,status,extraFields={}){
     const req=requests.find(r=>r.id===id);
     if(req?.typeId==="equipment"&&["Declined","Uncollected","Cancelled"].includes(status)){
       const ids=(req.details?.itemsData||[]).map(i=>i.id).filter(Boolean);
@@ -370,13 +383,13 @@ export default function App() {
       }
     }
     const updatedDetails=Object.keys(detailPatch).length>0?{...req?.details,...detailPatch}:req?.details;
-    const atFields={Status:status,UpdatedAt:todayISO(),...(Object.keys(detailPatch).length>0&&{Details:JSON.stringify(updatedDetails)})};
+    const atFields={Status:status,UpdatedAt:todayISO(),...(Object.keys(detailPatch).length>0&&{Details:JSON.stringify(updatedDetails)}),...extraFields};
     const _patched=req?.airtableId
       ? atPatch(REQUESTS_TABLE,req.airtableId,atFields)
           .then(r=>{if(!r||r.error||!r.id){pushToast(`⚠ "${status}" saved on this device but didn't sync — refresh to confirm.`,"error");return null;}return r;})
           .catch(()=>{pushToast(`⚠ "${status}" didn't sync (network) — saved on this device only.`,"error");return null;})
       : Promise.resolve(null);
-    const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails}:r);setRequests(u);persist(KEYS.req,u);
+    const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails,...(extraFields.StaffNote!==undefined&&{staffNote:extraFields.StaffNote})}:r);setRequests(u);persist(KEYS.req,u);
     // Send status update email for key statuses (non-blocking) — after the
     // patch lands, since the email server reads the record from Airtable
     const _emailStatuses=["Confirmed","Ready to collect","Declined","Cancelled","Material test required","Ready to cut"];
@@ -534,6 +547,19 @@ export default function App() {
   // schedDate is stored as "YYYY-MM-DD (Morning 09:00–12:00)" — match on the word, not "(Morning)"
   function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"Morning":"Afternoon")&&r.status!=="Declined"&&r.status!=="Cancelled").length;}
 
+  // Laser, print, studio and 3D printing share one technician and one lab day —
+  // booking the laser takes the whole day and blocks the other three.
+  const LAB_EXCLUSIVE_TYPES=["laser","print","studio","3d"];
+  function labDateKey(r){
+    if(r.typeId==="3d")return r.details?.dropOffDate||null;
+    if(r.schedDate)return r.schedDate.split(" ")[0];
+    return null;
+  }
+  function labDayOccupiedBy(dateKey,typeIds){
+    if(!dateKey)return[];
+    return requests.filter(r=>typeIds.includes(r.typeId)&&!["Declined","Cancelled"].includes(r.status)&&labDateKey(r)===dateKey);
+  }
+
   // Equipment booking handlers
   async function handleEqLookup(){
     if(!eqStudNo.trim())return;
@@ -687,7 +713,16 @@ export default function App() {
     const firstDay=new Date(calYear,calMonth,1).getDay();
     const daysInMonth=new Date(calYear,calMonth+1,0).getDate();
     const cells=[];for(let i=0;i<firstDay;i++)cells.push(null);for(let d=1;d<=daysInMonth;d++)cells.push(d);
-    const isAvail=(d)=>{const date=new Date(calYear,calMonth,d);if(date<today)return false;const k=toKey(calYear,calMonth,d);if(minAllowed&&k<minAllowed)return false;if(blocks[k])return false;if(!sched.days.includes(date.getDay()))return false;return getBookings(eqId,k,"morning")<sched.morningSlots||getBookings(eqId,k,"afternoon")<sched.afternoonSlots;};
+    const isAvail=(d)=>{
+      const date=new Date(calYear,calMonth,d);if(date<today)return false;
+      const k=toKey(calYear,calMonth,d);if(minAllowed&&k<minAllowed)return false;
+      if(blocks[k])return false;
+      if(!sched.days.includes(date.getDay()))return false;
+      // Laser takes the whole day — one booking per day, and it blocks the other lab types
+      if(eqId==="laser")return labDayOccupiedBy(k,LAB_EXCLUSIVE_TYPES).length===0;
+      if(eqId==="print"&&labDayOccupiedBy(k,["laser"]).length>0)return false;
+      return getBookings(eqId,k,"morning")<sched.morningSlots||getBookings(eqId,k,"afternoon")<sched.afternoonSlots;
+    };
     return(
       <div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -698,10 +733,16 @@ export default function App() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:6}}>{DAYS_SHORT.map(d=><div key={d} style={{textAlign:"center",fontSize:11,color:"#6b7280",fontWeight:500}}>{d}</div>)}</div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:12}}>
           {cells.map((d,i)=>{if(!d)return<div key={i}/>;const avail=isAvail(d);const blocked=!!blocks[toKey(calYear,calMonth,d)];const k=toKey(calYear,calMonth,d);const sel=selDate===k;const past=new Date(calYear,calMonth,d)<new Date(new Date().setHours(0,0,0,0));return(
-            <div key={i} onClick={()=>avail&&(setSelDate(k),setSelSlot(null))} style={{aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,fontSize:12,cursor:avail?"pointer":"default",background:sel?TEAL:blocked?"#2a0a0a":avail?"#0a2218":"transparent",color:sel?"#fff":blocked?"#f87171":avail?"#20B07F":past?"#374151":"#4b5563",fontWeight:sel?500:400}}>{d}</div>
+            <div key={i} onClick={()=>avail&&(setSelDate(k),setSelSlot(eqId==="laser"?"fullday":null))} style={{aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,fontSize:12,cursor:avail?"pointer":"default",background:sel?TEAL:blocked?"#2a0a0a":avail?"#0a2218":"transparent",color:sel?"#fff":blocked?"#f87171":avail?"#20B07F":past?"#374151":"#4b5563",fontWeight:sel?500:400}}>{d}</div>
           );})}
         </div>
-        {selDate&&(()=>{
+        {selDate&&eqId==="laser"&&(
+          <div style={{marginBottom:12,background:"#0a2218",border:"0.5px solid #14532d",borderRadius:10,padding:"10px 12px"}}>
+            <div style={{fontSize:13,color:"#20B07F",fontWeight:500}}>✓ Full day booking — {selDate}</div>
+            <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>The laser cutter takes the whole day. No other lab bookings (printing, lighting studio, 3D printing) can be made for this date.</div>
+          </div>
+        )}
+        {selDate&&eqId!=="laser"&&(()=>{
           const mFull=getBookings(eqId,selDate,"morning")>=sched.morningSlots;
           const aFull=getBookings(eqId,selDate,"afternoon")>=sched.afternoonSlots;
           const stockroomDay=EQ_COL_DAYS.includes(new Date(selDate+"T00:00:00").getDay());
@@ -1153,7 +1194,7 @@ export default function App() {
       <div style={{fontSize:17,fontWeight:500,marginBottom:4}}>{type.icon} {type.label}</div>
       <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Select an available date and slot</div>
       <CalendarPicker eqId={selType}/>
-      {selDate&&selSlot&&<Btn onClick={()=>setScreen("form")} full style={{padding:"13px",fontSize:15,marginTop:8}}>Continue → {selDate} {selSlot==="morning"?"Morning (09:00–12:00)":"Afternoon (13:00–16:00)"}</Btn>}
+      {selDate&&selSlot&&<Btn onClick={()=>setScreen("form")} full style={{padding:"13px",fontSize:15,marginTop:8}}>Continue → {selDate} {selType==="laser"?"(Full day)":selSlot==="morning"?"Morning (09:00–12:00)":"Afternoon (13:00–16:00)"}</Btn>}
     </div>
   );
 
@@ -1162,7 +1203,7 @@ export default function App() {
     <div style={{maxWidth:680,margin:"0 auto",padding:"1.5rem 1.25rem"}}>
       <TabBar/><Back to={type.bookable?"calendar":type.prep.length>0?"prep":"home"}/>
       <div style={{fontSize:17,fontWeight:500,marginBottom:16}}>{type.icon} {type.label}</div>
-      {type.bookable&&selDate&&selSlot&&<div style={{background:"#0a2218",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#20B07F",fontWeight:500}}>📅 {selDate} — {selSlot==="morning"?"Morning (09:00–12:00)":"Afternoon (13:00–16:00)"}</div>}
+      {type.bookable&&selDate&&selSlot&&<div style={{background:"#0a2218",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#20B07F",fontWeight:500}}>📅 {selDate} — {selType==="laser"?"Full day":selSlot==="morning"?"Morning (09:00–12:00)":"Afternoon (13:00–16:00)"}</div>}
       {/* Who is submitting? */}
       <div style={{display:"flex",background:"#141720",borderRadius:10,padding:3,gap:2,marginBottom:16}}>
         {[["student","Fine Art student"],["external","External / visitor"]].map(([v,l])=>(
@@ -1248,7 +1289,8 @@ export default function App() {
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Dimensions / scale</label><input style={ipt} value={form.dimensions} onChange={e=>setF("dimensions",e.target.value)} placeholder="e.g. 15cm tall"/></div>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Material</label><select style={ipt} value={form.material3d} onChange={e=>setF("material3d",e.target.value)}>{["Select material","PLA","ABS","PETG","Resin","Other"].map(m=><option key={m}>{m}</option>)}</select></div>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Infill density</label><select style={ipt} value={form.infill} onChange={e=>setF("infill",e.target.value)}>{["Select infill","10% (light)","20% (standard)","50% (strong)","100% (solid)"].map(i=><option key={i}>{i}</option>)}</select></div>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Preferred drop-off date *</label><input type="date" style={ipt} value={form.dropOffDate} min={addBusinessDays(todayDate(),5)} onChange={e=>setF("dropOffDate",e.target.value)}/><div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Minimum 5 business days ahead. You will be notified when the print is ready to collect.</div></div>
+        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Preferred drop-off date *</label><input type="date" style={ipt} value={form.dropOffDate} min={addBusinessDays(todayDate(),5)} onChange={e=>setF("dropOffDate",e.target.value)}/><div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Minimum 5 business days ahead. You will be notified when the print is ready to collect.</div>
+        {form.dropOffDate&&labDayOccupiedBy(form.dropOffDate,["laser"]).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ The laser cutter has this day booked (whole-day). Please choose a different date.</div>}</div>
       </>)}
       {type.id==="software"&&(<>
         <div style={{marginBottom:14}}>
@@ -1273,7 +1315,8 @@ export default function App() {
         </>)}
       </>)}
       {type.id==="studio"&&(<>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={todayDate()} max={addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)} onChange={e=>{setF("studioDate",e.target.value);setF("studioSlot","");}}/>{form.studioDate&&!isEqColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are only available Mon, Wed, Fri (11:00–12:30). Please pick one of those days.</div>}</div>
+        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={todayDate()} max={addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)} onChange={e=>{setF("studioDate",e.target.value);setF("studioSlot","");}}/>{form.studioDate&&!isEqColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are only available Mon, Wed, Fri (11:00–12:30). Please pick one of those days.</div>}
+        {form.studioDate&&labDayOccupiedBy(form.studioDate,["laser"]).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ The laser cutter has this day booked (whole-day). Please choose a different date.</div>}</div>
         {form.studioDate&&isEqColDay(form.studioDate)&&(
           <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -1519,7 +1562,7 @@ export default function App() {
         </>}
       </div>}
       {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
-      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&!form.sessionDuration)||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&!form.sessionDuration)||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 
@@ -2027,19 +2070,23 @@ export default function App() {
             <Btn small onClick={()=>{setEqSettings(eqSettingsForm);localStorage.setItem(KEYS.eqSet,JSON.stringify(eqSettingsForm));saveSetting("eqSettings",eqSettingsForm);setEqSettingsForm(null);}}>Save settings</Btn>
           </div>)}
         </div>
-        {BOOKABLE.map(t=>{const s=schedule[t.id]||{days:[],morningSlots:1,afternoonSlots:1};const editing=editEq===t.id;return(
+        {BOOKABLE.map(t=>{const s=schedule[t.id]||{days:[],morningSlots:1,afternoonSlots:1};const editing=editEq===t.id;const isLaser=t.id==="laser";return(
           <div key={t.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"16px 18px",marginBottom:12}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editing?12:4}}>
               <div style={{fontWeight:500,fontSize:14}}>{t.icon} {t.label}</div>
               <button onClick={()=>setEditEq(editing?null:t.id)} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer"}}>{editing?"Done ✓":"Edit"}</button>
             </div>
-            {!editing&&<div style={{fontSize:12,color:"#6b7280"}}>{s.days.length>0?s.days.map(d=>DAY_FULL[d]).join(", "):"No days set"} · Morning: {s.morningSlots} · Afternoon: {s.afternoonSlots} · Min advance: {s.minAdvanceDays||0} days</div>}
+            {!editing&&<div style={{fontSize:12,color:"#6b7280"}}>{s.days.length>0?s.days.map(d=>DAY_FULL[d]).join(", "):"No days set"}{isLaser?" · Whole day per booking (1/day)":` · Morning: ${s.morningSlots} · Afternoon: ${s.afternoonSlots}`} · Min advance: {s.minAdvanceDays||0} days</div>}
             {editing&&(<>
               <div style={{fontSize:12,color:"#9ca3af",marginBottom:6}}>Available days:</div>
               <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>{[1,2,3,4,5].map(d=>{const on=s.days.includes(d);return<button key={d} onClick={()=>toggleDay(t.id,d)} style={{padding:"6px 12px",borderRadius:8,border:"none",background:on?TEAL:"#1a1d28",color:on?"#fff":"#9ca3af",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{DAY_FULL[d]}</button>;})}</div>
-              <div style={{display:"flex",gap:12,marginBottom:12}}>{[["morningSlots","🌅 Morning"],["afternoonSlots","🌆 Afternoon"]].map(([k,l])=>(
-                <div key={k} style={{flex:1}}><div style={{fontSize:12,color:"#9ca3af",marginBottom:6}}>{l} slots</div><div style={{display:"flex",gap:6}}>{[1,2,3].map(n=><button key={n} onClick={()=>updateSchedule(t.id,k,n)} style={{width:36,height:36,borderRadius:8,border:"none",background:s[k]===n?BLUE:"#1a1d28",color:s[k]===n?"#fff":"#9ca3af",fontSize:13,cursor:"pointer",fontWeight:500,fontFamily:"inherit"}}>{n}</button>)}</div></div>
-              ))}</div>
+              {isLaser?(
+                <div style={{fontSize:12,color:"#9ca3af",marginBottom:12,background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:8,padding:"8px 10px"}}>⚡ The laser cutter takes the whole day — one booking per day, and it blocks printing, lighting studio and 3D printing for that date.</div>
+              ):(
+                <div style={{display:"flex",gap:12,marginBottom:12}}>{[["morningSlots","🌅 Morning"],["afternoonSlots","🌆 Afternoon"]].map(([k,l])=>(
+                  <div key={k} style={{flex:1}}><div style={{fontSize:12,color:"#9ca3af",marginBottom:6}}>{l} slots</div><div style={{display:"flex",gap:6}}>{[1,2,3].map(n=><button key={n} onClick={()=>updateSchedule(t.id,k,n)} style={{width:36,height:36,borderRadius:8,border:"none",background:s[k]===n?BLUE:"#1a1d28",color:s[k]===n?"#fff":"#9ca3af",fontSize:13,cursor:"pointer",fontWeight:500,fontFamily:"inherit"}}>{n}</button>)}</div></div>
+                ))}</div>
+              )}
               <div style={{fontSize:12,color:"#9ca3af",marginBottom:6}}>⏱ Min advance booking (business days)</div>
               <div style={{display:"flex",gap:6}}>{[0,1,2,3,5,7].map(n=><button key={n} onClick={()=>updateSchedule(t.id,"minAdvanceDays",n)} style={{width:36,height:36,borderRadius:8,border:"none",background:(s.minAdvanceDays||0)===n?BLUE:"#1a1d28",color:(s.minAdvanceDays||0)===n?"#fff":"#9ca3af",fontSize:13,cursor:"pointer",fontWeight:500,fontFamily:"inherit"}}>{n}</button>)}</div>
             </>)}
