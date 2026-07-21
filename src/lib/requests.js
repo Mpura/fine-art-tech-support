@@ -10,7 +10,7 @@ function archiveSummary(req){
   }
   if(req.typeId==="laser"){
     const mat=d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material;
-    return [mat,d.jobType].filter(Boolean).join(" · ")||null;
+    return [mat,d.jobType,d.needsDesignHelp?"🎨 needed design help":null].filter(Boolean).join(" · ")||null;
   }
   if(req.typeId==="3d"){
     return [d.dimensions,d.material3d,d.infill?`${d.infill} infill`:null].filter(Boolean).join(" · ")||null;

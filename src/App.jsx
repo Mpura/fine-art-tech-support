@@ -65,7 +65,7 @@ export default function App() {
   const [maintForm, setMaintForm] = useState({equipmentId:"",date:"",notes:"",status:"Done",duration:""});
 
   // Student request form
-  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",sessionDuration:"",fileLink:"",firstTime:false});
+  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",sessionDuration:"",fileLink:"",firstTime:false,needsDesignHelp:false});
 
   // AV setup wizard state
   const [avStep, setAvStep] = useState(0);
@@ -307,7 +307,7 @@ export default function App() {
 
   function getDetails(){
     if(selType==="print") return{paperSize:form.paperSize,paperType:form.paperType,colour:form.colour,copies:form.copies,printPresent:form.printPresent};
-    if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,sessionDuration:form.sessionDuration,fileLink:form.fileLink,firstTime:form.firstTime};
+    if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,sessionDuration:form.sessionDuration,fileLink:form.needsDesignHelp?"":form.fileLink,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
     if(selType==="3d") return{dimensions:form.dimensions,material3d:form.material3d,infill:form.infill,dropOffDate:form.dropOffDate};
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
     if(selType==="studio") return{shootType:form.shootType};
@@ -864,7 +864,7 @@ export default function App() {
         const archived=checkResults.filter(r=>ARCHIVE_STATUSES.includes(r.status));
         function bookAgain(req){
           const d=req.details||{};
-          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",sessionDuration:d.sessionDuration||"",fileLink:"",firstTime:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
+          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",sessionDuration:d.sessionDuration||"",fileLink:"",firstTime:false,needsDesignHelp:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
           setSelType(req.typeId);setPrepOk(false);setSelDate(null);setSelSlot(null);setScreen("prep");
         }
         const ReqCard=({req})=>(
@@ -1280,9 +1280,13 @@ export default function App() {
         </div>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Session duration *</label><div style={{display:"flex",gap:8}}>{["1 hour","2 hours"].map(d=><button key={d} onClick={()=>setF("sessionDuration",d)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.sessionDuration===d?TEAL:"#1a1d28",color:form.sessionDuration===d?"#fff":"#e0e3ea",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>{d}</button>)}</div></div>
         <div style={{marginBottom:14}}>
-          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>File link (Google Drive or WeTransfer)</label>
-          <input style={ipt} value={form.fileLink} onChange={e=>setF("fileLink",e.target.value)} placeholder="https://drive.google.com/..."/>
-          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Share your file before your session so Tech Support can check it in advance.</div>
+          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Design file link (Google Drive or WeTransfer) {!form.needsDesignHelp&&"*"}</label>
+          <input style={{...ipt,opacity:form.needsDesignHelp?0.5:1}} value={form.fileLink} disabled={form.needsDesignHelp} onChange={e=>setF("fileLink",e.target.value)} placeholder="https://drive.google.com/..."/>
+          <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Required so Tech Support can review your design and set up cut/engrave settings before your session.</div>
+          <label style={{display:"flex",alignItems:"flex-start",gap:8,cursor:"pointer",marginTop:10,background:form.needsDesignHelp?"#2a1f0a":"#141720",border:"0.5px solid #1e2130",borderRadius:8,padding:"10px 12px"}}>
+            <input type="checkbox" checked={form.needsDesignHelp} onChange={e=>setF("needsDesignHelp",e.target.checked)} style={{marginTop:2,width:15,height:15,flexShrink:0}}/>
+            <span style={{fontSize:13,color:form.needsDesignHelp?"#d4851a":"#e0e3ea"}}>My design isn't ready — I need a working session with Tech Support to design and set up the job</span>
+          </label>
         </div>
       </>)}
       {type.id==="3d"&&(<>
@@ -1562,7 +1566,7 @@ export default function App() {
         </>}
       </div>}
       {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
-      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&!form.sessionDuration)||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.sessionDuration||(!form.needsDesignHelp&&!form.fileLink.trim())))||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 
@@ -1946,6 +1950,9 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              )}
+              {req.typeId==="laser"&&req.details?.needsDesignHelp&&(
+                <div style={{marginBottom:6,background:"#2a1f0a",border:"0.5px solid #d4851a",borderRadius:8,padding:"8px 12px",fontSize:12,color:"#d4851a",fontWeight:600}}>🎨 No design yet — student needs a working session to design and set up this job</div>
               )}
               {req.typeId!=="equipment"&&req.typeId!=="avsetup"&&Object.values(req.details||{}).some(v=>v&&!String(v).startsWith("Select"))&&(
                 <div style={{fontSize:12,color:"#9ca3af",background:"#1a1d28",borderRadius:8,padding:"8px 10px",marginBottom:6,lineHeight:1.8}}>
