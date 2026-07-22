@@ -736,12 +736,6 @@ export default function App() {
             <div key={i} onClick={()=>avail&&(setSelDate(k),setSelSlot(eqId==="laser"?"fullday":null))} style={{aspectRatio:"1",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:8,fontSize:12,cursor:avail?"pointer":"default",background:sel?TEAL:blocked?"#2a0a0a":avail?"#0a2218":"transparent",color:sel?"#fff":blocked?"#f87171":avail?"#20B07F":past?"#374151":"#4b5563",fontWeight:sel?500:400}}>{d}</div>
           );})}
         </div>
-        {selDate&&eqId==="laser"&&(
-          <div style={{marginBottom:12,background:"#0a2218",border:"0.5px solid #14532d",borderRadius:10,padding:"10px 12px"}}>
-            <div style={{fontSize:13,color:"#20B07F",fontWeight:500}}>✓ Full day booking — {selDate}</div>
-            <div style={{fontSize:11,color:"#6b7280",marginTop:2}}>The laser cutter takes the whole day. No other lab bookings (printing, lighting studio, 3D printing) can be made for this date.</div>
-          </div>
-        )}
         {selDate&&eqId!=="laser"&&(()=>{
           const mFull=getBookings(eqId,selDate,"morning")>=sched.morningSlots;
           const aFull=getBookings(eqId,selDate,"afternoon")>=sched.afternoonSlots;
@@ -1179,7 +1173,7 @@ export default function App() {
           <span style={{marginLeft:"auto",color:"#374151",fontSize:14}}>↗</span>
         </a>
       )}
-      {type.needsFiles&&DRIVE_FOLDERS[type.id]&&(
+      {type.needsFiles&&type.id!=="laser"&&DRIVE_FOLDERS[type.id]&&(
         <a href={DRIVE_FOLDERS[type.id]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,background:"#0a2218",border:"0.5px solid #14532d",borderRadius:10,padding:"12px 14px",marginBottom:16,textDecoration:"none"}}>
           <span style={{fontSize:20}}>📁</span>
           <div>
