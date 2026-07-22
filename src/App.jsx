@@ -310,7 +310,7 @@ export default function App() {
     if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,startTime:form.startTime,fileUploaded:form.needsDesignHelp?false:form.fileUploaded,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
     if(selType==="3d") return{dimensions:form.dimensions,material3d:form.material3d,infill:form.infill,dropOffDate:form.dropOffDate};
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
-    if(selType==="studio") return{shootType:form.shootType};
+    if(selType==="studio") return{shootType:form.shootType,firstTime:form.firstTime};
     if(selType==="gallery") return{eventType:form.eventType,eventStart:form.eventStart,eventEnd:form.eventEnd,attendance:form.attendance,setupNeeds:form.setupNeeds,venue:form.venue,techSupport:form.techSupport};
     if(selType==="avsetup"){
       const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
@@ -350,17 +350,36 @@ export default function App() {
       }
       else{console.error("FATS: request save failed",result);}
     }catch(e){console.error("FATS: request save error",e);}
-    // Laser takes the whole day — auto-cancel any print/studio/3d bookings that
-    // already exist for the same date (safety net; the calendar already blocks
-    // new clashing bookings, this only fires for pre-existing/legacy overlaps)
+    // Laser takes the whole day — auto-cancel any print/3d/first-time-studio
+    // bookings that already exist for the same date (safety net; the calendar
+    // already blocks new clashing bookings, this only fires for pre-existing/
+    // legacy overlaps). A returning-user studio booking is exempt — it can
+    // coexist with laser since it doesn't need the technician's full attention.
     if(req.typeId==="laser"&&req.schedDate){
       const dateKey=req.schedDate.split(" ")[0];
-      const clashing=requests.filter(r=>["print","studio","3d"].includes(r.typeId)&&!["Declined","Cancelled"].includes(r.status)&&labDateKey(r)===dateKey);
+      const clashing=requests.filter(r=>{
+        if(!["print","studio","3d"].includes(r.typeId))return false;
+        if(["Declined","Cancelled"].includes(r.status))return false;
+        if(r.typeId==="studio"&&!r.details?.firstTime)return false;
+        return labDateKey(r)===dateKey;
+      });
       if(clashing.length){
         for(const c of clashing){
           updateStatus(c.id,"Cancelled",{StaffNote:`Cancelled — the laser cutter was booked for the full day on ${fmtDate(dateKey)}.`});
         }
         pushToast(`⚠ Laser booked the full day on ${fmtDate(dateKey)} — auto-cancelled ${clashing.length} clashing booking${clashing.length>1?"s":""}: ${clashing.map(c=>c.name).join(", ")}.`,"error");
+      }
+    }
+    // Same rule, mirrored: a first-time studio orientation also reserves the
+    // whole day, so it auto-cancels any existing laser/print/3d on that date.
+    if(req.typeId==="studio"&&req.details?.firstTime&&req.schedDate){
+      const dateKey=req.schedDate.split(" ")[0];
+      const clashing=requests.filter(r=>["laser","print","3d"].includes(r.typeId)&&!["Declined","Cancelled"].includes(r.status)&&labDateKey(r)===dateKey);
+      if(clashing.length){
+        for(const c of clashing){
+          updateStatus(c.id,"Cancelled",{StaffNote:`Cancelled — the lighting studio was booked for a first-time orientation (full day) on ${fmtDate(dateKey)}.`});
+        }
+        pushToast(`⚠ First-time studio orientation booked the full day on ${fmtDate(dateKey)} — auto-cancelled ${clashing.length} clashing booking${clashing.length>1?"s":""}: ${clashing.map(c=>c.name).join(", ")}.`,"error");
       }
     }
     return req;
@@ -547,8 +566,11 @@ export default function App() {
   // schedDate is stored as "YYYY-MM-DD (Morning 09:00–12:00)" — match on the word, not "(Morning)"
   function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"Morning":"Afternoon")&&r.status!=="Declined"&&r.status!=="Cancelled").length;}
 
-  // Laser, print, studio and 3D printing share one technician and one lab day —
-  // booking the laser takes the whole day and blocks the other three.
+  // Laser, print, 3D printing and a FIRST-TIME studio session share one
+  // technician and one lab day — each takes the whole day and blocks the
+  // others. A returning-user studio booking is exempt: it only uses its own
+  // key-collection slot and doesn't need the technician's full attention, so
+  // it never occupies or is blocked by this shared exclusivity pool.
   const LAB_EXCLUSIVE_TYPES=["laser","print","studio","3d"];
   function labDateKey(r){
     if(r.typeId==="3d")return r.details?.dropOffDate||null;
@@ -557,7 +579,12 @@ export default function App() {
   }
   function labDayOccupiedBy(dateKey,typeIds){
     if(!dateKey)return[];
-    return requests.filter(r=>typeIds.includes(r.typeId)&&!["Declined","Cancelled"].includes(r.status)&&labDateKey(r)===dateKey);
+    return requests.filter(r=>{
+      if(!typeIds.includes(r.typeId))return false;
+      if(["Declined","Cancelled"].includes(r.status))return false;
+      if(r.typeId==="studio"&&!r.details?.firstTime)return false;
+      return labDateKey(r)===dateKey;
+    });
   }
 
   // Equipment booking handlers
@@ -720,7 +747,7 @@ export default function App() {
       if(!sched.days.includes(date.getDay()))return false;
       // Laser takes the whole day — one booking per day, and it blocks the other lab types
       if(eqId==="laser")return labDayOccupiedBy(k,LAB_EXCLUSIVE_TYPES).length===0;
-      if(eqId==="print"&&labDayOccupiedBy(k,["laser"]).length>0)return false;
+      if(eqId==="print"&&labDayOccupiedBy(k,["laser","studio"]).length>0)return false;
       return getBookings(eqId,k,"morning")<sched.morningSlots||getBookings(eqId,k,"afternoon")<sched.afternoonSlots;
     };
     return(
@@ -795,7 +822,7 @@ export default function App() {
         <div style={{fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:10}}>Request a service</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
           {REQUEST_TYPES.filter(t=>LAB_IDS.includes(t.id)).map(t=>(
-            <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:""}));}}
+            <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",firstTime:false}));}}
               style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px",cursor:"pointer"}}>
               <div style={{fontSize:18,marginBottom:6}}>{t.icon}</div>
               <div style={{fontSize:12,fontWeight:500,color:"#c9cdd6",lineHeight:1.3}}>{t.label}</div>
@@ -823,7 +850,7 @@ export default function App() {
         {/* Other services — compact list */}
         <div style={{fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:8}}>Other services</div>
         {REQUEST_TYPES.filter(t=>!LAB_IDS.includes(t.id)&&t.id!=="equipment").map(t=>(
-          <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:""}));}}
+          <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",firstTime:false}));}}
             style={{display:"flex",alignItems:"center",gap:12,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:6,cursor:"pointer"}}>
             <span style={{fontSize:18}}>{t.icon}</span>
             <div style={{flex:1}}>
@@ -1317,7 +1344,7 @@ export default function App() {
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Material</label><select style={ipt} value={form.material3d} onChange={e=>setF("material3d",e.target.value)}>{["Select material","PLA","ABS","PETG","Resin","Other"].map(m=><option key={m}>{m}</option>)}</select></div>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Infill density</label><select style={ipt} value={form.infill} onChange={e=>setF("infill",e.target.value)}>{["Select infill","10% (light)","20% (standard)","50% (strong)","100% (solid)"].map(i=><option key={i}>{i}</option>)}</select></div>
         <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Preferred drop-off date *</label><input type="date" style={ipt} value={form.dropOffDate} min={addBusinessDays(todayDate(),5)} onChange={e=>setF("dropOffDate",e.target.value)}/><div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Minimum 5 business days ahead. You will be notified when the print is ready to collect.</div>
-        {form.dropOffDate&&labDayOccupiedBy(form.dropOffDate,["laser"]).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ The laser cutter has this day booked (whole-day). Please choose a different date.</div>}</div>
+        {form.dropOffDate&&labDayOccupiedBy(form.dropOffDate,["laser","studio"]).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ This day is already reserved (laser cutter or a first-time studio session). Please choose a different date.</div>}</div>
       </>)}
       {type.id==="software"&&(<>
         <div style={{marginBottom:14}}>
@@ -1342,8 +1369,15 @@ export default function App() {
         </>)}
       </>)}
       {type.id==="studio"&&(<>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={todayDate()} max={addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)} onChange={e=>{setF("studioDate",e.target.value);setF("studioSlot","");}}/>{form.studioDate&&!isEqColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are only available Mon, Wed, Fri (11:00–12:30). Please pick one of those days.</div>}
-        {form.studioDate&&labDayOccupiedBy(form.studioDate,["laser"]).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ The laser cutter has this day booked (whole-day). Please choose a different date.</div>}</div>
+        <label style={{display:"flex",alignItems:"flex-start",gap:10,cursor:"pointer",marginBottom:16,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px 14px"}}>
+          <input type="checkbox" checked={form.firstTime} onChange={e=>setF("firstTime",e.target.checked)} style={{marginTop:2,width:16,height:16,flexShrink:0}}/>
+          <div>
+            <div style={{fontSize:14,color:"#e0e3ea"}}>This is my first time using the lighting studio</div>
+            <div style={{fontSize:12,color:"#6b7280"}}>I haven't been shown how to use it — same-day booking isn't available, and the whole day gets set aside for orientation</div>
+          </div>
+        </label>
+        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={form.firstTime?addBusinessDays(todayDate(),1):todayDate()} max={addBusinessDays(todayDate(),Math.max(eqSettings.maxAdvanceDays,form.firstTime?1:0))} onChange={e=>{setF("studioDate",e.target.value);setF("studioSlot","");}}/>{form.studioDate&&!isEqColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are only available Mon, Wed, Fri (11:00–12:30). Please pick one of those days.</div>}
+        {form.firstTime&&form.studioDate&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ This day is already reserved (laser, printing, 3D printing, or another first-time studio session). Please choose a different date.</div>}</div>
         {form.studioDate&&isEqColDay(form.studioDate)&&(
           <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -1589,7 +1623,7 @@ export default function App() {
         </>}
       </div>}
       {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
-      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileUploaded)))||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||labDayOccupiedBy(form.studioDate,["laser"]).length>0))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileUploaded)))||(selType==="3d"&&(!form.dropOffDate||labDayOccupiedBy(form.dropOffDate,["laser","studio"]).length>0))||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||(form.firstTime&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0)))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 
