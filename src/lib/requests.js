@@ -19,7 +19,7 @@ function archiveSummary(req){
     return [d.softwareName,d.macLocation].filter(Boolean).join(" · ")||null;
   }
   if(req.typeId==="studio"){
-    return d.shootType||null;
+    return d.firstTime?"⭐ First time":null;
   }
   if(req.typeId==="gallery"){
     const dates=d.eventStart&&d.eventEnd?`${d.eventStart} → ${d.eventEnd}`:d.eventStart||null;

@@ -65,7 +65,7 @@ export default function App() {
   const [maintForm, setMaintForm] = useState({equipmentId:"",date:"",notes:"",status:"Done",duration:""});
 
   // Student request form
-  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",shootType:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",startTime:"",fileUploaded:false,firstTime:false,needsDesignHelp:false});
+  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",startTime:"",fileUploaded:false,firstTime:false,needsDesignHelp:false});
 
   // AV setup wizard state
   const [avStep, setAvStep] = useState(0);
@@ -310,7 +310,7 @@ export default function App() {
     if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,startTime:form.startTime,fileUploaded:form.needsDesignHelp?false:form.fileUploaded,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
     if(selType==="3d") return{dimensions:form.dimensions,material3d:form.material3d,infill:form.infill,dropOffDate:form.dropOffDate};
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
-    if(selType==="studio") return{shootType:form.shootType,firstTime:form.firstTime};
+    if(selType==="studio") return{firstTime:form.firstTime};
     if(selType==="gallery") return{eventType:form.eventType,eventStart:form.eventStart,eventEnd:form.eventEnd,attendance:form.attendance,setupNeeds:form.setupNeeds,venue:form.venue,techSupport:form.techSupport};
     if(selType==="avsetup"){
       const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
@@ -671,7 +671,7 @@ export default function App() {
     let summary="";
     if(req.typeId==="print"){summary=[d.paperSize,d.paperType,d.colour,d.copies&&`×${d.copies}`].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
     else if(req.typeId==="laser"){summary=[d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material,d.dimensions,d.jobType,d.startTime?`Start ${d.startTime}`:null,d.firstTime?"⭐ First time":null].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
-    else if(req.typeId==="studio"){const sm=req.schedDate?.match(/\((.+?)\)/);summary=(d.shootType&&!d.shootType.startsWith("Select")?d.shootType+" · ":"")+(sm?sm[1]:"");}
+    else if(req.typeId==="studio"){const sm=req.schedDate?.match(/\((.+?)\)/);summary=(d.firstTime?"⭐ First time · ":"")+(sm?sm[1]:"");}
     else if(req.typeId==="equipment"){summary=d.items||(d.itemsData||[]).map(i=>i.name).join(", ")||"Equipment";}
     else if(req.typeId==="avsetup"){summary=[d.venue,d.displayType&&d.screenCount?`${d.displayType} × ${d.screenCount}`:d.displayType,d.setupTime?`Setup ${d.setupTime}`:"",d.eventDate?`Event ${fmtDate(d.eventDate)}`:""].filter(v=>v&&v!=="TBC").join(" · ");}
     const isOverdue=req.dueDate&&req.dueDate<_today;
@@ -885,7 +885,7 @@ export default function App() {
         const archived=checkResults.filter(r=>ARCHIVE_STATUSES.includes(r.status));
         function bookAgain(req){
           const d=req.details||{};
-          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",startTime:d.startTime||"",fileUploaded:false,firstTime:false,needsDesignHelp:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||"",shootType:d.shootType||""}));
+          setForm(f=>({...f,material:d.material||"",materialThickness:d.materialThickness||"",dimensions:d.dimensions||"",jobType:d.jobType||"Cut",startTime:d.startTime||"",fileUploaded:false,firstTime:false,needsDesignHelp:false,paperSize:d.paperSize||"",paperType:d.paperType||"",colour:d.colour||"Colour",copies:d.copies||"",material3d:d.material3d||"",infill:d.infill||""}));
           setSelType(req.typeId);setPrepOk(false);setSelDate(null);setSelSlot(null);setScreen("prep");
         }
         const ReqCard=({req})=>(
@@ -1389,7 +1389,6 @@ export default function App() {
             </div>
           </div>
         )}
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Type of shoot</label><select style={ipt} value={form.shootType} onChange={e=>setF("shootType",e.target.value)}>{["Select shoot type","Portrait","Product","Video","Still life","Other"].map(s=><option key={s}>{s}</option>)}</select></div>
       </>)}
       {type.id==="gallery"&&(<>
         <div style={{background:"#0a1e35",borderRadius:10,padding:"10px 12px",marginBottom:14,fontSize:12,color:"#3b82f6"}}>
@@ -1668,7 +1667,6 @@ export default function App() {
                 {lastReq.details.jobType&&<span style={{background:"#1a1d28",borderRadius:6,padding:"2px 8px"}}>{lastReq.details.jobType}</span>}
                 {lastReq.details.softwareName&&<span style={{background:"#1a1d28",borderRadius:6,padding:"2px 8px"}}>💻 {lastReq.details.softwareName}</span>}
                 {lastReq.details.macLocation&&<span style={{background:"#1a1d28",borderRadius:6,padding:"2px 8px"}}>🖥️ {lastReq.details.macLocation}</span>}
-                {lastReq.details.shootType&&!lastReq.details.shootType.startsWith("Select")&&<span style={{background:"#1a1d28",borderRadius:6,padding:"2px 8px"}}>💡 {lastReq.details.shootType}</span>}
                 {lastReq.details.duration&&!lastReq.details.duration.startsWith("Select")&&<span style={{background:"#1a1d28",borderRadius:6,padding:"2px 8px"}}>⏱️ {lastReq.details.duration}</span>}
                 {lastReq.details.eventType&&!lastReq.details.eventType.startsWith("Select")&&<span style={{background:"#1a1d28",borderRadius:6,padding:"2px 8px"}}>🖼️ {lastReq.details.eventType}</span>}
                 {lastReq.details.eventStart&&<span style={{background:"#1a1d28",borderRadius:6,padding:"2px 8px"}}>📅 {lastReq.details.eventStart}{lastReq.details.eventEnd&&lastReq.details.eventEnd!==lastReq.details.eventStart?` → ${lastReq.details.eventEnd}`:""}</span>}
@@ -2027,7 +2025,6 @@ export default function App() {
                   {req.typeId==="laser"&&<a href={DRIVE_FOLDERS.laser} target="_blank" rel="noreferrer" style={{marginRight:10,color:"#60a5fa",textDecoration:"none"}}>📁 Open Drive folder</a>}
                   {req.details.softwareName&&<span style={{marginRight:10}}>💻 {req.details.softwareName}</span>}
                   {req.details.macLocation&&<span style={{marginRight:10}}>🖥️ {req.details.macLocation}</span>}
-                  {req.details.shootType&&!req.details.shootType.startsWith("Select")&&<span style={{marginRight:10}}>💡 {req.details.shootType}</span>}
                   {req.details.duration&&!req.details.duration.startsWith("Select")&&<span style={{marginRight:10}}>⏱️ {req.details.duration}</span>}
                   {req.details.venue&&!req.details.venue.startsWith("Select")&&<span style={{marginRight:10}}>📍 {req.details.venue}</span>}
                   {req.details.eventType&&!req.details.eventType.startsWith("Select")&&<span style={{marginRight:10}}>🖼️ {req.details.eventType}</span>}
