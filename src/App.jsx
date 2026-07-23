@@ -361,6 +361,7 @@ export default function App() {
         if(!["print","studio"].includes(r.typeId))return false;
         if(["Declined","Cancelled"].includes(r.status))return false;
         if(r.typeId==="studio"&&!r.details?.firstTime)return false;
+        if(r.typeId==="print"&&r.details?.printPresent!=="yes")return false;
         return labDateKey(r)===dateKey;
       });
       if(clashing.length){
@@ -371,16 +372,39 @@ export default function App() {
       }
     }
     // Same rule, mirrored: a first-time studio orientation also reserves the
-    // whole day, so it auto-cancels any existing laser/print booking on that
-    // date. 3D printing is unattended once started — it never conflicts.
+    // whole day, so it auto-cancels any existing laser/present-print booking
+    // on that date. Drop-off print and 3D printing never conflict.
     if(req.typeId==="studio"&&req.details?.firstTime&&req.schedDate){
       const dateKey=req.schedDate.split(" ")[0];
-      const clashing=requests.filter(r=>["laser","print"].includes(r.typeId)&&!["Declined","Cancelled"].includes(r.status)&&labDateKey(r)===dateKey);
+      const clashing=requests.filter(r=>{
+        if(!["laser","print"].includes(r.typeId))return false;
+        if(["Declined","Cancelled"].includes(r.status))return false;
+        if(r.typeId==="print"&&r.details?.printPresent!=="yes")return false;
+        return labDateKey(r)===dateKey;
+      });
       if(clashing.length){
         for(const c of clashing){
           updateStatus(c.id,"Cancelled",{StaffNote:`Cancelled — the lighting studio was booked for a first-time orientation (full day) on ${fmtDate(dateKey)}.`});
         }
         pushToast(`⚠ First-time studio orientation booked the full day on ${fmtDate(dateKey)} — auto-cancelled ${clashing.length} clashing booking${clashing.length>1?"s":""}: ${clashing.map(c=>c.name).join(", ")}.`,"error");
+      }
+    }
+    // Same rule again: a "present, I'll wait" print job also reserves the
+    // whole day, so it auto-cancels any existing laser/first-time-studio
+    // booking on that date. A drop-off print job never triggers this.
+    if(req.typeId==="print"&&req.details?.printPresent==="yes"&&req.schedDate){
+      const dateKey=req.schedDate.split(" ")[0];
+      const clashing=requests.filter(r=>{
+        if(!["laser","studio"].includes(r.typeId))return false;
+        if(["Declined","Cancelled"].includes(r.status))return false;
+        if(r.typeId==="studio"&&!r.details?.firstTime)return false;
+        return labDateKey(r)===dateKey;
+      });
+      if(clashing.length){
+        for(const c of clashing){
+          updateStatus(c.id,"Cancelled",{StaffNote:`Cancelled — a print job needing full attention was booked for ${fmtDate(dateKey)}.`});
+        }
+        pushToast(`⚠ Print booking (present) reserved the full day on ${fmtDate(dateKey)} — auto-cancelled ${clashing.length} clashing booking${clashing.length>1?"s":""}: ${clashing.map(c=>c.name).join(", ")}.`,"error");
       }
     }
     return req;
@@ -567,11 +591,12 @@ export default function App() {
   // schedDate is stored as "YYYY-MM-DD (Morning 09:00–12:00)" — match on the word, not "(Morning)"
   function getBookings(eqId,dateKey,slot){return requests.filter(r=>r.typeId===eqId&&r.schedDate&&r.schedDate.startsWith(dateKey)&&r.schedDate.includes(slot==="morning"?"Morning":"Afternoon")&&r.status!=="Declined"&&r.status!=="Cancelled").length;}
 
-  // Laser, print, and a FIRST-TIME studio session all need the technician's
-  // full, continuous attention — each takes the whole day and blocks the
-  // others. A returning-user studio booking is exempt (just a quick key
-  // handout), and so is 3D printing: once a job is started it runs
-  // unattended, so it never occupies or is blocked by this exclusivity pool.
+  // Laser, a "present" print job, and a FIRST-TIME studio session all need
+  // the technician's full, continuous attention — each takes the whole day
+  // and blocks the others. A returning-user studio booking is exempt (just a
+  // quick key handout), a drop-off print job is exempt (load it and walk
+  // away), and so is 3D printing (runs unattended once started) — none of
+  // those occupy or are blocked by this exclusivity pool.
   const LAB_EXCLUSIVE_TYPES=["laser","print","studio"];
   function labDateKey(r){
     if(r.typeId==="3d")return r.details?.dropOffDate||null;
@@ -584,6 +609,9 @@ export default function App() {
       if(!typeIds.includes(r.typeId))return false;
       if(["Declined","Cancelled"].includes(r.status))return false;
       if(r.typeId==="studio"&&!r.details?.firstTime)return false;
+      // A drop-off print job doesn't need continuous attention — only a
+      // "present, I'll wait" job occupies the shared exclusivity pool.
+      if(r.typeId==="print"&&r.details?.printPresent!=="yes")return false;
       return labDateKey(r)===dateKey;
     });
   }
@@ -748,7 +776,9 @@ export default function App() {
       if(!sched.days.includes(date.getDay()))return false;
       // Laser takes the whole day — one booking per day, and it blocks the other lab types
       if(eqId==="laser")return labDayOccupiedBy(k,LAB_EXCLUSIVE_TYPES).length===0;
-      if(eqId==="print"&&labDayOccupiedBy(k,["laser","studio"]).length>0)return false;
+      // Print's own exclusivity (whether THIS booking will need full attention)
+      // depends on "will you be present?", which is only answered later in the
+      // form — so it's checked there instead of at date-picking time here.
       return getBookings(eqId,k,"morning")<sched.morningSlots||getBookings(eqId,k,"afternoon")<sched.afternoonSlots;
     };
     return(
@@ -1284,6 +1314,7 @@ export default function App() {
               <button key={v} onClick={()=>setF("printPresent",v)} style={{flex:1,padding:"9px 6px",borderRadius:8,border:"none",background:form.printPresent===v?BLUE:"#1a1d28",color:form.printPresent===v?"#fff":"#e0e3ea",fontSize:12,cursor:"pointer",fontFamily:"inherit",lineHeight:1.4}}>{l}</button>
             ))}
           </div>
+          {form.printPresent==="yes"&&selDate&&labDayOccupiedBy(selDate,["laser","studio"]).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:8}}>⚠️ This day is already reserved (laser cutter or a first-time studio session) — waiting here isn't possible on this date. Go back and pick a different date, or choose drop-off instead.</div>}
         </div>
       </>)}
       {type.id==="laser"&&(<>
@@ -1622,7 +1653,7 @@ export default function App() {
         </>}
       </div>}
       {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
-      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&!form.printPresent)||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileUploaded)))||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||(form.firstTime&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0)))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&(!form.printPresent||(form.printPresent==="yes"&&selDate&&labDayOccupiedBy(selDate,["laser","studio"]).length>0)))||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileUploaded)))||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||(form.firstTime&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0)))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 
