@@ -14,7 +14,7 @@ import {
 import { verifyStaffPin, atGet, atPost, atPatch, atDelete, saveSetting, getStaffPin } from "./lib/airtable.js";
 import { archiveSummary, reqToAirtable, airtableToReq, lookupStudent } from "./lib/requests.js";
 import { sendConfirmationEmail, sendStatusEmail } from "./lib/email.js";
-import { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine, settleFine } from "./lib/equipment.js";
+import { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine, settleFine, waiveFine } from "./lib/equipment.js";
 import BudgetPanel from "./panels/BudgetPanel.jsx";
 import InsurancePanel from "./panels/InsurancePanel.jsx";
 import PmPanel from "./panels/PmPanel.jsx";
@@ -2248,13 +2248,31 @@ export default function App() {
                       {f["Type"]==="Lost Item"&&(
                         <button onClick={async()=>{
                           if(!f.id)return;
-                          const req=requests.find(r=>r.id===f["Request ID"]);
-                          if(req)await markItemFound(req,f["Item Name"]);
-                          else await settleFine(f.id);
-                          setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));
+                          try{
+                            const req=requests.find(r=>r.id===f["Request ID"]);
+                            if(req)await markItemFound(req,f["Item Name"]);
+                            else await settleFine(f.id);
+                            setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));
+                          }catch(e){pushToast(`⚠ Couldn't mark this returned — try again.`,"error");}
                         }} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #20B07F",background:"#0a2218",color:"#20B07F",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>↩ Item returned</button>
                       )}
-                      <button onClick={async()=>{if(!f.id)return;await settleFine(f.id);setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));}} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #374151",background:"#1a1d28",color:"#6b7280",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>✓ Mark paid</button>
+                      <button onClick={async()=>{
+                        if(!f.id)return;
+                        const reason=window.prompt("Reason for waiving this charge (e.g. student tried to return on time but staff weren't available):","Staff unavailable when student returned the item");
+                        if(reason===null)return;
+                        try{
+                          await waiveFine(f.id,reason.trim());
+                          setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));
+                          pushToast(`✓ Charge waived for ${f["Student Name"]||"student"}.`,"success");
+                        }catch(e){pushToast(`⚠ Couldn't waive this charge — try again.`,"error");}
+                      }} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #d4851a",background:"#2a1f0a",color:"#d4851a",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>🕊 Waive</button>
+                      <button onClick={async()=>{
+                        if(!f.id)return;
+                        try{
+                          await settleFine(f.id);
+                          setFines(prev=>prev.map(x=>x.id===f.id?{...x,Settled:true}:x));
+                        }catch(e){pushToast(`⚠ Couldn't mark this paid — try again.`,"error");}
+                      }} style={{padding:"3px 8px",borderRadius:6,border:"0.5px solid #374151",background:"#1a1d28",color:"#6b7280",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>✓ Mark paid</button>
                     </div>
                   </div>
                 ))}

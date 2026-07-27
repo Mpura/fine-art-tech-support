@@ -1,5 +1,5 @@
 import { EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE } from "../shared.jsx";
-import { atGet, atPost } from "./airtable.js";
+import { atGet, atPost, atPatch } from "./airtable.js";
 
 async function fetchEquipment(yearNum) {
   const data = await atGet(EQ_TABLE, {
@@ -92,6 +92,13 @@ async function settleFine(fineId) {
   return atPatch(FINES_TABLE, fineId, { Settled: true });
 }
 
+// Excuses a charge without payment (e.g. the student tried to return on
+// time but staff weren't available) — keeps a note of why, distinct from
+// a fine that was actually paid.
+async function waiveFine(fineId, reason) {
+  return atPatch(FINES_TABLE, fineId, { Settled: true, "Staff Notes": `Waived — ${reason || "excused by staff"}` });
+}
+
 async function settleLostItemFine(reqId, itemName) {
   const formula = `AND({Request ID}="${fSafe(reqId)}",{Type}="Lost Item",{Item Name}="${fSafe(itemName)}",{Settled}=FALSE())`;
   const data = await atGet(FINES_TABLE, { filterByFormula: formula });
@@ -100,4 +107,4 @@ async function settleLostItemFine(reqId, itemName) {
   }
 }
 
-export { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine, settleFine };
+export { fetchEquipment, createEquipmentBooking, saveFineRecord, fetchEqImagesByIds, fetchFinesForStudent, fetchFinesForMonth, settleLostItemFine, settleFine, waiveFine };
