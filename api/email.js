@@ -61,14 +61,20 @@ function buildEmail(req, event) {
   const box = (inner) => `<div style="background:#1a1d28;border-radius:8px;padding:14px 16px;margin-bottom:4px;font-size:14px">${inner}</div>`;
 
   if (event === "confirmation") {
+    // A walk-in is logged as already Collected — the student has the gear in
+    // hand, so this email is a checkout receipt, not a "we'll review it" note.
+    const isCollected = req.status === "Collected";
     const isConfirmed = req.status === "Confirmed";
+    const opening = isCollected
+      ? `you've collected the equipment below. Please have it back by the due date.`
+      : `your <strong>${esc(typeName)}</strong> request has been ${isConfirmed ? "logged and confirmed" : "received and is being reviewed"}.`;
     return {
-      subject: `${icon} Your ${typeName} request — FATS`,
-      html: wrapper(icon, "Request received", `
-        <p style="margin:0 0 16px;font-size:15px">Hi <strong>${name}</strong>, your <strong>${esc(typeName)}</strong> request has been ${isConfirmed ? "logged and confirmed" : "received and is being reviewed"}.</p>
+      subject: isCollected ? `📷 Equipment collected — FATS` : `${icon} Your ${typeName} request — FATS`,
+      html: wrapper(icon, isCollected ? "Equipment collected" : "Request received", `
+        <p style="margin:0 0 16px;font-size:15px">Hi <strong>${name}</strong>, ${opening}</p>
         ${box(`
           <p style="margin:0 0 8px"><strong>Status:</strong> ${esc(req.status || "Pending")}</p>
-          ${req.schedDate ? `<p style="margin:0 0 8px"><strong>Scheduled:</strong> ${esc(req.schedDate)}</p>` : ""}
+          ${req.schedDate ? `<p style="margin:0 0 8px"><strong>${isCollected ? "Collected" : "Scheduled"}:</strong> ${esc(req.schedDate)}</p>` : ""}
           ${req.dueDate ? `<p style="margin:0 0 8px"><strong>Due back:</strong> ${esc(req.dueDate)}</p>` : ""}
           ${itemsHtml(items)}
           ${req.notes ? `<p style="margin:8px 0 0;color:#9ca3af;font-style:italic">"${esc(req.notes)}"</p>` : ""}`)}`),

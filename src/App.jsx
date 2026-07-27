@@ -654,10 +654,14 @@ export default function App() {
     const autoDue=addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
     const due=eqIsWalkIn&&eqManualDue?eqManualDue:autoDue;
     const slotLabel=eqIsWalkIn?"Walk-in":(EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot);
-    const initStatus=eqIsWalkIn?"Confirmed":"Pending";
+    // A walk-in IS a hand-over — the student is leaving with the gear (or
+    // already has it, when logging one retroactively). Marking it "Confirmed"
+    // would leave it invisible to every overdue/fine check (which all look for
+    // "Collected") and wrongly flag it in the "past collection deadline" sweep.
+    const initStatus=eqIsWalkIn?"Collected":"Pending";
     setEqSubmitting(true);
     try{await createEquipmentBooking(eqStudent,selItems,eqColDate,eqSlot||"walkin",due,eqNotes);}catch(e){}
-    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,studentEmail:eqStudent.email||null,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:initStatus,staffNote:"",isWalkIn:eqIsWalkIn,createdAt:todayISO(),updatedAt:todayISO()};
+    const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,studentEmail:eqStudent.email||null,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:eqIsWalkIn?eqColDate:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:initStatus,staffNote:"",isWalkIn:eqIsWalkIn,createdAt:todayISO(),updatedAt:todayISO()};
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     setEqScreen("success");setEqSubmitting(false);setEqIsWalkIn(false);
     try{
