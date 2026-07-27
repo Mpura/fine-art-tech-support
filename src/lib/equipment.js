@@ -88,22 +88,31 @@ async function fetchFinesForMonth(month) {
   return (data.records || []).map(r => ({ id: r.id, ...r.fields }));
 }
 
+// The server proxy returns {error:...} rather than a non-2xx throw for
+// rejected ops (wrong PIN, method not allowed, etc.) — check explicitly and
+// throw here so callers' try/catch actually fires instead of silently
+// treating a rejected write as a success.
+function assertPatched(r) {
+  if (!r || r.error || !r.id) throw new Error(r?.error || "Airtable did not confirm the update");
+  return r;
+}
+
 async function settleFine(fineId) {
-  return atPatch(FINES_TABLE, fineId, { Settled: true });
+  return assertPatched(await atPatch(FINES_TABLE, fineId, { Settled: true }));
 }
 
 // Excuses a charge without payment (e.g. the student tried to return on
 // time but staff weren't available) — keeps a note of why, distinct from
 // a fine that was actually paid.
 async function waiveFine(fineId, reason) {
-  return atPatch(FINES_TABLE, fineId, { Settled: true, "Staff Notes": `Waived — ${reason || "excused by staff"}` });
+  return assertPatched(await atPatch(FINES_TABLE, fineId, { Settled: true, "Staff Notes": `Waived — ${reason || "excused by staff"}` }));
 }
 
 async function settleLostItemFine(reqId, itemName) {
   const formula = `AND({Request ID}="${fSafe(reqId)}",{Type}="Lost Item",{Item Name}="${fSafe(itemName)}",{Settled}=FALSE())`;
   const data = await atGet(FINES_TABLE, { filterByFormula: formula });
   for (const rec of data.records || []) {
-    await atPatch(FINES_TABLE, rec.id, { Settled: true, "Staff Notes": "Item found and returned" });
+    assertPatched(await atPatch(FINES_TABLE, rec.id, { Settled: true, "Staff Notes": "Item found and returned" }));
   }
 }
 

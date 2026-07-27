@@ -39,7 +39,7 @@ const PUBLIC_OPS = {
 const STAFF_OPS = {
   [REQUESTS]: ["PATCH"],
   [EQ]: ["PATCH"],
-  [FINES]: ["POST"],
+  [FINES]: ["POST", "PATCH"],
   [MAINT]: ["GET", "POST", "PATCH", "DELETE"],
   [PM]: ["GET", "POST", "PATCH", "DELETE"],
   [SETTINGS]: ["PATCH"],
