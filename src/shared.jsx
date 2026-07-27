@@ -21,7 +21,7 @@ const SUPPLIERS_TABLE = "tblhJKtWH4fR04RhQ";
 // equipment settings and the staff PIN apply on every device, not just the
 // browser where they were changed.
 const SETTINGS_TABLE = "tblfEH66wD8KPJMl9";
-const SETTINGS_RECS = {leave:"recVxEasEt1aNrS3N",blocks:"recKwguxmAdTgtjQH",schedule:"recnV0VmlYGKrH5wx",eqSettings:"recKAlQewn1k7eDcs",pin:"recl1lbt7hHWY8vHr"};
+const SETTINGS_RECS = {leave:"recVxEasEt1aNrS3N",blocks:"recKwguxmAdTgtjQH",schedule:"recnV0VmlYGKrH5wx",eqSettings:"recKAlQewn1k7eDcs",pin:"recl1lbt7hHWY8vHr",serviceStatus:"recTMP8Y5IPr5EXtK"};
 
 const YEAR_LABELS = {"1":"1st year","2":"2nd year","3":"3rd year","4":"4th year","m":"Masters","s":"Staff","o":"Other"};
 
@@ -86,7 +86,7 @@ const MONTHS=["January","February","March","April","May","June","July","August",
 const DAYS_SHORT=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DAY_FULL=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1",lic:"fats_lic_v1"};
+const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:"fats_maint_v5",hs:"fats_hs_v5",leave:"fats_leave_v5",savedStudNo:"fats_studno_v1",staffPin:"fats_pin_v1",eqSet:"fats_eqset_v1",lic:"fats_lic_v1",svcStatus:"fats_svcstatus_v1"};
 
 // Licence seed moved server-side (api/_licence-data.js, served via /api/licences)
 // so vendor contacts / PO / licence numbers aren't in the public client bundle.

@@ -39,6 +39,10 @@ export default function App() {
   const [showLicForm, setShowLicForm] = useState(false);
   const [expandLicId, setExpandLicId] = useState(null);
   const [leaveMode, setLeaveMode] = useState({active:false,returnDate:"",message:""});
+  // Per-service availability — { print:{out:true,reason:"No ink or paper"}, ... }
+  // Lets staff take one service offline (out of consumables, machine broken)
+  // without turning off the whole portal via leave mode.
+  const [serviceStatus, setServiceStatus] = useState({});
   const [loaded, setLoaded] = useState(false);
 
   // Dashboard UI
@@ -214,11 +218,12 @@ export default function App() {
       const h=localStorage.getItem(KEYS.hs);if(h)setHsLogs(JSON.parse(h));
       const l=localStorage.getItem(KEYS.leave);if(l)setLeaveMode(JSON.parse(l));
       const li=localStorage.getItem(KEYS.lic);if(li)setLicences(JSON.parse(li));
+      const ss=localStorage.getItem(KEYS.svcStatus);if(ss)setServiceStatus(JSON.parse(ss));
       const sn=localStorage.getItem(KEYS.savedStudNo);if(sn)setForm(f=>({...f,studNo:sn}));
     }catch(e){}
     // Shared settings come from Airtable so leave mode, blocks, schedules and
     // the PIN apply on every device (localStorage above is just a fast cache)
-    atGet(SETTINGS_TABLE,{maxRecords:10}).then(d=>{
+    atGet(SETTINGS_TABLE,{maxRecords:50}).then(d=>{
       for(const r of d.records||[]){
         let val;try{val=JSON.parse(r.fields?.Value||"null");}catch(e){continue;}
         if(val==null)continue;
@@ -227,6 +232,7 @@ export default function App() {
         else if(key==="blocks"){setBlocks(val);persist(KEYS.block,val);}
         else if(key==="schedule"){setSchedule(val);persist(KEYS.sched,val);}
         else if(key==="eqSettings"){setEqSettings(val);localStorage.setItem(KEYS.eqSet,JSON.stringify(val));}
+        else if(key==="serviceStatus"){setServiceStatus(val);persist(KEYS.svcStatus,val);}
         // "pin" is never returned by the server — verified server-side via VERIFY_PIN
       }
     }).catch(()=>{});
@@ -327,6 +333,12 @@ export default function App() {
     if(isWalkIn){if(!form.name.trim()||!selType)return;}
     else if(isExt){if(!extForm.name.trim()||!selType)return;}
     else{if(!verifiedStudent||!selType)return;}
+    // Service taken offline while the student was mid-form — staff walk-ins
+    // are exempt so Tech Support can still log something in person.
+    if(!isWalkIn&&svcOut(selType)){
+      pushToast(`⛔ ${type?.label||"That service"} is out of order — this request can't be submitted.`,"error");
+      return;
+    }
     const _schedDate=
       selType==="studio"&&form.studioDate&&form.studioSlot?`${form.studioDate} (${EQ_COL_SLOTS.find(s=>s.id===form.studioSlot)?.label||form.studioSlot})`:
       selType==="3d"&&form.dropOffDate?`Drop-off: ${fmtDate(form.dropOffDate)}`:
@@ -524,6 +536,20 @@ export default function App() {
   function logMaintenance(){if(!maintForm.equipmentId||!maintForm.date)return;const log={id:genId(),...maintForm,createdAt:todayISO()};const u=[log,...maintLogs];setMaintLogs(u);persist(KEYS.maint,u);setMaintForm({equipmentId:"",date:"",notes:"",status:"Done",duration:""});}
   function toggleLeave(){const u=leaveMode.active?{active:false,returnDate:"",message:""}:{...leaveMode,active:true};setLeaveMode(u);persist(KEYS.leave,u);saveSetting("leave",u);}
   function saveLeave(){persist(KEYS.leave,leaveMode);saveSetting("leave",leaveMode);}
+  // Take a single service offline / bring it back. Reason shows to students.
+  function toggleServiceOut(typeId,reason){
+    const isOut=!!serviceStatus[typeId]?.out;
+    const u={...serviceStatus};
+    if(isOut)delete u[typeId];
+    else u[typeId]={out:true,reason:(reason||"").trim(),since:todayDate()};
+    setServiceStatus(u);persist(KEYS.svcStatus,u);saveSetting("serviceStatus",u);
+  }
+  function setServiceReason(typeId,reason){
+    if(!serviceStatus[typeId]?.out)return;
+    const u={...serviceStatus,[typeId]:{...serviceStatus[typeId],reason}};
+    setServiceStatus(u);persist(KEYS.svcStatus,u);saveSetting("serviceStatus",u);
+  }
+  const svcOut=(typeId)=>!!serviceStatus[typeId]?.out;
   function addLicence(){if(!licForm.software.trim())return;const lic={id:genId(),...licForm,seats:Number(licForm.seats)||1,createdAt:todayISO()};const u=[lic,...licences];setLicences(u);persist(KEYS.lic,u);setLicForm({software:"",vendor:"",vendorContact:"",vendorPhone:"",poNumber:"",licenceNo:"",importCode:"",partNo:"",seats:"1",effectiveDate:todayDate(),expiryDate:"",notes:""});setShowLicForm(false);}
   function deleteLicence(id){if(!window.confirm("Delete this licence record?"))return;const u=licences.filter(l=>l.id!==id);setLicences(u);persist(KEYS.lic,u);}
   function licStatus(l){if(!l.expiryDate)return{label:"Perpetual",bg:"#0a2218",color:"#20B07F"};const days=Math.floor((new Date(l.expiryDate+"T00:00:00")-new Date())/86400000);if(days<0)return{label:"Expired",bg:"#2a0f14",color:"#f87171"};if(days<=60)return{label:`Expires in ${days}d`,bg:"#2a1f0a",color:"#d4851a"};return{label:`Active · exp ${fmtDate(l.expiryDate)}`,bg:"#0a2218",color:"#20B07F"};}
@@ -651,6 +677,11 @@ export default function App() {
   }
   async function submitEqRequest(){
     if(!eqColDate||(!eqIsWalkIn&&!eqSlot)||selItems.length===0)return;
+    // Equipment taken offline mid-flow — staff walk-ins stay allowed
+    if(!eqIsWalkIn&&svcOut("equipment")){
+      pushToast("⛔ Equipment booking is out of order — this request can't be submitted.","error");
+      return;
+    }
     const autoDue=addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
     const due=eqIsWalkIn&&eqManualDue?eqManualDue:autoDue;
     const slotLabel=eqIsWalkIn?"Walk-in":(EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot);
@@ -856,24 +887,37 @@ export default function App() {
         {/* ── Service grid ── */}
         <div style={{fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:10}}>Request a service</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-          {REQUEST_TYPES.filter(t=>LAB_IDS.includes(t.id)).map(t=>(
-            <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",firstTime:false}));}}
-              style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"12px",cursor:"pointer"}}>
-              <div style={{fontSize:18,marginBottom:6}}>{t.icon}</div>
-              <div style={{fontSize:12,fontWeight:500,color:"#c9cdd6",lineHeight:1.3}}>{t.label}</div>
-              <div style={{fontSize:10,color:"#4b5563",marginTop:2}}>{t.booking}</div>
+          {REQUEST_TYPES.filter(t=>LAB_IDS.includes(t.id)).map(t=>{
+            const out=svcOut(t.id);
+            return(
+            <div key={t.id} onClick={()=>{if(out)return;setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",firstTime:false}));}}
+              style={{background:out?"#1a1216":"#141720",border:`0.5px solid ${out?"#5a2a2a":"#1e2130"}`,borderRadius:10,padding:"12px",cursor:out?"not-allowed":"pointer",opacity:out?0.75:1}}>
+              <div style={{fontSize:18,marginBottom:6,filter:out?"grayscale(1)":"none"}}>{t.icon}</div>
+              <div style={{fontSize:12,fontWeight:500,color:out?"#9ca3af":"#c9cdd6",lineHeight:1.3}}>{t.label}</div>
+              {out?(<>
+                <div style={{fontSize:10,color:"#f87171",fontWeight:600,marginTop:3,letterSpacing:"0.04em"}}>⛔ OUT OF ORDER</div>
+                {serviceStatus[t.id]?.reason&&<div style={{fontSize:10,color:"#9ca3af",marginTop:2,lineHeight:1.35}}>{serviceStatus[t.id].reason}</div>}
+              </>):(
+                <div style={{fontSize:10,color:"#4b5563",marginTop:2}}>{t.booking}</div>
+              )}
             </div>
-          ))}
+          );})}
         </div>
         {/* Equipment + check request — wide action buttons */}
-        <div onClick={()=>{setScreen("equipment");setEqScreen("lookup");}} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"11px 14px",marginBottom:8,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:28,height:28,borderRadius:8,background:"#1a1e2e",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📷</div>
+        {(()=>{const out=svcOut("equipment");return(
+        <div onClick={()=>{if(out)return;setScreen("equipment");setEqScreen("lookup");}} style={{background:out?"#1a1216":"#141720",border:`0.5px solid ${out?"#5a2a2a":"#1e2130"}`,borderRadius:10,padding:"11px 14px",marginBottom:8,cursor:out?"not-allowed":"pointer",display:"flex",alignItems:"center",gap:12,opacity:out?0.75:1}}>
+          <div style={{width:28,height:28,borderRadius:8,background:"#1a1e2e",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0,filter:out?"grayscale(1)":"none"}}>📷</div>
           <div style={{flex:1}}>
-            <div style={{fontSize:12,fontWeight:500,color:"#c9cdd6"}}>Equipment booking</div>
-            <div style={{fontSize:10,color:"#4b5563"}}>Cameras, tripods & more</div>
+            <div style={{fontSize:12,fontWeight:500,color:out?"#9ca3af":"#c9cdd6"}}>Equipment booking</div>
+            {out?(
+              <div style={{fontSize:10,color:"#f87171",fontWeight:600,marginTop:1}}>⛔ OUT OF ORDER{serviceStatus.equipment?.reason?<span style={{color:"#9ca3af",fontWeight:400}}> — {serviceStatus.equipment.reason}</span>:null}</div>
+            ):(
+              <div style={{fontSize:10,color:"#4b5563"}}>Cameras, tripods &amp; more</div>
+            )}
           </div>
           <span style={{color:"#374151",fontSize:14}}>›</span>
         </div>
+        );})()}
         <div onClick={()=>{setScreen("check");setCheckStudNo("");setCheckResults(null);setMyFines(null);}} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"11px 14px",marginBottom:16,cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:28,height:28,borderRadius:8,background:"#1a2e25",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>📋</div>
           <div style={{flex:1}}>
@@ -884,17 +928,23 @@ export default function App() {
         </div>
         {/* Other services — compact list */}
         <div style={{fontSize:11,color:"#4b5563",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:8}}>Other services</div>
-        {REQUEST_TYPES.filter(t=>!LAB_IDS.includes(t.id)&&t.id!=="equipment").map(t=>(
-          <div key={t.id} onClick={()=>{setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",firstTime:false}));}}
-            style={{display:"flex",alignItems:"center",gap:12,background:"#141720",border:"0.5px solid #1e2130",borderRadius:10,padding:"10px 14px",marginBottom:6,cursor:"pointer"}}>
-            <span style={{fontSize:18}}>{t.icon}</span>
+        {REQUEST_TYPES.filter(t=>!LAB_IDS.includes(t.id)&&t.id!=="equipment").map(t=>{
+          const out=svcOut(t.id);
+          return(
+          <div key={t.id} onClick={()=>{if(out)return;setSelType(t.id);setScreen(t.prep.length>0?"prep":"form");setPrepOk(false);setSelDate(null);setSelSlot(null);setForm(f=>({...f,name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",firstTime:false}));}}
+            style={{display:"flex",alignItems:"center",gap:12,background:out?"#1a1216":"#141720",border:`0.5px solid ${out?"#5a2a2a":"#1e2130"}`,borderRadius:10,padding:"10px 14px",marginBottom:6,cursor:out?"not-allowed":"pointer",opacity:out?0.75:1}}>
+            <span style={{fontSize:18,filter:out?"grayscale(1)":"none"}}>{t.icon}</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea"}}>{t.label}</div>
-              <div style={{fontSize:11,color:"#4b5563",marginTop:1}}>{t.booking}</div>
+              <div style={{fontSize:13,fontWeight:500,color:out?"#9ca3af":"#e0e3ea"}}>{t.label}</div>
+              {out?(
+                <div style={{fontSize:11,color:"#f87171",fontWeight:600,marginTop:1}}>⛔ OUT OF ORDER{serviceStatus[t.id]?.reason?<span style={{color:"#9ca3af",fontWeight:400}}> — {serviceStatus[t.id].reason}</span>:null}</div>
+              ):(
+                <div style={{fontSize:11,color:"#4b5563",marginTop:1}}>{t.booking}</div>
+              )}
             </div>
             <span style={{color:"#374151"}}>›</span>
           </div>
-        ))}
+        );})}
       </>)}
     </div>
   );
@@ -2150,6 +2200,35 @@ export default function App() {
       {dashTab==="schedule"&&(<>
         <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>Equipment schedule</div>
         <div style={{fontSize:13,color:"#6b7280",marginBottom:16}}>Set available days and slot limits for bookable equipment</div>
+        {/* ── Service availability (out of order) ── */}
+        <div style={{background:"#141720",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:500,marginBottom:2}}>⛔ Service availability</div>
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:12}}>Take a service offline when you're out of consumables or a machine is broken. Students see it greyed out with your reason and can't submit a request for it.</div>
+          {REQUEST_TYPES.filter(t=>t.id!=="query").map(t=>{
+            const out=svcOut(t.id);
+            return(
+              <div key={t.id} style={{background:out?"#1a1216":"#0f1117",border:`0.5px solid ${out?"#5a2a2a":"#1e2130"}`,borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:16,filter:out?"grayscale(1)":"none"}}>{t.icon}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,color:out?"#9ca3af":"#e0e3ea",fontWeight:500}}>{t.label}</div>
+                    {out&&<div style={{fontSize:11,color:"#f87171",marginTop:1}}>Out of order{serviceStatus[t.id]?.since?` · since ${fmtDate(serviceStatus[t.id].since)}`:""}</div>}
+                  </div>
+                  <button onClick={()=>{
+                    if(out){toggleServiceOut(t.id);pushToast(`✓ ${t.label} is available again.`,"success");return;}
+                    const reason=window.prompt(`Why is ${t.label} out of order? (students will see this)`,"");
+                    if(reason===null)return;
+                    toggleServiceOut(t.id,reason);
+                    pushToast(`⛔ ${t.label} marked out of order.`,"info");
+                  }} style={{padding:"5px 12px",borderRadius:7,border:`0.5px solid ${out?"#20B07F":"#5a2a2a"}`,background:out?"#0a2218":"#2a1216",color:out?"#20B07F":"#f87171",fontSize:11,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap",fontWeight:500}}>{out?"✓ Back in service":"Mark out of order"}</button>
+                </div>
+                {out&&(
+                  <input style={{...ipt,marginTop:8,fontSize:12,padding:"7px 10px"}} defaultValue={serviceStatus[t.id]?.reason||""} onBlur={e=>setServiceReason(t.id,e.target.value)} placeholder="Reason shown to students — e.g. No ink or paper until further notice"/>
+                )}
+              </div>
+            );
+          })}
+        </div>
         {/* Loan settings */}
         <div style={{background:"#141720",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:eqSettingsForm?12:0}}>
