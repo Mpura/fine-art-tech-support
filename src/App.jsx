@@ -5,7 +5,7 @@ import {
   YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE,
   STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle,
   MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS,
-  EQ_COL_DAYS, EQ_COL_SLOTS, EQ_COL_WINDOW, isEqColDay, RUSH_MODE,
+  EQ_COL_DAYS, EQ_COL_WINDOW, isEqColDay, STUDIO_COL_DAYS, isStudioColDay, RUSH_MODE,
   genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr,
   addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost,
   CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, getDateStatus,
@@ -69,7 +69,7 @@ export default function App() {
   const [maintForm, setMaintForm] = useState({equipmentId:"",date:"",notes:"",status:"Done",duration:""});
 
   // Student request form
-  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",studioSlot:"",dropOffDate:"",startTime:"",fileUploaded:false,firstTime:false,needsDesignHelp:false});
+  const [form, setForm] = useState({name:"",studNo:localStorage.getItem(KEYS.savedStudNo)||"",year:"",when:"walkin",schedDate:"",notes:"",paperSize:"",paperType:"",colour:"Colour",copies:"",material:"",materialThickness:"",dimensions:"",jobType:"Cut",softwareName:"",downloadUrl:"",macLocation:"",duration:"",material3d:"",infill:"",eventType:"",eventStart:"",eventEnd:"",attendance:"",setupNeeds:"",venue:"",techSupport:"",printPresent:"",softwareType:"",studioDate:"",dropOffDate:"",startTime:"",fileUploaded:false,firstTime:false,needsDesignHelp:false});
 
   // AV setup wizard state
   const [avStep, setAvStep] = useState(0);
@@ -363,7 +363,14 @@ export default function App() {
     if(selType==="laser") return{material:form.material,materialThickness:form.materialThickness,dimensions:form.dimensions,jobType:form.jobType,startTime:form.startTime,fileUploaded:form.needsDesignHelp?false:form.fileUploaded,needsDesignHelp:form.needsDesignHelp,firstTime:form.firstTime};
     if(selType==="3d") return{dimensions:form.dimensions,material3d:form.material3d,infill:form.infill,dropOffDate:form.dropOffDate};
     if(selType==="software") return{softwareType:form.softwareType,softwareName:form.softwareName,downloadUrl:form.downloadUrl,macLocation:form.macLocation};
-    if(selType==="studio") return{firstTime:form.firstTime};
+    if(selType==="studio"){
+      // 4th years booking a Friday may keep the studio over the weekend,
+      // returning Monday — everyone else (and every other weekday) is same-day.
+      const isFri=form.studioDate&&new Date(form.studioDate+"T00:00:00").getDay()===5;
+      const is4th=String(verifiedStudent?.year)==="4";
+      const weekendLoan=isFri&&is4th;
+      return{firstTime:form.firstTime,weekendLoan,returnBy:weekendLoan?addCalendarDays(form.studioDate,3):form.studioDate};
+    }
     if(selType==="gallery") return{eventType:form.eventType,eventStart:form.eventStart,eventEnd:form.eventEnd,attendance:form.attendance,setupNeeds:form.setupNeeds,venue:form.venue,techSupport:form.techSupport};
     if(selType==="avsetup"){
       const VENUE_LABELS={"sculpture":"Sculpture studio","painting":"Painting studio","da":"DA studio","print":"Print studio","year1":"1st year studio","year2":"2nd year studio","gallery":"Main gallery","seminar":"Seminar room","outdoor":"Outdoor space","other":avWiz.venueOther||"Other"};
@@ -387,7 +394,7 @@ export default function App() {
       return;
     }
     const _schedDate=
-      selType==="studio"&&form.studioDate&&form.studioSlot?`${form.studioDate} (${EQ_COL_SLOTS.find(s=>s.id===form.studioSlot)?.label||form.studioSlot})`:
+      selType==="studio"&&form.studioDate?form.studioDate:
       selType==="3d"&&form.dropOffDate?`Drop-off: ${fmtDate(form.dropOffDate)}`:
       type.bookable&&selDate?(selType==="laser"?`${selDate} (Full day${form.startTime?` · ${form.startTime}`:""})`:`${selDate} (${selSlot==="morning"?"Morning 09:00–12:00":"Afternoon 13:00–16:00"})`):
       form.when==="later"&&!isWalkIn?form.schedDate:null;
@@ -795,7 +802,7 @@ export default function App() {
     let summary="";
     if(req.typeId==="print"){summary=[d.paperSize,d.paperType,d.colour,d.copies&&`×${d.copies}`].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
     else if(req.typeId==="laser"){summary=[d.material&&d.materialThickness?`${d.material} ${d.materialThickness}mm`:d.material,d.dimensions,d.jobType,d.startTime?`Start ${d.startTime}`:null,d.firstTime?"⭐ First time":null].filter(v=>v&&!String(v).startsWith("Select")).join(", ");}
-    else if(req.typeId==="studio"){const sm=req.schedDate?.match(/\((.+?)\)/);summary=(d.firstTime?"⭐ First time · ":"")+(sm?sm[1]:"");}
+    else if(req.typeId==="studio"){summary=[d.firstTime?"⭐ First time":null,d.weekendLoan?`Weekend loan — return by ${fmtDate(d.returnBy)}`:null].filter(Boolean).join(" · ");}
     else if(req.typeId==="equipment"){summary=d.items||(d.itemsData||[]).map(i=>i.name).join(", ")||"Equipment";}
     else if(req.typeId==="avsetup"){summary=[d.venue,d.displayType&&d.screenCount?`${d.displayType} × ${d.screenCount}`:d.displayType,d.setupTime?`Setup ${d.setupTime}`:"",d.eventDate?`Event ${fmtDate(d.eventDate)}`:""].filter(v=>v&&v!=="TBC").join(" · ");}
     const isOverdue=req.dueDate&&req.dueDate<_today;
@@ -1537,19 +1544,14 @@ export default function App() {
             <div style={{fontSize:12,color:"#6b7280"}}>I haven't been shown how to use it — same-day booking isn't available, and the whole day gets set aside for orientation</div>
           </div>
         </label>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={form.firstTime?addBusinessDays(todayDate(),1):todayDate()} max={addBusinessDays(todayDate(),Math.max(eqSettings.maxAdvanceDays,form.firstTime?1:0))} onChange={e=>{setF("studioDate",e.target.value);setF("studioSlot","");}}/>{form.studioDate&&!isEqColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are only available Mon, Wed, Fri (12:00–13:00). Please pick one of those days.</div>}
-        {form.firstTime&&form.studioDate&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ This day is already reserved (laser, printing, or another first-time studio session). Please choose a different date.</div>}</div>
-        {form.studioDate&&isEqColDay(form.studioDate)&&(
-          <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {EQ_COL_SLOTS.map(slot=>{
-                const taken=requests.filter(r=>r.typeId==="studio"&&r.schedDate&&r.schedDate.startsWith(form.studioDate)&&r.schedDate.includes(slot.label)&&r.status!=="Declined").length;
-                const full=taken>=1;
-                return(<button key={slot.id} onClick={()=>!full&&setF("studioSlot",slot.id)} disabled={full} style={{flex:1,minWidth:100,padding:"12px 8px",borderRadius:10,border:form.studioSlot===slot.id?`2px solid ${TEAL}`:"0.5px solid #1e2130",background:full?"#1a1d28":form.studioSlot===slot.id?"#0a2218":"#141720",color:full?"#374151":form.studioSlot===slot.id?TEAL:"#e0e3ea",fontSize:13,cursor:full?"not-allowed":"pointer",fontFamily:"inherit",textAlign:"center"}}>{slot.label}<br/><span style={{fontSize:11}}>{full?"Full":"Available"}</span></button>);
-              })}
-            </div>
-          </div>
+        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={form.firstTime?addBusinessDays(todayDate(),1):todayDate()} max={addBusinessDays(todayDate(),Math.max(eqSettings.maxAdvanceDays,form.firstTime?1:0))} onChange={e=>setF("studioDate",e.target.value)}/>{form.studioDate&&!isStudioColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are available Monday–Friday only. Please pick a weekday.</div>}
+        {form.firstTime&&form.studioDate&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ This day is already reserved (laser, printing, or another first-time studio session). Please choose a different date.</div>}
+        {form.studioDate&&isStudioColDay(form.studioDate)&&new Date(form.studioDate+"T00:00:00").getDay()===5&&(
+          String(verifiedStudent?.year)==="4"?
+          <div style={{fontSize:12,color:"#20B07F",background:"#0a2218",borderRadius:8,padding:"8px 10px",marginTop:6}}>✓ As a 4th year, you can keep the studio over the weekend — return the key by 16:30 on {fmtDate(addCalendarDays(form.studioDate,3))}.</div>
+          :<div style={{fontSize:12,color:"#d4851a",background:"#2a1f0a",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠ Weekend access is 4th-year only — the key must be returned today by 16:30.</div>
         )}
+        </div>
       </>)}
       {type.id==="gallery"&&(<>
         <div style={{background:"#0a1e35",borderRadius:10,padding:"10px 12px",marginBottom:14,fontSize:12,color:"#3b82f6"}}>
@@ -1783,7 +1785,7 @@ export default function App() {
         </>}
       </div>}
       {(type.id!=="avsetup"||avStep===7)&&<div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{type.id==="avsetup"?"Any extra notes for Tech Support? (optional)":"Additional notes (optional)"}</label><textarea style={{...ipt,resize:"vertical"}} rows={3} value={form.notes} onChange={e=>setF("notes",e.target.value)} placeholder={type.id==="avsetup"?"e.g. I need to set up the night before, or there's a very long cable run needed...":"Any extra details Tech Support should know..."}/></div>}
-      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&(!form.printPresent||(form.printPresent==="yes"&&selDate&&labDayOccupiedBy(selDate,["laser","studio"]).length>0)))||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileUploaded)))||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isEqColDay(form.studioDate)||!form.studioSlot||(form.firstTime&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0)))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
+      {(type.id!=="avsetup"||avStep===7)&&<Btn onClick={async()=>{if(submitting)return;setSubmitting(true);const r=await submitRequest();setSubmitting(false);if(r){setLastReq(r);setScreen("success");}}} disabled={submitting||(visitorType==="student"?!verifiedStudent:!extForm.name.trim())||(selType==="print"&&(!form.printPresent||(form.printPresent==="yes"&&selDate&&labDayOccupiedBy(selDate,["laser","studio"]).length>0)))||(selType==="laser"&&(!form.startTime||(!form.needsDesignHelp&&!form.fileUploaded)))||(selType==="3d"&&!form.dropOffDate)||(selType==="studio"&&(!form.studioDate||!isStudioColDay(form.studioDate)||(form.firstTime&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0)))||(selType==="avsetup"&&avStep<7)} full style={{padding:"13px",fontSize:15}}>{submitting?"Submitting…":"Submit a request"}</Btn>}
     </div>
   );
 

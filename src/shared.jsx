@@ -30,7 +30,7 @@ const REQUEST_TYPES = [
   {id:"laser",label:"Laser cutter & engraving",icon:"⚡",booking:"advance booking only",bookable:true,needsFiles:true,prep:["Know your exact material type and thickness in mm","⚠️ Banned materials: PVC, polycarbonate, rubber, fibreglass, foam, galvanised metal, MDF — ask Tech Support if unsure","⚠️ You MUST be present for the full duration of your session — no drop-off jobs","⚠️ First-time users: a material test cut is required before your main job","⚠️ Minimum 1 business day advance — no same-day bookings"]},
   {id:"3d",label:"3D printing",icon:"🧱",booking:"advance booking only",bookable:false,needsFiles:true,prep:["File must be STL or OBJ","Know your dimensions and scale","Decide material preference","Decide infill density","⚠️ Minimum 5 business days advance — prints take hours to complete","⚠️ Drop-off service: you will be notified when your print is ready to collect"]},
   {id:"software",label:"Software install",icon:"💻",booking:"walk-in",bookable:false,needsFiles:false,prep:["Know the exact software name","Have the download URL ready","Know which Mac number and lab room"]},
-  {id:"studio",label:"Lighting studio",icon:"💡",booking:"advance booking only",bookable:false,needsFiles:false,prep:["Studio orientation required before first use — speak to Tech Support","⚠️ Keys must be handed back to Tech Support in person by 16:30 the same day — there is no drop-off"]},
+  {id:"studio",label:"Lighting studio",icon:"💡",booking:"advance booking only",bookable:false,needsFiles:false,prep:["Studio orientation required before first use — speak to Tech Support","⚠️ Keys must be handed back to Tech Support in person by 16:30 the same day — there is no drop-off (4th years booking a Friday may keep it over the weekend, returning by 16:30 Monday)"]},
   {id:"equipment",label:"Equipment booking",icon:"📷",booking:"advance booking only",bookable:false,needsFiles:false,prep:[]},
   {id:"gallery",label:"Gallery / space booking",icon:"🖼️",booking:"advance booking only",bookable:false,needsFiles:false,prep:["Have a clear concept or proposal for the event","Know your proposed dates and how many days you need","Estimate expected attendance","List any setup requirements (tables, chairs, PA, lighting)","⚠️ Bookings are subject to availability and departmental approval"]},
   {id:"avsetup",label:"Tech setup / AV support",icon:"📽️",booking:"advance booking — 5 days min",bookable:false,needsFiles:false,prep:["Know your event date and time","Know the venue or space you'll be using","Have an idea of what device you're connecting (MacBook, Windows, iPad, phone — or none)","Think about how many screens or projection surfaces you need","⚠️ Only 2 projectors are available for booking — request early","⚠️ Minimum 5 business days notice required — this allows time for equipment checks and cable runs"]},
@@ -98,12 +98,13 @@ const DEFAULT_EQ_SETTINGS={yr12Days:3,yr3Days:2,yr34Days:5,dailyRate:50,maxAdvan
 // Returns must be in by returnByHour (default 10:00) to allow same-day handover
 const EQ_COL_DAYS=[1,3,5]; // Mon=1, Wed=3, Fri=5
 const EQ_COL_WINDOW="12:00–13:00";
-// Studio key collection still uses discrete 30-min slots (one student each)
-const EQ_COL_SLOTS=[
-  {id:"s1",label:"12:00–12:30"},
-  {id:"s2",label:"12:30–13:00"},
-];
 function isEqColDay(dateStr){if(!dateStr)return false;const d=new Date(dateStr+"T00:00:00");return EQ_COL_DAYS.includes(d.getDay());}
+
+// Studio key handover is quick (unlike equipment) and Tech Support does it in
+// person whenever they're around during the day — so unlike equipment
+// collection it isn't limited to Mon/Wed/Fri or a fixed hour, just a weekday.
+const STUDIO_COL_DAYS=[1,2,3,4,5]; // Mon–Fri
+function isStudioColDay(dateStr){if(!dateStr)return false;const d=new Date(dateStr+"T00:00:00");return STUDIO_COL_DAYS.includes(d.getDay());}
 
 // Rush-mode: staff append ?rush=1 to the URL to bypass the 5-day minimum for last-minute requests
 const RUSH_MODE = new URLSearchParams(window.location.search).get("rush")==="1";
@@ -176,5 +177,5 @@ const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false
 );
 
 export {
-  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, EQ_COL_WINDOW, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
+  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_WINDOW, isEqColDay, STUDIO_COL_DAYS, isStudioColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
 };
