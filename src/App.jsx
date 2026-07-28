@@ -1360,16 +1360,6 @@ export default function App() {
         <div style={{fontSize:13,fontWeight:500,color:"#d4851a",marginBottom:10}}>Before you submit — make sure you have:</div>
         {type.prep.map((p,i)=><div key={i} style={{fontSize:13,color:p.startsWith("⚠️")?"#f87171":"#9ca3af",marginBottom:6,display:"flex",gap:8,alignItems:"flex-start"}}><span style={{flexShrink:0}}>{p.startsWith("⚠️")?"":"✓"}</span><span>{p}</span></div>)}
       </div>
-      {type.id==="laser"&&(
-        <a href="/laser-guide.html" target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"12px 14px",marginBottom:16,textDecoration:"none"}}>
-          <span style={{fontSize:20}}>📄</span>
-          <div>
-            <div style={{fontSize:13,fontWeight:500,color:"#60a5fa"}}>Laser File Preparation Guide</div>
-            <div style={{fontSize:12,color:"#4b5563"}}>File setup, colour coding, banned materials &amp; examples — opens in new tab</div>
-          </div>
-          <span style={{marginLeft:"auto",color:"#374151",fontSize:14}}>↗</span>
-        </a>
-      )}
       {type.needsFiles&&type.id!=="laser"&&DRIVE_FOLDERS[type.id]&&(
         <a href={DRIVE_FOLDERS[type.id]} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:10,background:"#0a2218",border:"0.5px solid #14532d",borderRadius:10,padding:"12px 14px",marginBottom:16,textDecoration:"none"}}>
           <span style={{fontSize:20}}>📁</span>
