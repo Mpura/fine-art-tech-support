@@ -92,9 +92,13 @@ const KEYS={req:"fats_req_v5",sched:"fats_sched_v5",block:"fats_block_v5",maint:
 // so vendor contacts / PO / licence numbers aren't in the public client bundle.
 const DEFAULT_EQ_SETTINGS={yr12Days:3,yr3Days:2,yr34Days:5,dailyRate:50,maxAdvanceDays:1,collectionDeadlineHour:16,returnByHour:10,slotCap:2,yr2Cap:2,yr3Cap:3,yr4Cap:4,mastersCap:5};
 
-// Equipment collection: Mon/Wed/Fri only, two 30-min windows 12:00–13:00
+// Equipment collection: Mon/Wed/Fri, one 12:00–13:00 window. Tech Support is
+// present for the whole hour, so there's nothing to choose between — students
+// just pick a day and come during the window.
 // Returns must be in by returnByHour (default 10:00) to allow same-day handover
 const EQ_COL_DAYS=[1,3,5]; // Mon=1, Wed=3, Fri=5
+const EQ_COL_WINDOW="12:00–13:00";
+// Studio key collection still uses discrete 30-min slots (one student each)
 const EQ_COL_SLOTS=[
   {id:"s1",label:"12:00–12:30"},
   {id:"s2",label:"12:30–13:00"},
@@ -172,5 +176,5 @@ const Btn=({children,onClick,color=TEAL,outline=false,disabled=false,small=false
 );
 
 export {
-  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
+  TEAL, BLUE, AMBER, RED, TYPE_COLOR, BASE_ID, EQ_TABLE, CHECKOUT_TABLE, FINES_TABLE, MEMBERS_TABLE, REQUESTS_TABLE, MAINT_TABLE, PM_TABLE, SUPPLIERS_TABLE, SETTINGS_TABLE, SETTINGS_RECS, YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE, STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle, MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS, EQ_COL_DAYS, EQ_COL_SLOTS, EQ_COL_WINDOW, isEqColDay, RUSH_MODE, genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr, addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost, CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, inRange, getDateStatus, ipt, pill, Btn
 };

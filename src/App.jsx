@@ -5,7 +5,7 @@ import {
   YEAR_LABELS, REQUEST_TYPES, BOOKABLE, LAB_IDS, DRIVE_FOLDERS, DEFAULT_SCHEDULE,
   STATUSES, AV_STATUSES, LASER_STATUSES, EQ_STATUSES, statusStyle,
   MONTHS, DAYS_SHORT, DAY_FULL, KEYS, DEFAULT_EQ_SETTINGS,
-  EQ_COL_DAYS, EQ_COL_SLOTS, isEqColDay, RUSH_MODE,
+  EQ_COL_DAYS, EQ_COL_SLOTS, EQ_COL_WINDOW, isEqColDay, RUSH_MODE,
   genId, toKey, fmt, fmtDate, todayISO, todayDate, localDateStr,
   addBusinessDays, addCalendarDays, nextEqColDay, countBizDaysLate, accessoryCost,
   CAL_DATA_YEAR, PUBLIC_HOLIDAYS_2026, RECESS_RANGES, SWOT_RANGES, getDateStatus,
@@ -123,14 +123,13 @@ export default function App() {
   // Anonymised [{itemId,start,end}] of gear already spoken for — students
   // can't see other students' requests, so this comes from /api/availability
   const [eqBooked, setEqBooked] = useState([]);
-  // { "YYYY-MM-DD|12:00–12:30": count } — server-side slot usage, since a
+  // { "YYYY-MM-DD": count } — server-side collections-per-day, since a
   // student's own `requests` can't see anyone else's bookings
-  const [eqSlotUse, setEqSlotUse] = useState({});
+  const [eqDayUse, setEqDayUse] = useState({});
   const [selItems, setSelItems] = useState([]);
   const [eqFilter, setEqFilter] = useState("All");
   const [eqSearch, setEqSearch] = useState("");
   const [eqColDate, setEqColDate] = useState("");
-  const [eqSlot, setEqSlot] = useState("");
   const [eqNotes, setEqNotes] = useState("");
   const [eqTermsAgreed, setEqTermsAgreed] = useState(false);
   const [eqSubmitting, setEqSubmitting] = useState(false);
@@ -195,13 +194,13 @@ export default function App() {
       const r=await fetch("/api/availability");
       const d=await r.json();
       if(Array.isArray(d.windows))setEqBooked(d.windows);
-      if(d.slots&&typeof d.slots==="object")setEqSlotUse(d.slots);
+      if(d.days&&typeof d.days==="object")setEqDayUse(d.days);
       return d;
     }catch(e){/* offline — fall back to no known conflicts */}
     return null;
   }
-  // How many of a date's slots are taken, from server data
-  const eqSlotTaken = (dateKey,slotLabel) => eqSlotUse[`${dateKey}|${slotLabel}`]||0;
+  // How many collections are already booked on a date, from server data
+  const eqDayTaken = (dateKey) => eqDayUse[dateKey]||0;
   // Valid collection days in the booking window — Mon/Wed/Fri, not blocked,
   // not a closure. Shown as pickable chips so students can't choose a day
   // the stockroom simply isn't open.
@@ -215,9 +214,9 @@ export default function App() {
     while(d<=endD&&guard++<90){
       const k=localDateStr(d);
       if(isEqColDay(k)&&!blocks[k]&&getDateStatus(k)?.type!=="blocked"){
-        const cap=eqSettings.slotCap||2;
-        const full=EQ_COL_SLOTS.every(s=>eqSlotTaken(k,s.label)>=cap||(k===todayDate()&&isSlotPast(s.label)));
-        out.push({date:k,full});
+        const cap=eqSettings.slotCap||4;
+        const passed=eqWindowPassed(k);
+        out.push({date:k,full:eqDayTaken(k)>=cap||passed,left:Math.max(0,cap-eqDayTaken(k))});
       }
       d.setDate(d.getDate()+1);
     }
@@ -244,14 +243,8 @@ export default function App() {
     if (now.getHours() >= (eqSettings.collectionDeadlineHour||16)) return nextEqColDay(today);
     return today;
   };
-  const isSlotPast = (slotLabel) => {
-    const today = todayDate();
-    if (eqColDate !== today) return false;
-    const now = new Date();
-    const endHour = slotLabel.includes("11:00")?11:slotLabel.includes("11:30")?12:12;
-    const endMin = slotLabel.includes("11:00")?30:slotLabel.includes("11:30")?0:30;
-    return now.getHours() > endHour || (now.getHours() === endHour && now.getMinutes() >= endMin);
-  };
+  // Has today's 12:00–13:00 collection window already closed?
+  const eqWindowPassed = (dateStr) => dateStr===todayDate() && new Date().getHours()>=13;
   const eqDueDate = eqColDate && eqStudent ? addCalendarDays(eqColDate, getLoanDays(eqStudent.year)) : "";
   const persist=(key,data)=>{try{localStorage.setItem(key,JSON.stringify(data));}catch(e){}};
   const dismissToast=(id)=>setToasts(t=>t.filter(x=>x.id!==id));
@@ -730,7 +723,7 @@ export default function App() {
     });
   }
   async function submitEqRequest(){
-    if(!eqColDate||(!eqIsWalkIn&&!eqSlot)||selItems.length===0)return;
+    if(!eqColDate||selItems.length===0)return;
     // Equipment taken offline mid-flow — staff walk-ins stay allowed
     if(!eqIsWalkIn&&svcOut("equipment")){
       pushToast("⛔ Equipment booking is out of order — this request can't be submitted.","error");
@@ -751,14 +744,14 @@ export default function App() {
     }
     const autoDue=addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
     const due=eqIsWalkIn&&eqManualDue?eqManualDue:autoDue;
-    const slotLabel=eqIsWalkIn?"Walk-in":(EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot);
+    const slotLabel=eqIsWalkIn?"Walk-in":EQ_COL_WINDOW;
     // A walk-in IS a hand-over — the student is leaving with the gear (or
     // already has it, when logging one retroactively). Marking it "Confirmed"
     // would leave it invisible to every overdue/fine check (which all look for
     // "Collected") and wrongly flag it in the "past collection deadline" sweep.
     const initStatus=eqIsWalkIn?"Collected":"Pending";
     setEqSubmitting(true);
-    try{await createEquipmentBooking(eqStudent,selItems,eqColDate,eqSlot||"walkin",due,eqNotes);}catch(e){}
+    try{await createEquipmentBooking(eqStudent,selItems,eqColDate,eqIsWalkIn?"walkin":EQ_COL_WINDOW,due,eqNotes);}catch(e){}
     const req={id:genId(),name:eqStudent.name,studNo:eqStudent.studNo,year:eqStudent.year,studentId:eqStudent.studentId,studentEmail:eqStudent.email||null,type:"Equipment booking",typeId:"equipment",when:"booked",schedDate:`${eqColDate} (${slotLabel})`,notes:eqNotes,details:{items:selItems.map(i=>i.name).join(", "),itemsData:selItems.map(i=>({id:i.id,name:i.name,type:i.type||"",image:i.image||"",replacementCost:i.replacementCost||500,accessories:i.accessories||[]}))},dueDate:due,collectedAt:eqIsWalkIn?eqColDate:null,returnedAt:null,returnedItems:[],checkInNotes:"",lostItems:[],lateDays:0,lateFine:0,status:initStatus,staffNote:"",isWalkIn:eqIsWalkIn,createdAt:todayISO(),updatedAt:todayISO()};
     const u=[req,...requests];setRequests(u);persist(KEYS.req,u);
     setEqScreen("success");setEqSubmitting(false);setEqIsWalkIn(false);
@@ -771,7 +764,7 @@ export default function App() {
       else{console.error("FATS: eq request save failed",result);}
     }catch(e){console.error("FATS: eq request save error",e);}
   }
-  function resetEq(){setEqScreen("lookup");setEqStudNo("");setEqStudent(null);setEquipment([]);setSelItems([]);setEqFilter("All");setEqSearch("");setEqColDate("");setEqSlot("");setEqNotes("");setEqTermsAgreed(false);setEqLookupErr("");setEqErr("");setEqManualDue("");}
+  function resetEq(){setEqScreen("lookup");setEqStudNo("");setEqStudent(null);setEquipment([]);setSelItems([]);setEqFilter("All");setEqSearch("");setEqColDate("");setEqNotes("");setEqTermsAgreed(false);setEqLookupErr("");setEqErr("");setEqManualDue("");}
 
   const eqTypes=["All",...new Set(equipment.map(e=>e.type).filter(Boolean))];
   const eqFiltered=equipment.filter(e=>(eqFilter==="All"||e.type===eqFilter)&&(!eqSearch||e.name?.toLowerCase().includes(eqSearch.toLowerCase())));
@@ -1242,7 +1235,6 @@ export default function App() {
             </div>
           ))}
         </div>
-        {(()=>{const today=todayDate();const upcoming=[...PUBLIC_HOLIDAYS_2026.filter(h=>h.date>=today).slice(0,2),...RECESS_RANGES.filter(r=>r.end>=today).slice(0,2)];if(!upcoming.length)return null;return(<details style={{marginBottom:14}}><summary style={{fontSize:12,color:"#6b7280",cursor:"pointer",userSelect:"none"}}>📅 Upcoming closures & public holidays</summary><div style={{marginTop:8,background:"#141720",borderRadius:8,padding:"10px 12px"}}>{PUBLIC_HOLIDAYS_2026.filter(h=>h.date>=today).slice(0,4).map(h=><div key={h.date} style={{fontSize:12,color:"#9ca3af",marginBottom:3}}>🔴 {fmtDate(h.date)} — {h.label}</div>)}{RECESS_RANGES.filter(r=>r.end>=today).map(r=><div key={r.start} style={{fontSize:12,color:"#9ca3af",marginBottom:3}}>🔴 {fmtDate(r.start)} – {fmtDate(r.end)} — {r.label}</div>)}{SWOT_RANGES.filter(r=>r.end>=today).slice(0,2).map(r=><div key={r.start} style={{fontSize:12,color:"#60a5fa",marginBottom:3}}>📚 {fmtDate(r.start)} – {fmtDate(r.end)} — {r.label} (open)</div>)}</div></details>);})()}
         {/* ── Walk-in banner ── */}
         {eqIsWalkIn&&<div style={{background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#60a5fa"}}>🏃 Walk-in mode — date and return restrictions are bypassed. Set dates manually below.</div>}
         <div style={{marginBottom:14}}>
@@ -1254,7 +1246,7 @@ export default function App() {
               Tuesday and then telling them off for it. */}
           {eqIsWalkIn?(<>
             <input type="date" style={ipt} value={eqColDate}
-              onChange={e=>{setEqColDate(e.target.value);setEqSlot("");setEqManualDue("");}}/>
+              onChange={e=>{setEqColDate(e.target.value);setEqManualDue("");}}/>
           </>):(()=>{
             const options=eqCollectionDates();
             if(!options.length)return(
@@ -1262,14 +1254,14 @@ export default function App() {
             );
             return(<>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {options.map(({date,full})=>{
+                {options.map(({date,full,left})=>{
                   const sel=eqColDate===date;
                   const d=new Date(date+"T00:00:00");
                   return(
-                    <button key={date} disabled={full} onClick={()=>{if(full)return;setEqColDate(date);setEqSlot("");setEqManualDue("");}}
+                    <button key={date} disabled={full} onClick={()=>{if(full)return;setEqColDate(date);setEqManualDue("");}}
                       style={{padding:"10px 14px",borderRadius:10,border:sel?`2px solid ${TEAL}`:"0.5px solid #1e2130",background:full?"#1a1d28":sel?"#0a2218":"#141720",color:full?"#374151":sel?TEAL:"#e0e3ea",fontSize:13,cursor:full?"not-allowed":"pointer",fontFamily:"inherit",textAlign:"center",lineHeight:1.35}}>
                       <div style={{fontWeight:500}}>{DAYS_SHORT[d.getDay()]} {d.getDate()} {MONTHS[d.getMonth()].slice(0,3)}</div>
-                      <div style={{fontSize:11,color:full?"#374151":sel?TEAL:"#4b5563"}}>{full?"Full":date===todayDate()?"Today":""}</div>
+                      <div style={{fontSize:11,color:full?"#374151":sel?TEAL:"#4b5563"}}>{full?"Full":`${left} left`}</div>
                     </button>
                   );
                 })}
@@ -1312,27 +1304,6 @@ export default function App() {
             </div>
           );
         })()}
-        {/* Slot picker — only for regular bookings */}
-        {!eqIsWalkIn&&eqColDate&&isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"&&(
-        <div style={{marginBottom:14}}>
-          <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
-          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            {EQ_COL_SLOTS.map(slot=>{
-              // Server-side count — a student's own `requests` can't see
-              // anyone else's bookings, so counting locally never enforced the cap
-              const taken=eqSlotTaken(eqColDate,slot.label);
-              const full=taken>=(eqSettings.slotCap||2);
-              const past=isSlotPast(slot.label);
-              const unavail=full||past;
-              return(
-                <button key={slot.id} onClick={()=>!unavail&&setEqSlot(slot.id)} disabled={unavail} style={{flex:1,minWidth:100,padding:"12px 8px",borderRadius:10,border:eqSlot===slot.id?`2px solid ${TEAL}`:"0.5px solid #1e2130",background:unavail?"#1a1d28":eqSlot===slot.id?"#0a2218":"#141720",color:unavail?"#374151":eqSlot===slot.id?TEAL:"#e0e3ea",fontSize:13,cursor:unavail?"not-allowed":"pointer",fontFamily:"inherit",textAlign:"center"}}>
-                  {slot.label}<br/><span style={{fontSize:11,color:unavail?"#374151":eqSlot===slot.id?TEAL:"#4b5563"}}>{past?"Passed":full?"Full":`${(eqSettings.slotCap||2)-taken} left`}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        )}
         <div style={{marginBottom:20}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Notes (optional)</label><textarea style={{...ipt,resize:"vertical"}} rows={2} value={eqNotes} onChange={e=>setEqNotes(e.target.value)} placeholder={eqIsWalkIn?"e.g. Checked out for exam on 2 June — agreed to terms verbally":"e.g. Need camera for location shoot Thursday"}/></div>
         {/* Borrowing terms — shown for student bookings, skipped for walk-ins */}
         {!eqIsWalkIn&&(<>
@@ -1356,7 +1327,7 @@ export default function App() {
         <div style={{background:"#2a1f0a",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#d4851a"}}>⚠️ Do not come to collect until Tech Support confirms. Bring your student card.</div>
         </>)}
         <Btn onClick={submitEqRequest}
-          disabled={eqSubmitting||selItems.length===0||!eqColDate||(eqIsWalkIn?!(eqManualDue||eqDueDate):(!isEqColDay(eqColDate)||getDateStatus(eqColDate)?.type==="blocked"||!eqSlot||!eqTermsAgreed))||selItems.some(it=>eqItemConflicts(it.id,eqColDate,(eqIsWalkIn?(eqManualDue||eqDueDate):eqDueDate)).length>0)}
+          disabled={eqSubmitting||selItems.length===0||!eqColDate||(eqIsWalkIn?!(eqManualDue||eqDueDate):(!isEqColDay(eqColDate)||getDateStatus(eqColDate)?.type==="blocked"||!eqTermsAgreed))||selItems.some(it=>eqItemConflicts(it.id,eqColDate,(eqIsWalkIn?(eqManualDue||eqDueDate):eqDueDate)).length>0)}
           full style={{padding:"13px",fontSize:15}}>
           {eqSubmitting?"Submitting...":(eqIsWalkIn?"✅ Log walk-in checkout":"Submit equipment request")}
         </Btn>
@@ -1371,7 +1342,7 @@ export default function App() {
           <div style={{fontSize:52,marginBottom:16}}>📷</div>
           <div style={{fontSize:18,fontWeight:500,marginBottom:8}}>Request submitted!</div>
           <div style={{fontSize:14,color:"#e0e3ea",marginBottom:4}}>{eqStudent?.name} — {YEAR_LABELS[eqStudent?.year]}</div>
-          <div style={{fontSize:13,color:"#9ca3af",marginBottom:16}}>{selItems.length} item{selItems.length>1?"s":""} · {eqColDate} · {EQ_COL_SLOTS.find(s=>s.id===eqSlot)?.label||eqSlot}</div>
+          <div style={{fontSize:13,color:"#9ca3af",marginBottom:16}}>{selItems.length} item{selItems.length>1?"s":""} · {eqColDate} · {EQ_COL_WINDOW}</div>
           <div style={{background:"#0a2218",borderRadius:8,padding:"10px 14px",marginBottom:10,fontSize:13,color:"#20B07F"}}>✅ Request submitted — check your request status to see when it's confirmed for collection.</div>
           <div style={{fontSize:13,color:"#6b7280",marginBottom:24}}>Bring your student card when collecting.</div>
           <Btn outline color="#888" onClick={()=>{resetEq();setScreen("home");}} style={{color:"#9ca3af",border:"0.5px solid #1e2130",background:"transparent"}}>← Back to home</Btn>
@@ -2349,9 +2320,9 @@ export default function App() {
             <div style={{fontSize:13,fontWeight:500}}>⚙ Equipment Loan Settings</div>
             <button onClick={()=>setEqSettingsForm(f=>f?null:{...DEFAULT_EQ_SETTINGS,...eqSettings})} style={{fontSize:12,color:BLUE,background:"none",border:"none",cursor:"pointer"}}>{eqSettingsForm?"Cancel":"Edit"}</button>
           </div>
-          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr3Days??2}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Return by: {eqSettings.returnByHour||10}:00 · Pickup: 12:00–13:00 · Slot cap: {eqSettings.slotCap||2}</div>}
+          {!eqSettingsForm&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>Yr2: {eqSettings.yr12Days}d/{eqSettings.yr2Cap||2}items · Yr3: {eqSettings.yr3Days??2}d/{eqSettings.yr3Cap||3}items · Yr4+: {eqSettings.yr34Days}d/{eqSettings.yr4Cap||4}items · Masters/Staff: {eqSettings.mastersCap||5}items · Fee: R{eqSettings.dailyRate}/day · Return by: {eqSettings.returnByHour||10}:00 · Pickup: {EQ_COL_WINDOW} · Max {eqSettings.slotCap||4}/day</div>}
           {eqSettingsForm&&(<div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
-            {[["Year 2 loan (calendar days)","yr12Days"],["Year 3 loan (calendar days)","yr3Days"],["Year 4+ loan (calendar days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Booking deadline (hour, 24h)","collectionDeadlineHour"],["Return deadline (hour, 24h)","returnByHour"],["Max students per slot","slotCap"],["Max items — Year 2","yr2Cap"],["Max items — Year 3","yr3Cap"],["Max items — Year 4","yr4Cap"],["Max items — Masters/Staff","mastersCap"]].map(([label,key])=>(
+            {[["Year 2 loan (calendar days)","yr12Days"],["Year 3 loan (calendar days)","yr3Days"],["Year 4+ loan (calendar days)","yr34Days"],["Late fee (R/day)","dailyRate"],["Max advance booking (days)","maxAdvanceDays"],["Booking deadline (hour, 24h)","collectionDeadlineHour"],["Return deadline (hour, 24h)","returnByHour"],["Max collections per day","slotCap"],["Max items — Year 2","yr2Cap"],["Max items — Year 3","yr3Cap"],["Max items — Year 4","yr4Cap"],["Max items — Masters/Staff","mastersCap"]].map(([label,key])=>(
               <div key={key} style={{display:"flex",alignItems:"center",gap:8}}>
                 <label style={{fontSize:12,color:"#9ca3af",flex:1}}>{label}</label>
                 <input type="number" style={{...ipt,width:70,flex:"0 0 auto"}} value={eqSettingsForm[key]} onChange={e=>setEqSettingsForm(f=>({...f,[key]:Number(e.target.value)}))}/>
