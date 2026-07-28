@@ -12,7 +12,10 @@ async function fetchEquipment(yearNum) {
       const eqStatus = f["Equipment Status"] || "";
       const avail = f["Status"] || "";
       const restricted = f["Restricted To Years"] || [];
-      if (!["Fully Functional", "Functional - Worn"].includes(eqStatus)) return false;
+      // Condition values that mean "this works and can go out". "Brand New"
+      // must be here — without it, newly-added kit is silently invisible to
+      // students even though it's the most desirable gear in the stockroom.
+      if (!["Brand New", "Fully Functional", "Functional - Worn"].includes(eqStatus)) return false;
       if (["Unavailable", "Checked Out"].includes(avail)) return false;
       // 1st years cannot book equipment
       if (String(yearNum) === "1") return false;
