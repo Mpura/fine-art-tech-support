@@ -120,6 +120,9 @@ export default function App() {
   const [equipment, setEquipment] = useState([]);
   const [eqLoading, setEqLoading] = useState(false);
   const [eqErr, setEqErr] = useState("");
+  // Anonymised [{itemId,start,end}] of gear already spoken for — students
+  // can't see other students' requests, so this comes from /api/availability
+  const [eqBooked, setEqBooked] = useState([]);
   const [selItems, setSelItems] = useState([]);
   const [eqFilter, setEqFilter] = useState("All");
   const [eqSearch, setEqSearch] = useState("");
@@ -170,6 +173,28 @@ export default function App() {
   const [pmPerUse, setPmPerUse] = useState([]);
 
   const type = REQUEST_TYPES.find(t=>t.id===selType);
+  // ── Date-aware equipment availability ────────────────────────────
+  // An item is unavailable for a proposed loan only where that loan overlaps
+  // an existing booking's window — so booking next Friday doesn't take the
+  // camera off the shelf today, it only blocks the days it's actually out.
+  // ISO date strings compare correctly as strings.
+  const eqItemConflicts = (itemId,start,end) => {
+    if(!itemId||!start)return [];
+    const e=end||start;
+    return eqBooked.filter(w=>w.itemId===itemId&&w.start<=e&&w.end>=start);
+  };
+  const eqItemNextBooking = (itemId) => {
+    const today=todayDate();
+    return eqBooked.filter(w=>w.itemId===itemId&&w.end>=today).sort((a,b)=>a.start.localeCompare(b.start))[0]||null;
+  };
+  async function loadEqAvailability(){
+    try{
+      const r=await fetch("/api/availability");
+      const d=await r.json();
+      if(Array.isArray(d.windows))setEqBooked(d.windows);
+    }catch(e){/* offline — fall back to no known conflicts */}
+  }
+
   const getLoanDays = (yearStr) => {
     const y = String(yearStr);
     if (y==="3") return eqSettings.yr3Days??2;
@@ -657,7 +682,7 @@ export default function App() {
         } else {
           setEqStudent(student);setEqScreen("browse");
           setEqLoading(true);
-          const items=await fetchEquipment(yr);
+          const [items]=await Promise.all([fetchEquipment(yr),loadEqAvailability()]);
           setEquipment(items);setEqLoading(false);
         }
       } else {
@@ -681,6 +706,19 @@ export default function App() {
     if(!eqIsWalkIn&&svcOut("equipment")){
       pushToast("⛔ Equipment booking is out of order — this request can't be submitted.","error");
       return;
+    }
+    // Re-check availability at submit time against fresh data — someone else
+    // may have booked the same item while this student was filling the form.
+    if(!eqIsWalkIn){
+      const dueForCheck=eqManualDue||addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
+      const fresh=await fetch("/api/availability").then(r=>r.json()).catch(()=>null);
+      const wins=Array.isArray(fresh?.windows)?fresh.windows:eqBooked;
+      if(Array.isArray(fresh?.windows))setEqBooked(fresh.windows);
+      const taken=selItems.filter(it=>wins.some(w=>w.itemId===it.id&&w.start<=dueForCheck&&w.end>=eqColDate));
+      if(taken.length){
+        setEqErr(`${taken.map(i=>i.name).join(", ")} ${taken.length>1?"were":"was"} just booked by someone else for these dates. Please pick another date or item.`);
+        return;
+      }
     }
     const autoDue=addCalendarDays(eqColDate,getLoanDays(eqStudent.year));
     const due=eqIsWalkIn&&eqManualDue?eqManualDue:autoDue;
@@ -1142,6 +1180,9 @@ export default function App() {
                   <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",marginBottom:3,lineHeight:1.3}}>{item.name||"Unnamed"}</div>
                   <div style={{fontSize:11,color:"#4b5563",marginBottom:4}}>{item.type}</div>
                   <div style={{display:"inline-block",fontSize:10,padding:"2px 7px",borderRadius:20,background:item.equipmentStatus==="Fully Functional"?"#0a2218":"#2a1f0a",color:item.equipmentStatus==="Fully Functional"?"#20B07F":"#d4851a"}}>{item.equipmentStatus}</div>
+                  {(()=>{const nb=eqItemNextBooking(item.id);if(!nb)return null;return(
+                    <div style={{fontSize:10,color:"#d4851a",marginTop:4,lineHeight:1.3}}>📅 Booked {fmtDate(nb.start)} – {fmtDate(nb.end)}</div>
+                  );})()}
                 </div>
               </div>
             );
@@ -1200,6 +1241,23 @@ export default function App() {
             </div>
           )
         )}
+        {/* Clash check — an item already out over this loan window */}
+        {(()=>{
+          const start=eqColDate;
+          const end=(eqIsWalkIn?(eqManualDue||eqDueDate):eqDueDate);
+          if(!start||!end)return null;
+          const clashes=selItems.map(it=>({it,w:eqItemConflicts(it.id,start,end)})).filter(c=>c.w.length>0);
+          if(!clashes.length)return null;
+          return(
+            <div style={{background:"#2a0f14",border:"0.5px solid #7f1d1d",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#f87171"}}>
+              <div style={{fontWeight:600,marginBottom:4}}>⚠️ Already booked for these dates</div>
+              {clashes.map(({it,w})=>(
+                <div key={it.id} style={{marginBottom:2}}>{it.name} — out {fmtDate(w[0].start)} – {fmtDate(w[0].end)}</div>
+              ))}
+              <div style={{color:"#9ca3af",marginTop:4}}>Pick a different date, or go back and choose another item.</div>
+            </div>
+          );
+        })()}
         {/* Slot picker — only for regular bookings */}
         {!eqIsWalkIn&&eqColDate&&isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"&&(
         <div style={{marginBottom:14}}>
@@ -1242,7 +1300,7 @@ export default function App() {
         <div style={{background:"#2a1f0a",borderRadius:10,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#d4851a"}}>⚠️ Do not come to collect until Tech Support confirms. Bring your student card.</div>
         </>)}
         <Btn onClick={submitEqRequest}
-          disabled={eqSubmitting||selItems.length===0||!eqColDate||(eqIsWalkIn?!(eqManualDue||eqDueDate):(!isEqColDay(eqColDate)||getDateStatus(eqColDate)?.type==="blocked"||!eqSlot||!eqTermsAgreed))}
+          disabled={eqSubmitting||selItems.length===0||!eqColDate||(eqIsWalkIn?!(eqManualDue||eqDueDate):(!isEqColDay(eqColDate)||getDateStatus(eqColDate)?.type==="blocked"||!eqSlot||!eqTermsAgreed))||selItems.some(it=>eqItemConflicts(it.id,eqColDate,(eqIsWalkIn?(eqManualDue||eqDueDate):eqDueDate)).length>0)}
           full style={{padding:"13px",fontSize:15}}>
           {eqSubmitting?"Submitting...":(eqIsWalkIn?"✅ Log walk-in checkout":"Submit equipment request")}
         </Btn>
