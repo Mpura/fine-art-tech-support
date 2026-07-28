@@ -892,20 +892,21 @@ export default function App() {
         {selDate&&eqId!=="laser"&&(()=>{
           const mFull=getBookings(eqId,selDate,"morning")>=sched.morningSlots;
           const aFull=getBookings(eqId,selDate,"afternoon")>=sched.afternoonSlots;
-          const stockroomDay=EQ_COL_DAYS.includes(new Date(selDate+"T00:00:00").getDay());
           return(
           <div style={{marginBottom:12}}>
             <div style={{fontSize:13,color:"#9ca3af",marginBottom:8,fontWeight:500}}>{selDate} — choose a slot:</div>
-            {stockroomDay&&<div style={{fontSize:12,color:"#d4851a",background:"#2a1f0a",borderRadius:8,padding:"6px 10px",marginBottom:8}}>⚠ Morning slot unavailable — stockroom collections run 11:00–12:30 on this day.</div>}
             <div style={{display:"flex",gap:8}}>
-              {[["morning","🌅 Morning (09:00–12:00)",mFull||stockroomDay,stockroomDay?"Stockroom day":`${sched.morningSlots-getBookings(eqId,selDate,"morning")} left`],["afternoon","🌆 Afternoon (13:00–16:00)",aFull,`${sched.afternoonSlots-getBookings(eqId,selDate,"afternoon")} left`]].map(([v,l,full,sub])=>(
+              {[["morning","🌅 Morning (09:00–12:00)",mFull,`${sched.morningSlots-getBookings(eqId,selDate,"morning")} left`],["afternoon","🌆 Afternoon (13:00–16:00)",aFull,`${sched.afternoonSlots-getBookings(eqId,selDate,"afternoon")} left`]].map(([v,l,full,sub])=>(
                 <button key={v} onClick={()=>!full&&setSelSlot(v)} disabled={full} style={{flex:1,padding:"10px 8px",borderRadius:10,border:selSlot===v?`2px solid ${TEAL}`:"0.5px solid #1e2130",background:full?"#1a1d28":selSlot===v?"#0a2218":"#141720",color:full?"#374151":selSlot===v?TEAL:"#e0e3ea",fontSize:13,cursor:full?"not-allowed":"pointer",fontFamily:"inherit"}}>
-                  {l}<br/><span style={{fontSize:11,color:full?"#374151":"#6b7280"}}>{full&&sub==="Stockroom day"?"Unavailable":full?"Full":sub}</span>
+                  {l}<br/><span style={{fontSize:11,color:full?"#374151":"#6b7280"}}>{full?"Full":sub}</span>
                 </button>
               ))}
             </div>
           </div>
         );})()}
+        {selDate&&eqId==="laser"&&EQ_COL_DAYS.includes(new Date(selDate+"T00:00:00").getDay())&&(
+          <div style={{fontSize:12,color:"#d4851a",background:"#2a1f0a",borderRadius:8,padding:"8px 10px",marginBottom:12}}>⚠ Tech Support is away at equipment collections 12:00–13:00 on this day, in a different building — plan your session around that hour.</div>
+        )}
       </div>
     );
   };
@@ -1536,7 +1537,7 @@ export default function App() {
             <div style={{fontSize:12,color:"#6b7280"}}>I haven't been shown how to use it — same-day booking isn't available, and the whole day gets set aside for orientation</div>
           </div>
         </label>
-        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={form.firstTime?addBusinessDays(todayDate(),1):todayDate()} max={addBusinessDays(todayDate(),Math.max(eqSettings.maxAdvanceDays,form.firstTime?1:0))} onChange={e=>{setF("studioDate",e.target.value);setF("studioSlot","");}}/>{form.studioDate&&!isEqColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are only available Mon, Wed, Fri (11:00–12:30). Please pick one of those days.</div>}
+        <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>Key collection date *</label><input type="date" style={ipt} value={form.studioDate} min={form.firstTime?addBusinessDays(todayDate(),1):todayDate()} max={addBusinessDays(todayDate(),Math.max(eqSettings.maxAdvanceDays,form.firstTime?1:0))} onChange={e=>{setF("studioDate",e.target.value);setF("studioSlot","");}}/>{form.studioDate&&!isEqColDay(form.studioDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ Keys are only available Mon, Wed, Fri (12:00–13:00). Please pick one of those days.</div>}
         {form.firstTime&&form.studioDate&&labDayOccupiedBy(form.studioDate,LAB_EXCLUSIVE_TYPES).length>0&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ This day is already reserved (laser, printing, or another first-time studio session). Please choose a different date.</div>}</div>
         {form.studioDate&&isEqColDay(form.studioDate)&&(
           <div style={{marginBottom:14}}><label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
@@ -1776,8 +1777,8 @@ export default function App() {
         <div style={{display:"flex",gap:8}}>{(selType==="software"?[["later","Schedule"]]: [["walkin","Right now"],["later","Schedule"]]).map(([v,l])=><button key={v} onClick={()=>setF("when",v)} style={{flex:1,padding:"9px",borderRadius:8,border:"none",background:form.when===v?BLUE:"#1a1d28",color:form.when===v?"#fff":"#e0e3ea",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>)}</div>
         {form.when==="later"&&<>
           <input type="datetime-local" style={{...ipt,marginTop:8}} value={form.schedDate} onChange={e=>setF("schedDate",e.target.value)}/>
-          {selType==="software"&&form.schedDate&&(()=>{const d=new Date(form.schedDate);return EQ_COL_DAYS.includes(d.getDay())&&d.getHours()>=9&&d.getHours()<13;})()&&(
-            <div style={{fontSize:12,color:"#d4851a",background:"#2a1f0a",borderRadius:8,padding:"6px 10px",marginTop:6}}>⚠ Stockroom collections run Mon/Wed/Fri 11:00–12:30. If possible, choose a different time to avoid overlap.</div>
+          {selType==="software"&&form.schedDate&&(()=>{const d=new Date(form.schedDate);return EQ_COL_DAYS.includes(d.getDay())&&d.getHours()>=12&&d.getHours()<13;})()&&(
+            <div style={{fontSize:12,color:"#d4851a",background:"#2a1f0a",borderRadius:8,padding:"6px 10px",marginTop:6}}>⚠ Stockroom collections run Mon/Wed/Fri 12:00–13:00. If possible, choose a different time to avoid overlap.</div>
           )}
         </>}
       </div>}
