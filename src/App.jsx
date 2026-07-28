@@ -123,6 +123,9 @@ export default function App() {
   // Anonymised [{itemId,start,end}] of gear already spoken for — students
   // can't see other students' requests, so this comes from /api/availability
   const [eqBooked, setEqBooked] = useState([]);
+  // { "YYYY-MM-DD|12:00–12:30": count } — server-side slot usage, since a
+  // student's own `requests` can't see anyone else's bookings
+  const [eqSlotUse, setEqSlotUse] = useState({});
   const [selItems, setSelItems] = useState([]);
   const [eqFilter, setEqFilter] = useState("All");
   const [eqSearch, setEqSearch] = useState("");
@@ -192,8 +195,34 @@ export default function App() {
       const r=await fetch("/api/availability");
       const d=await r.json();
       if(Array.isArray(d.windows))setEqBooked(d.windows);
+      if(d.slots&&typeof d.slots==="object")setEqSlotUse(d.slots);
+      return d;
     }catch(e){/* offline — fall back to no known conflicts */}
+    return null;
   }
+  // How many of a date's slots are taken, from server data
+  const eqSlotTaken = (dateKey,slotLabel) => eqSlotUse[`${dateKey}|${slotLabel}`]||0;
+  // Valid collection days in the booking window — Mon/Wed/Fri, not blocked,
+  // not a closure. Shown as pickable chips so students can't choose a day
+  // the stockroom simply isn't open.
+  const eqCollectionDates = () => {
+    const out=[];
+    const start=getEqMinDate();
+    const end=addBusinessDays(todayDate(),eqSettings.maxAdvanceDays||1);
+    let d=new Date(start+"T00:00:00");
+    const endD=new Date(end+"T00:00:00");
+    let guard=0;
+    while(d<=endD&&guard++<90){
+      const k=localDateStr(d);
+      if(isEqColDay(k)&&!blocks[k]&&getDateStatus(k)?.type!=="blocked"){
+        const cap=eqSettings.slotCap||2;
+        const full=EQ_COL_SLOTS.every(s=>eqSlotTaken(k,s.label)>=cap||(k===todayDate()&&isSlotPast(s.label)));
+        out.push({date:k,full});
+      }
+      d.setDate(d.getDate()+1);
+    }
+    return out;
+  };
 
   const getLoanDays = (yearStr) => {
     const y = String(yearStr);
@@ -1218,12 +1247,37 @@ export default function App() {
         {eqIsWalkIn&&<div style={{background:"#0a1e35",border:"0.5px solid #1e3a5f",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#60a5fa"}}>🏃 Walk-in mode — date and return restrictions are bypassed. Set dates manually below.</div>}
         <div style={{marginBottom:14}}>
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:4}}>{eqIsWalkIn?"Collection / checkout date *":"Collection date *"}</label>
-          <input type="date" style={ipt} value={eqColDate}
-            {...(!eqIsWalkIn&&{min:getEqMinDate(),max:addBusinessDays(todayDate(),eqSettings.maxAdvanceDays)})}
-            onChange={e=>{setEqColDate(e.target.value);setEqSlot("");setEqManualDue("");}}/>
-          {!eqIsWalkIn&&<div style={{fontSize:12,color:"#6b7280",marginTop:4}}>Collection days: <strong>Mon, Wed, Fri</strong> only (stockroom hours 11:00–12:30). Book up to {eqSettings.maxAdvanceDays} day{eqSettings.maxAdvanceDays!==1?"s":""} ahead. Bookings close at {eqSettings.collectionDeadlineHour}:00.</div>}
-          {!eqIsWalkIn&&eqColDate&&!isEqColDay(eqColDate)&&<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>⚠️ That date is not a stockroom day. Please pick a Monday, Wednesday or Friday.</div>}
-          {!eqIsWalkIn&&eqColDate&&isEqColDay(eqColDate)&&(()=>{const ds=getDateStatus(eqColDate);if(!ds)return null;if(ds.type==="blocked")return<div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"8px 10px",marginTop:6}}>🚫 {ds.label} — the stockroom is closed on this date. Please choose a different day.</div>;if(ds.type==="swot")return<div style={{fontSize:12,color:"#60a5fa",background:"#0a1e35",borderRadius:8,padding:"8px 10px",marginTop:6}}>📚 {ds.label} — stockroom is open. Good luck with your studies!</div>;return null;})()}
+          {/* Staff walk-ins keep a free-form date (past dates, any day).
+              Students get only the days the stockroom is actually open — a
+              native date input can't grey out individual weekdays, so
+              offering the valid days directly beats letting them pick a
+              Tuesday and then telling them off for it. */}
+          {eqIsWalkIn?(<>
+            <input type="date" style={ipt} value={eqColDate}
+              onChange={e=>{setEqColDate(e.target.value);setEqSlot("");setEqManualDue("");}}/>
+          </>):(()=>{
+            const options=eqCollectionDates();
+            if(!options.length)return(
+              <div style={{fontSize:12,color:"#f87171",background:"#2a0f14",borderRadius:8,padding:"10px 12px"}}>No collection days available in the next {eqSettings.maxAdvanceDays||1} day{(eqSettings.maxAdvanceDays||1)!==1?"s":""}. Please check back, or speak to Tech Support.</div>
+            );
+            return(<>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {options.map(({date,full})=>{
+                  const sel=eqColDate===date;
+                  const d=new Date(date+"T00:00:00");
+                  return(
+                    <button key={date} disabled={full} onClick={()=>{if(full)return;setEqColDate(date);setEqSlot("");setEqManualDue("");}}
+                      style={{padding:"10px 14px",borderRadius:10,border:sel?`2px solid ${TEAL}`:"0.5px solid #1e2130",background:full?"#1a1d28":sel?"#0a2218":"#141720",color:full?"#374151":sel?TEAL:"#e0e3ea",fontSize:13,cursor:full?"not-allowed":"pointer",fontFamily:"inherit",textAlign:"center",lineHeight:1.35}}>
+                      <div style={{fontWeight:500}}>{DAYS_SHORT[d.getDay()]} {d.getDate()} {MONTHS[d.getMonth()].slice(0,3)}</div>
+                      <div style={{fontSize:11,color:full?"#374151":sel?TEAL:"#4b5563"}}>{full?"Full":date===todayDate()?"Today":""}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{fontSize:12,color:"#6b7280",marginTop:6}}>Collection is <strong>Mon, Wed, Fri</strong> between <strong>12:00 and 13:00</strong>. Bookings close at {eqSettings.collectionDeadlineHour}:00 the day before.</div>
+              {eqColDate&&(()=>{const ds=getDateStatus(eqColDate);if(ds?.type==="swot")return<div style={{fontSize:12,color:"#60a5fa",background:"#0a1e35",borderRadius:8,padding:"8px 10px",marginTop:6}}>📚 {ds.label} — stockroom is open. Good luck with your studies!</div>;return null;})()}
+            </>);
+          })()}
         </div>
         {/* Due date — manual for walk-ins, auto-calculated for bookings */}
         {eqColDate&&(eqIsWalkIn?true:(isEqColDay(eqColDate)&&getDateStatus(eqColDate)?.type!=="blocked"))&&(
@@ -1264,7 +1318,9 @@ export default function App() {
           <label style={{fontSize:13,color:"#9ca3af",display:"block",marginBottom:6}}>Collection slot *</label>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             {EQ_COL_SLOTS.map(slot=>{
-              const taken=requests.filter(r=>r.typeId==="equipment"&&r.schedDate&&r.schedDate.startsWith(eqColDate)&&r.schedDate.includes(slot.label)&&!["Declined","Uncollected"].includes(r.status)).length;
+              // Server-side count — a student's own `requests` can't see
+              // anyone else's bookings, so counting locally never enforced the cap
+              const taken=eqSlotTaken(eqColDate,slot.label);
               const full=taken>=(eqSettings.slotCap||2);
               const past=isSlotPast(slot.label);
               const unavail=full||past;

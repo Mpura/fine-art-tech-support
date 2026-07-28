@@ -36,13 +36,30 @@ export default async function handler(req, res) {
     } while (offset && guard++ < 50);
 
     const windows = [];
+    // Collection-slot usage: { "YYYY-MM-DD|12:00–12:30": count }. Students
+    // can't see other students' bookings, so slot capacity can only be
+    // enforced with a server-side count like this.
+    const slots = {};
     for (const rec of records) {
       const f = rec.fields || {};
       if (f.TypeId !== "equipment") continue;
-      if (!HOLDING.includes(f.Status)) continue;
 
-      const start = f.SchedDate ? String(f.SchedDate).split(" ")[0] : null;
+      const sched = f.SchedDate ? String(f.SchedDate) : "";
+      const start = sched ? sched.split(" ")[0] : null;
       if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) continue;
+
+      // Slot usage counts anything not released — mirrors the old client rule
+      // (Declined/Uncollected free the slot up again)
+      if (!["Declined", "Uncollected", "Cancelled"].includes(f.Status)) {
+        const m = sched.match(/\(([^)]+)\)/);
+        const slotLabel = m ? m[1] : null;
+        if (slotLabel) {
+          const key = `${start}|${slotLabel}`;
+          slots[key] = (slots[key] || 0) + 1;
+        }
+      }
+
+      if (!HOLDING.includes(f.Status)) continue;
       const end = f.DueDate || start;
 
       let details = {}, returned = [], lost = [];
@@ -60,7 +77,7 @@ export default async function handler(req, res) {
 
     // Short cache — availability changes rarely within a browsing session
     res.setHeader("Cache-Control", "public, max-age=30");
-    return res.status(200).json({ windows });
+    return res.status(200).json({ windows, slots });
   } catch (e) {
     return res.status(500).json({ error: "Failed to build availability", detail: e.message });
   }
