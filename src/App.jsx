@@ -786,8 +786,11 @@ export default function App() {
   const activeCount=requests.filter(r=>ACTIVE_STATUSES.includes(r.status)).length;
   // ── TODAY FILTERS ────────────────────────────────────────────────
   const _today=todayDate();
-  const morningToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Morning")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
-  const afternoonToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Afternoon")&&["print","laser"].includes(r.typeId)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
+  const morningToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Morning")&&r.typeId==="print"&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
+  const afternoonToday=requests.filter(r=>r.schedDate?.startsWith(_today)&&r.schedDate.includes("Afternoon")&&r.typeId==="print"&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
+  // Laser is a whole-day exclusive booking ("Full day", not "Morning"/"Afternoon"),
+  // so it needs its own bucket rather than trying to land in the print slots above.
+  const laserToday=requests.filter(r=>r.typeId==="laser"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
   const studioToday=requests.filter(r=>r.typeId==="studio"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
   const eqCollectionsToday=requests.filter(r=>r.typeId==="equipment"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Cancelled"&&r.status!=="Returned");
   const eqDueToday=requests.filter(r=>r.typeId==="equipment"&&r.dueDate===_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
@@ -1946,7 +1949,8 @@ export default function App() {
               ?<div style={{background:"#0f1117",border:"0.5px dashed #1e2130",borderRadius:8,padding:"10px",textAlign:"center",fontSize:11,color:"#2a2d3e",marginBottom:6}}>Nothing scheduled</div>
               :items.map(r=>{
                 let al,as_;
-                if(sk==="morning"||sk==="afternoon"){al=r.typeId==="laser"?"Start session":"Mark in progress";as_="In Progress";}
+                if(sk==="morning"||sk==="afternoon"){al="Mark in progress";as_="In Progress";}
+                else if(sk==="laser"){al=r.status==="In Progress"?"Mark done":"Start session";as_=r.status==="In Progress"?"Done":"In Progress";}
                 else if(sk==="studio"){al="Confirm";as_="Confirmed";}
                 else if(sk==="collections"){al="Mark ready";as_="Ready to collect";}
                 else if(sk==="avsetup"){al=r.status==="In Progress"?"Mark done":"Start setup";as_=r.status==="In Progress"?"Done":"In Progress";}
@@ -2002,7 +2006,7 @@ export default function App() {
             </div>
           )}
           {/* Per Use laser checklist — only shows on days with laser bookings */}
-          {pmPerUse.length>0&&(morningToday.length>0||afternoonToday.length>0)&&(
+          {pmPerUse.length>0&&laserToday.length>0&&(
             <div style={{marginBottom:20}}>
               <div style={{fontSize:13,fontWeight:500,color:"#6b7280",marginBottom:8,display:"flex",alignItems:"center",gap:6,borderBottom:"1px solid #1e2130",paddingBottom:6}}>
                 ⚡ Laser checklist <span style={{fontSize:11,fontWeight:400,color:"#a855f7"}}>· per use</span>
@@ -2025,6 +2029,7 @@ export default function App() {
               })}
             </div>
           )}
+          <Sec icon="⚡" title="Laser sessions today" items={laserToday} sk="laser"/>
           <Sec icon="🌅" title="Morning (09:00–12:00)" items={morningToday} sk="morning"/>
           {/* Now indicator — between morning and afternoon */}
           {(()=>{const h=new Date().getHours();return h>=9&&h<17&&(
