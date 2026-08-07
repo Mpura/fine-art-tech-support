@@ -544,7 +544,12 @@ export default function App() {
     const newItemsData=[...(req.details?.itemsData||[]),{id:item.id,name:item.name,type:item.type,image:item.image,replacementCost:item.replacementCost,accessories:item.accessories,addedByStaff:true}];
     const updatedDetails={...req.details,itemsData:newItemsData,items:newItemsData.map(i=>i.name).join(", ")};
     await updateReq(req.id,{details:updatedDetails});
-    atPost(CHECKOUT_TABLE,{"Type":"Checking Out","Checked Out Gear":[item.id]}).catch(()=>{});
+    // NB: Airtable's field names here are the opposite of what they sound like —
+    // "Checked In Gear" is the link field actually used on Type:"Checking Out"
+    // records (mirrors createEquipmentBooking in lib/equipment.js). Using
+    // "Checked Out Gear" here — the field the OTHER direction populates — silently
+    // wrote to the wrong link, so the item never showed as unavailable in Airtable.
+    atPost(CHECKOUT_TABLE,{"Type":"Checking Out","Checked In Gear":[item.id]}).catch(()=>{});
     pushToast(`✓ Added ${item.name} to ${req.name}'s request.`,"success");
     setAddItemModal(null);
   }
