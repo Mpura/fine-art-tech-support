@@ -2153,6 +2153,10 @@ export default function App() {
           const GROUP_ORDER=["Overdue","Confirmed","Ready","In Progress","Collected","Partially Returned"];
           const GROUP_COLOR={"Overdue":"#f87171","Confirmed":"#60a5fa","Ready":"#20B07F","In Progress":"#a855f7","Collected":"#20B07F","Partially Returned":"#4ade80"};
           const GROUP_ICON={"Overdue":"⚠️","Confirmed":"✅","Ready":"📥","In Progress":"🔧","Collected":"📤","Partially Returned":"↩️"};
+          // Display label only — internal key stays "Ready" so _grp/GROUP_COLOR/etc
+          // don't need to change. Now that equipment's "Ready to collect" is gone,
+          // this column is laser-only (Ready to cut), so it's named for what it is.
+          const GROUP_LABEL={"Ready":"Ready to cut"};
           const _grp=(r)=>{
             if(r.typeId==="equipment"&&r.dueDate&&r.dueDate<todayDate()&&["Collected","Partially Returned"].includes(r.status))return"Overdue";
             if(["Ready to collect","Ready to cut"].includes(r.status))return"Ready";
@@ -2377,7 +2381,7 @@ export default function App() {
               return(
                 <div key={g} style={{flex:"0 0 270px",width:270}}>
                   <div style={{fontSize:13,fontWeight:600,color:GROUP_COLOR[g],background:`${GROUP_COLOR[g]}22`,border:`0.5px solid ${GROUP_COLOR[g]}55`,borderRadius:9,marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,padding:"9px 12px"}}>
-                    <span>{GROUP_ICON[g]} {g}</span>
+                    <span>{GROUP_ICON[g]} {GROUP_LABEL[g]||g}</span>
                     <span style={{fontSize:11,fontWeight:700,background:`${GROUP_COLOR[g]}33`,borderRadius:10,padding:"1px 8px"}}>{items.length}</span>
                   </div>
                   {items.length===0
