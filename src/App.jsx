@@ -158,6 +158,8 @@ export default function App() {
   const [fines, setFines] = useState([]);
   const [finesLoading, setFinesLoading] = useState(false);
   const [checkInModal, setCheckInModal] = useState(null);
+  const [addItemModal, setAddItemModal] = useState(null); // request a staff member is adding an extra item to
+  const [addItemLoading, setAddItemLoading] = useState(false);
   const [toasts, setToasts] = useState([]); // [{id,msg,type}] — type: error(sticky) | success | info
   const [ciLost, setCiLost] = useState([]);
   const [ciReturning, setCiReturning] = useState([]);
@@ -521,6 +523,27 @@ export default function App() {
       : Promise.resolve(null);
     const u=requests.map(r=>r.id===id?updated:r);setRequests(u);persist(KEYS.req,u);
     return p;
+  }
+  // Staff adding an item the student needs alongside what they already booked
+  // (e.g. they forgot to include it) — happens at collection, so it opens with
+  // a fresh catalog + availability fetch scoped to the student's year, same as
+  // a normal booking would see.
+  async function openAddItem(req){
+    setAddItemModal(req);
+    setAddItemLoading(true);
+    try{
+      const [items]=await Promise.all([fetchEquipment(req.year),loadEqAvailability()]);
+      setEquipment(items||[]);
+    }catch(e){pushToast("⚠ Couldn't load the equipment list — check your connection.","error");}
+    setAddItemLoading(false);
+  }
+  async function addItemToRequest(req,item){
+    const newItemsData=[...(req.details?.itemsData||[]),{id:item.id,name:item.name,type:item.type,image:item.image,replacementCost:item.replacementCost,accessories:item.accessories}];
+    const updatedDetails={...req.details,itemsData:newItemsData,items:newItemsData.map(i=>i.name).join(", ")};
+    await updateReq(req.id,{details:updatedDetails});
+    atPost(CHECKOUT_TABLE,{"Type":"Checking Out","Checked Out Gear":[item.id]}).catch(()=>{});
+    pushToast(`✓ Added ${item.name} to ${req.name}'s request.`,"success");
+    setAddItemModal(null);
   }
   async function confirmCheckIn(req,returningNames,lostItemNames,notes){
     const today=todayDate();
@@ -2216,6 +2239,9 @@ export default function App() {
                   📦 {req.details.items}{req.dueDate&&<span style={{marginLeft:10}}>↩ Due: {fmtDate(req.dueDate)}</span>}
                 </div>
               )}
+              {req.typeId==="equipment"&&["Confirmed","Collected"].includes(req.status)&&(
+                <button onClick={()=>openAddItem(req)} style={{fontSize:12,color:"#3b82f6",background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:8,display:"block"}}>+ Add another item</button>
+              )}
               {/* ── AV SETUP: structured detail card ── */}
               {req.typeId==="avsetup"&&req.details&&(
                 <div style={{background:"#1a1d28",borderRadius:8,padding:"10px 12px",marginBottom:6,fontSize:12}}>
@@ -2749,6 +2775,42 @@ export default function App() {
                 <Btn outline color="#4b5563" onClick={()=>{setCheckInModal(null);setCiReturning([]);setCiLost([]);setCiNotes("");setCiLostAccessories([]);}} style={{flex:1}}>Cancel</Btn>
                 <Btn color={TEAL} onClick={()=>confirmCheckIn(req,ciReturning,ciLost,ciNotes)} disabled={ciReturning.length===0} style={{flex:2}}>Confirm Check-In</Btn>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+      {addItemModal&&(()=>{
+        const req=addItemModal;
+        const existingIds=new Set((req.details?.itemsData||[]).map(i=>i.id));
+        const start=req.schedDate?req.schedDate.split(" ")[0]:null;
+        // Hard-excluded, not just warned — if it's booked for these dates it
+        // doesn't show up at all, no override.
+        const candidates=addItemLoading?[]:equipment.filter(it=>!existingIds.has(it.id)&&eqItemConflicts(it.id,start,req.dueDate).length===0);
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:16,padding:"20px",maxWidth:460,width:"100%",maxHeight:"85vh",overflowY:"auto"}}>
+              <div style={{fontSize:16,fontWeight:500,color:"#e0e3ea",marginBottom:4}}>Add another item</div>
+              <div style={{fontSize:13,color:"#4b5563",marginBottom:14}}>{req.name}{req.studNo&&` · ${req.studNo}`}</div>
+              {addItemLoading?(
+                <div style={{color:"#6b7280",fontSize:13,textAlign:"center",padding:"2rem 0"}}>Loading equipment…</div>
+              ):candidates.length===0?(
+                <div style={{color:"#6b7280",fontSize:13,textAlign:"center",padding:"2rem 0"}}>Nothing available to add — everything's either already on this request or booked elsewhere for these dates.</div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {candidates.map(item=>(
+                    <button key={item.id} onClick={()=>addItemToRequest(req,item)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,border:"0.5px solid #1e2130",background:"#1a1d28",cursor:"pointer",textAlign:"left",fontFamily:"inherit"}}>
+                      {item.image?<img src={item.image} alt={item.name} style={{width:36,height:36,objectFit:"cover",borderRadius:7,flexShrink:0}} onError={e=>{e.target.style.display="none";}}/>
+                        :<div style={{width:36,height:36,background:"#1e2130",borderRadius:7,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>📷</div>}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,color:"#e0e3ea",fontWeight:500}}>{item.name}</div>
+                        {item.type&&<div style={{fontSize:11,color:"#6b7280"}}>{item.type}</div>}
+                      </div>
+                      <span style={{fontSize:11,color:"#3b82f6",flexShrink:0}}>+ Add</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <Btn outline color="#4b5563" onClick={()=>setAddItemModal(null)} style={{marginTop:14,width:"100%"}}>Close</Btn>
             </div>
           </div>
         );
