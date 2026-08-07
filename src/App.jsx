@@ -2307,28 +2307,38 @@ export default function App() {
               {items.map(req=>renderCard(req))}
             </div>
           );
+          // Kanban lane — a single vertical stack, used inside each Active column
+          // (unlike cardGrid above, never wraps into multiple side-by-side cards —
+          // a column is already narrow, so the cards just run down it).
+          const cardStack=(items)=>(
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {items.map(req=>renderCard(req))}
+            </div>
+          );
           if(queueTab==="pending")return cardGrid(queuePending);
           const _typeScoped=queueTypeFilter==="all"?queueActive:queueActive.filter(r=>r.typeId===queueTypeFilter);
           const buckets={};
           GROUP_ORDER.forEach(g=>buckets[g]=[]);
           _typeScoped.forEach(r=>buckets[_grp(r)].push(r));
           GROUP_ORDER.forEach(g=>buckets[g].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)));
-          return(<>
+          return(
+            <div style={{display:"flex",gap:12,overflowX:"auto",paddingBottom:10,alignItems:"flex-start"}}>
             {GROUP_ORDER.map(g=>{
               const items=buckets[g];
               return(
-                <div key={g} style={{marginBottom:20}}>
+                <div key={g} style={{flex:"0 0 270px",width:270}}>
                   <div style={{fontSize:13,fontWeight:600,color:GROUP_COLOR[g],marginBottom:8,display:"flex",alignItems:"center",gap:6,borderBottom:`1px solid ${GROUP_COLOR[g]}33`,paddingBottom:6}}>
                     {g==="Overdue"?"⚠ ":""}{g}
                     <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>· {items.length}</span>
                   </div>
                   {items.length===0
-                    ?<div style={{background:"#0f1117",border:"0.5px dashed #1e2130",borderRadius:8,padding:"10px",textAlign:"center",fontSize:11,color:"#2a2d3e",marginBottom:6}}>Nothing here</div>
-                    :cardGrid(items)}
+                    ?<div style={{background:"#0f1117",border:"0.5px dashed #1e2130",borderRadius:8,padding:"10px",textAlign:"center",fontSize:11,color:"#2a2d3e"}}>Nothing here</div>
+                    :cardStack(items)}
                 </div>
               );
             })}
-          </>);
+            </div>
+          );
           })()}
         {/* ── ARCHIVE ── */}
         {loaded&&queueTab==="archive"&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>No archived requests yet</div>}
