@@ -538,12 +538,26 @@ export default function App() {
     setAddItemLoading(false);
   }
   async function addItemToRequest(req,item){
-    const newItemsData=[...(req.details?.itemsData||[]),{id:item.id,name:item.name,type:item.type,image:item.image,replacementCost:item.replacementCost,accessories:item.accessories}];
+    // addedByStaff marks this as something staff attached after the fact —
+    // distinct from what the student actually asked for, and the only kind
+    // of line item that's safe to let staff undo again later.
+    const newItemsData=[...(req.details?.itemsData||[]),{id:item.id,name:item.name,type:item.type,image:item.image,replacementCost:item.replacementCost,accessories:item.accessories,addedByStaff:true}];
     const updatedDetails={...req.details,itemsData:newItemsData,items:newItemsData.map(i=>i.name).join(", ")};
     await updateReq(req.id,{details:updatedDetails});
     atPost(CHECKOUT_TABLE,{"Type":"Checking Out","Checked Out Gear":[item.id]}).catch(()=>{});
     pushToast(`✓ Added ${item.name} to ${req.name}'s request.`,"success");
     setAddItemModal(null);
+  }
+  // Undo for a staff-added item only, and only before collection — the
+  // student's own requested items are never touched here, and once
+  // something's actually been handed over, taking it back is a return
+  // (check-in), not a silent delete that would erase the record it went out.
+  async function removeItemFromRequest(req,item){
+    const newItemsData=(req.details?.itemsData||[]).filter(i=>i.id!==item.id);
+    const updatedDetails={...req.details,itemsData:newItemsData,items:newItemsData.map(i=>i.name).join(", ")};
+    await updateReq(req.id,{details:updatedDetails});
+    atPost(CHECKOUT_TABLE,{"Type":"Checking In","Checked Out Gear":[item.id]}).catch(()=>{});
+    pushToast(`Removed ${item.name} from ${req.name}'s request.`,"info");
   }
   async function confirmCheckIn(req,returningNames,lostItemNames,notes){
     const today=todayDate();
@@ -2229,6 +2243,9 @@ export default function App() {
                           :_stillOut?<div style={{fontSize:11,color:"#d4851a",fontWeight:600}}>⏳ still out</div>
                           :item.type?<div style={{fontSize:11,color:"#4b5563"}}>{item.type}</div>:null}
                       </div>
+                      {item.addedByStaff&&req.status==="Confirmed"&&(
+                        <button onClick={()=>removeItemFromRequest(req,item)} aria-label={`Remove ${item.name}`} title="Remove — you added this" style={{marginLeft:"auto",background:"none",border:"none",color:"#6b7280",cursor:"pointer",fontSize:14,padding:"0 4px",flexShrink:0}}>✕</button>
+                      )}
                     </div>
                   );})}
                   {req.dueDate&&<div style={{display:"flex",alignItems:"center",fontSize:12,color:"#9ca3af",padding:"0 4px"}}>↩ Due {fmtDate(req.dueDate)}</div>}
