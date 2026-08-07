@@ -59,7 +59,11 @@ const DEFAULT_SCHEDULE = {
 const STATUSES = ["Pending","In Progress","Done","Declined","Cancelled"];
 const AV_STATUSES = ["Pending","Confirmed","In Progress","Done","Declined","Cancelled"];
 const LASER_STATUSES = ["Pending","Confirmed","Material test required","Ready to cut","In Progress","Done","Declined","Cancelled"];
-const EQ_STATUSES = ["Pending","Confirmed","Ready to collect","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"];
+// "Ready to collect" is deliberately not offered here — in practice staff go
+// straight from Confirmed to Collected when the student physically arrives,
+// so it stayed unused as a status nobody set (statusStyle still handles it
+// gracefully for any historical record that has it).
+const EQ_STATUSES = ["Pending","Confirmed","Collected","Partially Returned","Returned","Uncollected","Declined","Cancelled"];
 
 const statusStyle = {
   // Maintenance statuses

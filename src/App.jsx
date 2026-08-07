@@ -52,6 +52,8 @@ export default function App() {
   const [queueTab, setQueueTab] = useState("pending");
   const [queueSearch, setQueueSearch] = useState("");
   const [queueTypeFilter, setQueueTypeFilter] = useState("all"); // Active tab: narrow columns to one request type
+  const [queueExpanded, setQueueExpanded] = useState(() => new Set()); // which compact cards are open
+  const toggleQueueExpand = (id) => setQueueExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const [dashTab, setDashTab] = useState("today");
   const [editEq, setEditEq] = useState(null);
 
@@ -503,7 +505,7 @@ export default function App() {
     const u=requests.map(r=>r.id===id?{...r,status,updatedAt:todayISO(),details:updatedDetails,...(extraFields.StaffNote!==undefined&&{staffNote:extraFields.StaffNote})}:r);setRequests(u);persist(KEYS.req,u);
     // Send status update email for key statuses (non-blocking) — after the
     // patch lands, since the email server reads the record from Airtable
-    const _emailStatuses=["Confirmed","Ready to collect","Declined","Cancelled","Material test required","Ready to cut"];
+    const _emailStatuses=["Confirmed","Declined","Cancelled","Material test required","Ready to cut"];
     const _doneEmail=status==="Done"&&["query","print","3d"].includes(req?.typeId);
     if(req&&(_emailStatuses.includes(status)||_doneEmail)){
       _patched.then(()=>sendStatusEmail(req,status));
@@ -1075,8 +1077,7 @@ export default function App() {
               📅 Return by: <strong>{fmtDate(req.dueDate)}</strong> before {eqSettings.returnByHour||10}:00{req.status==="Collected"&&new Date()>new Date(req.dueDate+"T00:00:00")?" — OVERDUE":""}
             </div>
           )}
-          {req.status==="Confirmed"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>{req.typeId==="equipment"?"⏳ Booking confirmed — your slot is reserved. Wait for a \"Ready to collect\" notification before coming in.":`✅ Booking confirmed — your slot is reserved${req.schedDate?` for ${req.schedDate.split(" ")[0]}`:""}.  Come in at your booked time.`}</div>}
-          {req.status==="Ready to collect"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>📦 Your equipment is ready to collect. Bring your student card.</div>}
+          {req.status==="Confirmed"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>✅ Booking confirmed — your slot is reserved{req.schedDate?` for ${req.schedDate.split(" ")[0]}`:""}. Come in at your booked time{req.typeId==="equipment"?" with your student card":""}.</div>}
           {req.status==="Done"&&<div style={{background:"#0a2218",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#20B07F",marginBottom:6}}>✅ Done — your request has been completed.</div>}
           {req.status==="Declined"&&<div style={{background:"#2a0f14",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#f87171",marginBottom:6}}>❌ Declined{req.staffNote?` — ${req.staffNote}`:". Please contact Tech Support for more info."}.</div>}
           {req.status==="Cancelled"&&<div style={{background:"#1a1a2a",borderRadius:8,padding:"10px 12px",fontSize:13,color:"#9ca3af",marginBottom:6}}>🚫 Cancelled{req.staffNote?` — ${req.staffNote}`:". This request has been cancelled."}.</div>}
@@ -1953,7 +1954,7 @@ export default function App() {
                 if(sk==="morning"||sk==="afternoon"){al="Mark in progress";as_="In Progress";}
                 else if(sk==="laser"){al=r.status==="In Progress"?"Mark done":"Start session";as_=r.status==="In Progress"?"Done":"In Progress";}
                 else if(sk==="studio"){al="Confirm";as_="Confirmed";}
-                else if(sk==="collections"){al="Mark ready";as_="Ready to collect";}
+                else if(sk==="collections"){al="Mark collected";as_="Collected";}
                 else if(sk==="avsetup"){al=r.status==="In Progress"?"Mark done":"Start setup";as_=r.status==="In Progress"?"Done":"In Progress";}
                 else{al="Check in";as_="Returned";}
                 return <TodayCard key={r.id} req={r} actionLabel={al} actionStatus={as_}/>;
@@ -2117,22 +2118,55 @@ export default function App() {
           };
           if(queueTab==="pending"&&queuePending.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":"No new requests — all clear ✓"}</div>;
           if(queueTab==="active"&&queueActive.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":"Nothing active right now"}</div>;
+          // Best-guess "next step" shown as one button on the collapsed card, so the
+          // common case (Confirmed -> Collected, etc.) is one tap instead of hunting
+          // through every status. It's just a shortcut — the full status list is still
+          // available once a card is expanded, so a wrong guess costs nothing.
+          const STATUS_LABEL={"Confirmed":"Confirm","Collected":"Mark collected","In Progress":"Start","Done":"Mark done","Ready to cut":"Ready to cut","Material test required":"Test required"};
+          const primaryAction=(req)=>{
+            if(req.typeId==="equipment"&&["Collected","Partially Returned"].includes(req.status))return{label:"Check in",status:"Returned",checkIn:true};
+            const arr=req.typeId==="laser"?LASER_STATUSES:req.typeId==="equipment"?EQ_STATUSES:req.typeId==="avsetup"?AV_STATUSES:STATUSES;
+            if(req.typeId==="laser"&&req.status==="Confirmed"){
+              const next=req.details?.firstTime?"Material test required":"In Progress";
+              return{label:STATUS_LABEL[next]||`→ ${next}`,status:next,checkIn:false};
+            }
+            const i=arr.indexOf(req.status);
+            if(i<0||i>=arr.length-1)return null; // unknown or already terminal — no guess, use the full list
+            const next=arr[i+1];
+            return{label:STATUS_LABEL[next]||`→ ${next}`,status:next,checkIn:false};
+          };
           // Card renderer — shared by the flat "New" list and each "Active" column
           const renderCard=(req)=>{
           const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
           const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
           const hasItems=req.typeId==="equipment"&&req.details?.itemsData?.length>0;
+          const pa=primaryAction(req);
+          const expanded=queueExpanded.has(req.id);
+          const shortMeta=req.dueDate?`Due ${fmtDate(req.dueDate)}`:req.schedDate?req.schedDate.split(" ")[0]:req.when==="walkin"?"Walk-in":null;
           return(
-            <div key={req.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",borderLeft:`3px solid ${typeColor}`}}>
+            <div key={req.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:12,borderLeft:`3px solid ${typeColor}`,overflow:"hidden"}}>
+              <div onClick={()=>toggleQueueExpand(req.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}}>
+                <div style={{width:34,height:34,borderRadius:8,background:"#1a1d28",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{typeInfo.icon}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#e0e3ea",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                    {req.name}{req.studNo&&<span style={{fontSize:11,color:"#4b5563",fontWeight:400,marginLeft:5}}>#{req.studNo}</span>}
+                  </div>
+                  <div style={{display:"flex",gap:6,alignItems:"center",marginTop:2,flexWrap:"wrap"}}>
+                    {pill(req.status)}
+                    {shortMeta&&<span style={{fontSize:11,color:"#6b7280"}}>{shortMeta}</span>}
+                  </div>
+                </div>
+                {pa&&<button onClick={e=>{e.stopPropagation();if(pa.checkIn){const items=(req.details?.itemsData||[]).map(i=>i.name).filter(n=>!(req.returnedItems||[]).includes(n));setCheckInModal(req);setCiReturning(items);setCiLost([]);setCiNotes("");}else updateStatus(req.id,pa.status);}} style={{fontSize:11,padding:"6px 11px",borderRadius:7,border:"none",background:typeColor,color:"#fff",cursor:"pointer",fontFamily:"inherit",fontWeight:500,flexShrink:0,whiteSpace:"nowrap"}}>{pa.label}</button>}
+                <span aria-hidden="true" style={{color:"#4b5563",fontSize:12,flexShrink:0,transform:expanded?"rotate(180deg)":"none",transition:"transform 0.15s",padding:"0 2px"}}>▾</span>
+              </div>
+              {expanded&&(
+              <div style={{padding:"0 16px 14px",borderTop:"0.5px solid #1e2130",paddingTop:12}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:3}}>
-                    <span style={{fontSize:13,fontWeight:600,color:typeColor}}>{typeInfo.icon} {req.type||typeInfo.label}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:typeColor}}>{req.type||typeInfo.label}</span>
                     {req.isWalkIn&&<span style={{fontSize:11,background:"#0a1e35",color:"#3b82f6",borderRadius:6,padding:"2px 7px"}}>walk-in</span>}
                     {req.isExternal&&<span style={{fontSize:11,background:"#1a1028",color:"#a78bfa",borderRadius:6,padding:"2px 7px"}}>external</span>}
-                  </div>
-                  <div style={{fontSize:15,fontWeight:500,color:"#e0e3ea",lineHeight:1.3}}>
-                    {req.name}{req.studNo&&<span style={{fontWeight:400,fontSize:12,color:"#4b5563",marginLeft:6}}>#{req.studNo}</span>}
                   </div>
                   {(req.isExternal?req.affiliation:req.year&&!req.year.startsWith("Select")?req.year:null)&&(
                     <div style={{fontSize:12,color:"#6b7280",marginTop:1}}>
@@ -2141,7 +2175,6 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                {pill(req.status)}
               </div>
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:8}}>
                 {req.schedDate&&<span style={{fontSize:12,background:`${typeColor}18`,color:typeColor,borderRadius:6,padding:"2px 8px",fontWeight:500}}>📅 {req.schedDate}</span>}
@@ -2264,6 +2297,8 @@ export default function App() {
                 <textarea rows={2} placeholder="e.g. Files not ready — told to come back Thursday" defaultValue={req.staffNote} onChange={e=>setStaffNotes(n=>({...n,[req.id]:e.target.value}))} style={{...ipt,resize:"vertical",fontSize:13}}/>
                 <Btn onClick={()=>{saveNote(req.id);setExpandId(null);}} color={BLUE} style={{marginTop:6,fontSize:13}}>Save note</Btn>
               </div>)}
+              </div>
+              )}
             </div>
           );
           };
