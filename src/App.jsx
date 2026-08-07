@@ -51,6 +51,7 @@ export default function App() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [queueTab, setQueueTab] = useState("pending");
   const [queueSearch, setQueueSearch] = useState("");
+  const [queueTypeFilter, setQueueTypeFilter] = useState("all"); // Active tab: narrow columns to one request type
   const [dashTab, setDashTab] = useState("today");
   const [editEq, setEditEq] = useState(null);
 
@@ -2070,26 +2071,59 @@ export default function App() {
             </button>
           ))}
         </div>
+        {queueTab==="active"&&(()=>{
+          // Full labels ("Large format & photographic printing") are too wide for a
+          // chip row — short forms just for this filter, everywhere else keeps the full label.
+          const SHORT_LABEL={print:"Print",laser:"Laser","3d":"3D",software:"Software",studio:"Studio",equipment:"Equipment",gallery:"Gallery",avsetup:"AV setup",query:"Query"};
+          const typeCounts={};
+          queueActive.forEach(r=>{typeCounts[r.typeId]=(typeCounts[r.typeId]||0)+1;});
+          const activeTypes=REQUEST_TYPES.filter(t=>typeCounts[t.id]>0);
+          // Hide the row when there's nothing worth filtering — but only while
+          // "All" is selected. If a type filter is already active, keep the row
+          // (and its "All" chip) visible even as that type's count drops to zero,
+          // so there's always a way back rather than a filtered view stuck empty.
+          if(activeTypes.length<2&&queueTypeFilter==="all")return null;
+          return(
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+            {[{id:"all",label:"All",icon:""},...activeTypes].map(t=>{
+              const sel=queueTypeFilter===t.id;
+              const col=t.id==="all"?"#9ca3af":(TYPE_COLOR[t.id]||"#6B7280");
+              return(
+                <button key={t.id} onClick={()=>setQueueTypeFilter(t.id)} style={{padding:"5px 12px",borderRadius:20,border:sel?`1px solid ${col}`:"0.5px solid #1e2130",background:sel?`${col}18`:"#141720",color:sel?col:"#6b7280",fontSize:12,fontWeight:sel?600:400,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:5}}>
+                  {t.icon&&<span>{t.icon}</span>}{t.id==="all"?"All":SHORT_LABEL[t.id]||t.label}
+                  {t.id!=="all"&&<span style={{fontSize:11,opacity:0.7}}>{typeCounts[t.id]}</span>}
+                </button>
+              );
+            })}
+          </div>
+          );
+        })()}
         {!loaded&&<div style={{color:"#6b7280",fontSize:14}}>Loading...</div>}
         {loaded&&queueTab!=="archive"&&(()=>{
-          const _list=queueTab==="pending"?queuePending:queueActive;
-          const _ORDER=["Overdue","Ready to collect","Material test required","Ready to cut","Confirmed","In Progress","Collected","Partially Returned"];
-          // Overdue equipment (collected / partially returned, past due date) gets its own group
-          const _grp=(r)=>(r.typeId==="equipment"&&r.dueDate&&r.dueDate<todayDate()&&["Collected","Partially Returned"].includes(r.status))?"Overdue":r.status;
-          const _sorted=queueTab==="active"?[..._list].sort((a,b)=>(_ORDER.indexOf(_grp(a))-_ORDER.indexOf(_grp(b)))||new Date(b.createdAt)-new Date(a.createdAt)):_list;
-          if(_sorted.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":queueTab==="pending"?"No new requests — all clear ✓":"Nothing active right now"}</div>;
-          return(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,430px),1fr))",gap:12,alignItems:"start"}}>
-          {_sorted.map((req,_idx,_arr)=>{
-          const _g=_grp(req);
-          const _showHeader=queueTab==="active"&&(_idx===0||_grp(_arr[_idx-1])!==_g);
+          // Active is grouped into columns rather than one flat sorted list — each
+          // status reads as its own boxed section so it's easy to see "all the
+          // overdue" or "all the collected" at a glance, without hunting through
+          // a single mixed list. Overdue is carved out first (collected/partially
+          // returned past due date); "Ready to collect"/"Ready to cut" are merged
+          // since both mean the same thing to staff — waiting on the next
+          // physical handover, whether that's a student or a laser job.
+          const GROUP_ORDER=["Overdue","Confirmed","Ready","In Progress","Collected","Partially Returned"];
+          const GROUP_COLOR={"Overdue":"#f87171","Confirmed":"#60a5fa","Ready":"#20B07F","In Progress":"#a855f7","Collected":"#20B07F","Partially Returned":"#4ade80"};
+          const _grp=(r)=>{
+            if(r.typeId==="equipment"&&r.dueDate&&r.dueDate<todayDate()&&["Collected","Partially Returned"].includes(r.status))return"Overdue";
+            if(["Ready to collect","Ready to cut"].includes(r.status))return"Ready";
+            if(["Collected","In Progress","Partially Returned"].includes(r.status))return r.status;
+            return"Confirmed"; // Confirmed, and laser's "Material test required" (still shown via its own pill on the card)
+          };
+          if(queueTab==="pending"&&queuePending.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":"No new requests — all clear ✓"}</div>;
+          if(queueTab==="active"&&queueActive.length===0)return<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>{queueSearch.trim()?"No results for that search":"Nothing active right now"}</div>;
+          // Card renderer — shared by the flat "New" list and each "Active" column
+          const renderCard=(req)=>{
           const typeInfo=REQUEST_TYPES.find(t=>t.id===req.typeId)||{};
           const typeColor=TYPE_COLOR[req.typeId]||"#6B7280";
           const hasItems=req.typeId==="equipment"&&req.details?.itemsData?.length>0;
           return(
-            <Fragment key={req.id}>
-            {_showHeader&&<div style={{gridColumn:"1/-1",fontSize:11,color:_g==="Overdue"?"#f87171":"#6b7280",fontWeight:600,letterSpacing:"0.06em",textTransform:"uppercase",padding:"10px 2px 6px",marginTop:_idx>0?4:0}}>{_g==="Overdue"?"⚠ ":""}{_g} · {_arr.filter(r=>_grp(r)===_g).length}</div>}
-            <div style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",borderLeft:`3px solid ${typeColor}`}}>
+            <div key={req.id} style={{background:"#141720",border:"0.5px solid #1e2130",borderRadius:14,padding:"14px 16px",borderLeft:`3px solid ${typeColor}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:3}}>
@@ -2231,11 +2265,35 @@ export default function App() {
                 <Btn onClick={()=>{saveNote(req.id);setExpandId(null);}} color={BLUE} style={{marginTop:6,fontSize:13}}>Save note</Btn>
               </div>)}
             </div>
-            </Fragment>
           );
-          })}
-          </div>
+          };
+          const cardGrid=(items)=>(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(min(100%,430px),1fr))",gap:12,alignItems:"start"}}>
+              {items.map(req=>renderCard(req))}
+            </div>
           );
+          if(queueTab==="pending")return cardGrid(queuePending);
+          const _typeScoped=queueTypeFilter==="all"?queueActive:queueActive.filter(r=>r.typeId===queueTypeFilter);
+          const buckets={};
+          GROUP_ORDER.forEach(g=>buckets[g]=[]);
+          _typeScoped.forEach(r=>buckets[_grp(r)].push(r));
+          GROUP_ORDER.forEach(g=>buckets[g].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)));
+          return(<>
+            {GROUP_ORDER.map(g=>{
+              const items=buckets[g];
+              return(
+                <div key={g} style={{marginBottom:20}}>
+                  <div style={{fontSize:13,fontWeight:600,color:GROUP_COLOR[g],marginBottom:8,display:"flex",alignItems:"center",gap:6,borderBottom:`1px solid ${GROUP_COLOR[g]}33`,paddingBottom:6}}>
+                    {g==="Overdue"?"⚠ ":""}{g}
+                    <span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>· {items.length}</span>
+                  </div>
+                  {items.length===0
+                    ?<div style={{background:"#0f1117",border:"0.5px dashed #1e2130",borderRadius:8,padding:"10px",textAlign:"center",fontSize:11,color:"#2a2d3e",marginBottom:6}}>Nothing here</div>
+                    :cardGrid(items)}
+                </div>
+              );
+            })}
+          </>);
           })()}
         {/* ── ARCHIVE ── */}
         {loaded&&queueTab==="archive"&&queueArchive.length===0&&<div style={{textAlign:"center",padding:"3rem",color:"#6b7280",fontSize:14}}>No archived requests yet</div>}
