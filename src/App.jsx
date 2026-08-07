@@ -553,10 +553,13 @@ export default function App() {
     pushToast(`✓ Added ${item.name} to ${req.name}'s request.`,"success");
     setAddItemModal(null);
   }
-  // Undo for a staff-added item only, and only before collection — the
-  // student's own requested items are never touched here, and once
-  // something's actually been handed over, taking it back is a return
+  // Removes an item from a request — any item, staff-added or the student's
+  // own, but only while nothing's been handed over yet (Pending/Confirmed).
+  // Once something's actually been collected, taking it back is a return
   // (check-in), not a silent delete that would erase the record it went out.
+  // The confirm prompt for non-staff-added items lives at the call site,
+  // since only there do we know whether this is a staff undo (no prompt
+  // needed) or trimming something the student actually asked for.
   async function removeItemFromRequest(req,item){
     const newItemsData=(req.details?.itemsData||[]).filter(i=>i.id!==item.id);
     const updatedDetails={...req.details,itemsData:newItemsData,items:newItemsData.map(i=>i.name).join(", ")};
@@ -2252,8 +2255,8 @@ export default function App() {
                           :_stillOut?<div style={{fontSize:11,color:"#d4851a",fontWeight:600}}>⏳ still out</div>
                           :item.type?<div style={{fontSize:11,color:"#4b5563"}}>{item.type}</div>:null}
                       </div>
-                      {item.addedByStaff&&req.status==="Confirmed"&&(
-                        <button onClick={()=>removeItemFromRequest(req,item)} aria-label={`Remove ${item.name}`} title="Remove — you added this" style={{marginLeft:"auto",background:"none",border:"none",color:"#6b7280",cursor:"pointer",fontSize:14,padding:"0 4px",flexShrink:0}}>✕</button>
+                      {["Pending","Confirmed"].includes(req.status)&&(
+                        <button onClick={()=>{if(item.addedByStaff||window.confirm(`Remove ${item.name} from ${req.name}'s request?`))removeItemFromRequest(req,item);}} aria-label={`Remove ${item.name}`} title={item.addedByStaff?"Remove — you added this":"Remove from this request"} style={{marginLeft:"auto",background:"none",border:"none",color:"#6b7280",cursor:"pointer",fontSize:14,padding:"0 4px",flexShrink:0}}>✕</button>
                       )}
                     </div>
                   );})}
