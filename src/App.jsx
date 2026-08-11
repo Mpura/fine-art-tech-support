@@ -880,7 +880,7 @@ export default function App() {
                 <div style={{fontSize:11,color:"#20B07F",marginTop:3}}>⏱ Setup took {req.details.setupDuration}</div>
               )}
               {isOverdue&&<div style={{fontSize:11,color:"#f87171",marginTop:2}}>⚠ Due {fmtDate(req.dueDate)} · {countBizDaysLate(req.dueDate,_today)}d late</div>}
-              {req.dueDate&&!isOverdue&&req.typeId==="equipment"&&<div style={{fontSize:11,color:"#6b7280",marginTop:2}}>↩ Due today</div>}
+              {req.dueDate&&!isOverdue&&req.typeId==="equipment"&&<div style={{fontSize:11,color:"#6b7280",marginTop:2}}>↩ Due {req.dueDate===_today?"today":fmtDate(req.dueDate)}</div>}
             </div>
             <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6,flexShrink:0}}>
               {pill(req.status)}
