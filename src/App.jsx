@@ -841,6 +841,9 @@ export default function App() {
   const laserToday=requests.filter(r=>r.typeId==="laser"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
   const studioToday=requests.filter(r=>r.typeId==="studio"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Done"&&r.status!=="Cancelled");
   const eqCollectionsToday=requests.filter(r=>r.typeId==="equipment"&&r.schedDate?.startsWith(_today)&&r.status!=="Declined"&&r.status!=="Cancelled"&&r.status!=="Returned");
+  // Booked ahead but not due for collection yet — the whole point being
+  // asked for here: these were previously invisible until the day itself.
+  const eqUpcoming=requests.filter(r=>r.typeId==="equipment"&&r.schedDate&&r.schedDate.split(" ")[0]>_today&&["Pending","Confirmed"].includes(r.status)).sort((a,b)=>a.schedDate.localeCompare(b.schedDate));
   const eqDueToday=requests.filter(r=>r.typeId==="equipment"&&r.dueDate===_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
   const eqOverdue=requests.filter(r=>r.typeId==="equipment"&&r.dueDate&&r.dueDate<_today&&r.status!=="Returned"&&r.status!=="Declined"&&r.status!=="Cancelled");
   const avSetupToday=requests.filter(r=>r.typeId==="avsetup"&&r.details?.setupDate===_today&&r.status!=="Declined"&&r.status!=="Done");
@@ -2089,6 +2092,27 @@ export default function App() {
           <Sec icon="🌆" title="Afternoon (13:00–16:00)" items={afternoonToday} sk="afternoon"/>
           <Sec icon="🏢" title="Studio sessions today" items={studioToday} sk="studio"/>
           <Sec icon="📦" title="Equipment collections today" items={eqCollectionsToday} sk="collections"/>
+          {/* Booked-ahead equipment — previously only visible on the collection
+              day itself. Grouped by date rather than a flat Sec list so it reads
+              as a short lookahead, not just more cards to scroll past. */}
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:13,fontWeight:500,color:"#6b7280",marginBottom:8,display:"flex",alignItems:"center",gap:6,borderBottom:"1px solid #1e2130",paddingBottom:6}}>
+              📅 Upcoming collections
+              {eqUpcoming.length>0&&<span style={{fontSize:11,fontWeight:400,color:"#6b7280"}}>· {eqUpcoming.length}</span>}
+            </div>
+            {eqUpcoming.length===0
+              ?<div style={{background:"#0f1117",border:"0.5px dashed #1e2130",borderRadius:8,padding:"10px",textAlign:"center",fontSize:11,color:"#2a2d3e"}}>Nothing booked ahead</div>
+              :(()=>{
+                const byDate={};
+                eqUpcoming.forEach(r=>{const k=r.schedDate.split(" ")[0];(byDate[k]=byDate[k]||[]).push(r);});
+                return Object.entries(byDate).map(([date,items])=>(
+                  <div key={date} style={{marginBottom:10}}>
+                    <div style={{fontSize:12,color:"#9ca3af",fontWeight:500,marginBottom:6}}>{fmtDate(date)} <span style={{color:"#4b5563",fontWeight:400}}>· {items.length}</span></div>
+                    {items.map(r=><TodayCard key={r.id} req={r}/>)}
+                  </div>
+                ));
+              })()}
+          </div>
           <Sec icon="📬" title="Equipment due back today" items={eqDueToday} sk="due"/>
           <Sec icon="⚠️" title="Overdue equipment" items={eqOverdue} sk="overdue"/>
         </>);
