@@ -109,7 +109,7 @@ https://status.airtable.com
 
 **Step 3 — Check the base and table IDs haven't changed**
 The Base ID and Table ID are hardcoded in the API files. If someone recreated the base from scratch, these would change.
-- Base ID: `appUqkCfnsOo2Jf7z` (in `api/airtable.js`, `api/staff-report.js`, `api/cron-followup.js`)
+- Base ID: `appwRiUCBDUWkLo5j` (in `api/airtable.js`, `api/availability.js`, `api/email.js`, `api/_auth.js`, `api/log-followup.js`, `api/cron-followup.js`, `api/staff-report.js`, `src/shared.jsx`, `reset_equipment.js` — moved here from `appUqkCfnsOo2Jf7z` on 2026-08-18 after hitting the old workspace's monthly API request cap; migrated to a fresh workspace since the cap is tracked per-account/workspace, not per-base)
 - Maintenance Table ID: `tbldZisWbs1WQIr09`
 
 To find the current IDs: open Airtable → your base → Help → API documentation. The IDs are in the URL and the docs.

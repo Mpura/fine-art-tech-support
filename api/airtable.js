@@ -11,7 +11,7 @@
 
 import { getClientIp, getPinContext, notePinResult } from "./_auth.js";
 
-const BASE_ID = "appUqkCfnsOo2Jf7z";
+const BASE_ID = "appwRiUCBDUWkLo5j";
 const AT_URL = `https://api.airtable.com/v0/${BASE_ID}`;
 
 const REQUESTS = "tblAQE1leKVCRH51d";

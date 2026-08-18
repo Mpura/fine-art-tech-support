@@ -23,7 +23,7 @@ Vercel  ── static React app (built with Vite)
         ── /api/*         a few cron/report helpers
 ```
 
-- **All data lives in Airtable** (base `appUqkCfnsOo2Jf7z`). The React app never
+- **All data lives in Airtable** (base `appwRiUCBDUWkLo5j`). The React app never
   talks to Airtable directly — it calls `/api/airtable`, which holds the token.
 - **Deploys are automatic**: push to `main` on GitHub → Vercel builds and ships.
   There is no separate release step.

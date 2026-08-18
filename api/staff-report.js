@@ -11,7 +11,7 @@ import nodemailer from "nodemailer";
 import { createGmailDraft } from "./draft.js";
 import { verifyStaffPin, getClientIp } from "./_auth.js";
 
-const BASE_ID     = "appUqkCfnsOo2Jf7z";
+const BASE_ID     = "appwRiUCBDUWkLo5j";
 const MAINT_TABLE = "tbldZisWbs1WQIr09";
 const RESOLVED_WINDOW_DAYS = 30; // only show resolved items from last 30 days
 const NEW_BADGE_DAYS       = 14; // flag requests added in last 14 days as NEW

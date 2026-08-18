@@ -3,7 +3,7 @@
 //   node reset_equipment.js
 
 const PAT = process.env.VITE_AIRTABLE_PAT;
-const BASE_ID = "appUqkCfnsOo2Jf7z";
+const BASE_ID = "appwRiUCBDUWkLo5j";
 const EQ_TABLE = "tblc2MXweiXikz3wo";
 const CHECKOUT_TABLE = "tbl1DvH6ostZs7Jog";
 

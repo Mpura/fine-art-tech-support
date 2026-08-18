@@ -8,7 +8,7 @@ const RED = "#e05a5a";
 const TYPE_COLOR = {equipment:"#20B07F",print:"#3b82f6",laser:"#E65C00","3d":"#8b5cf6",studio:"#f59e0b",gallery:"#ef4444",software:"#06b6d4",avsetup:"#a855f7",query:"#6B7280"};
 
 // ── CONSTANTS ────────────────────────────────────────────────────
-const BASE_ID = "appUqkCfnsOo2Jf7z";
+const BASE_ID = "appwRiUCBDUWkLo5j";
 const EQ_TABLE = "tblc2MXweiXikz3wo";
 const CHECKOUT_TABLE = "tbl1DvH6ostZs7Jog";
 const FINES_TABLE = "tbliP9x6KL7EUABWc";

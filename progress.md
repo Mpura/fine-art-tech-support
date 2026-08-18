@@ -85,7 +85,7 @@ Add "Download prep guide →" PDF link on each service's prep checklist screen (
 | Thing | Detail |
 |---|---|
 | Only file changed | `src/App.jsx` |
-| Airtable base | `appUqkCfnsOo2Jf7z` |
+| Airtable base | `appwRiUCBDUWkLo5j` |
 | Storage | `localStorage` for requests/schedule/settings; Airtable for Equipment, Fines, Members |
 | Airtable URL expiry | ~2 hours — always fetch fresh via `fetchEqImagesByIds()` |
 | Equipment collection days | `EQ_COL_DAYS = [1,3,5]` (Mon/Wed/Fri) |

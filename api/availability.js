@@ -6,7 +6,7 @@
 // returns only { itemId, start, end } — no names, no student numbers, no
 // request contents — which is safe to serve publicly.
 
-const BASE_ID = "appUqkCfnsOo2Jf7z";
+const BASE_ID = "appwRiUCBDUWkLo5j";
 const REQUESTS = "tblAQE1leKVCRH51d";
 
 // Statuses where the student still holds (or is still due to collect) the gear.
